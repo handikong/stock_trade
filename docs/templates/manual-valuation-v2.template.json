@@ -1,0 +1,31 @@
+{
+  "schema_version": "manual-valuation-v2",
+  "symbol": "GOOG",
+  "as_of": null,
+  "currency": "USD",
+  "security_type": "EQUITY",
+  "eps": {
+    "period_type": "fy1",
+    "period_start": null,
+    "period_end": null,
+    "basis": null,
+    "low": null,
+    "mean": null,
+    "high": null,
+    "source_ids": []
+  },
+  "historical_pe": {
+    "period_start": null,
+    "period_end": null,
+    "eps_reference": null,
+    "earnings_basis": null,
+    "statistic": null,
+    "low": null,
+    "median": null,
+    "high": null,
+    "note": null,
+    "source_ids": []
+  },
+  "sources": [],
+  "notes": []
+}

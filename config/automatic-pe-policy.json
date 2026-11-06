@@ -1,0 +1,25 @@
+{
+  "version": "automatic-pe-v1",
+  "enabled": false,
+  "history_years": [3, 5],
+  "primary_years": 5,
+  "minimum_samples": 8,
+  "cache_hours": 168,
+  "failure_cooldown_minutes": 30,
+  "maximum_sample_age_days": 150,
+  "industry_maximum_age_days": 400,
+  "input_convention": {
+    "currency": "USD",
+    "period_type": "ntm",
+    "earnings_basis": "unspecified",
+    "origin": "user_research_scenarios"
+  },
+  "yahoo_definition": {
+    "forward_eps_reference": "unspecified",
+    "earnings_basis": "unspecified"
+  },
+  "industries": {
+    "GOOG": {"name": "Advertising", "note": "广告行业代理，仅供比较，不能代表Alphabet全部业务的精确可比组"},
+    "GOOGL": {"name": "Advertising", "note": "广告行业代理，仅供比较，不能代表Alphabet全部业务的精确可比组"}
+  }
+}

@@ -1,0 +1,40 @@
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: stock_research
+      POSTGRES_USER: researcher
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在.env设置POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      dockerfile: research/Dockerfile
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_DB: stock_research
+      POSTGRES_USER: researcher
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    depends_on:
+      - database
+    restart: unless-stopped
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    environment:
+      WORKER_URL: http://worker:8000
+      PUBLIC_ADDR: 0.0.0.0:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - worker
+    restart: unless-stopped
+volumes:
+  postgres_data:

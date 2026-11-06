@@ -1,0 +1,28 @@
+{
+  "version": "user-futu-macd-10-20-9-pullback-v2",
+  "review_status": "draft",
+  "note": "保留原富途色带和信号，独立管理主趋势、回踩/反抽及失效。以下均为可修改的未验证研究参数；震荡另判，未接策略风控。",
+  "long_fast": 10,
+  "long_slow": 20,
+  "long_signal": 9,
+  "short_fast": 3,
+  "short_slow": 10,
+  "filter_bars": 10,
+  "price_field": "adjusted_close",
+  "trend": {
+    "enabled": true,
+    "confirmation_bars": 2,
+    "enter_depth_atr": 0.0,
+    "anchor_lookback": 60,
+    "fallback_lookback": 20,
+    "break_buffer_atr": 0.3,
+    "reclaim_buffer_atr": 0.3,
+    "weakening_bars": 3,
+    "weakening_depth_atr": 0.1,
+    "max_pullback_bars": 10,
+    "reversal_bars": 5,
+    "reversal_depth_atr": 0.2,
+    "price_confirmation_bars": 2,
+    "price_buffer_atr": 0.25
+  }
+}

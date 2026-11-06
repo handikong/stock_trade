@@ -1,0 +1,15 @@
+{
+  "version": "public-earnings-briefs-v1",
+  "enabled": false,
+  "cache_hours": 24,
+  "retry_minutes": 30,
+  "lookback_days": 45,
+  "max_items": 5,
+  "summary_max_chars": 1200,
+  "min_summary_chars": 60,
+  "include_keywords": ["earnings", "quarter", "results", "guidance", "outlook", "EPS", "财报", "业绩", "季报", "指引"],
+  "exclude_keywords": ["transcript", "class action", "lawsuit", "shareholder rights"],
+  "sources": [
+    {"id": "seeking-alpha", "name": "Seeking Alpha公开RSS", "url_template": "https://seekingalpha.com/api/sa/combined/{symbol}.xml", "reference_url": "https://about.seekingalpha.com/feeds"}
+  ]
+}

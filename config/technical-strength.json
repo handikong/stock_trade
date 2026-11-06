@@ -1,0 +1,9 @@
+{
+  "medium_min_score": 40,
+  "strong_min_score": 60,
+  "strong_min_touches": 3,
+  "strong_max_age_sessions": 63,
+  "strong_min_volume_ratio": 1.2,
+  "role_min_tests": 1,
+  "note": "强弱是技术证据分级模板，不是概率；角色转换后须有已确认回踩/反抽，才标为有效支撑或压力。"
+}

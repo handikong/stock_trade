@@ -1,0 +1,42 @@
+# 本地配置与凭据；示例配置仍可提交
+.env
+.env.*
+!.env.example
+!.env.sample
+/.env copy.example
+
+# 个人研究输入、开发记录和本机编辑器设置
+/a.json
+/AGENTS.md
+/.vscode/
+
+# Python 环境、缓存与构建产物
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+/research/build/
+/research/dist/
+
+# 行情缓存、关注池数据库、任务快照及服务日志
+/data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.log.*
+*.pid
+nohup.out
+
+# 系统文件与本地编译产物
+.DS_Store
+/gateway/stock-research

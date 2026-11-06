@@ -1,0 +1,28 @@
+{
+  "enabled": false,
+  "review_status": "draft",
+  "source_note": "自动生成可修改的机械估值草稿；目标增长沿用最近同比营收增长后逐年收敛，利润率、税率与股数保持基线，情景扰动是敏感性设定，不是概率或管理层指引。",
+  "pe_lookback_sessions": 252,
+  "pe_minimum_samples": 120,
+  "forecast_years": 5,
+  "max_financial_age_days": 200,
+  "growth_floor": "-0.20",
+  "growth_ceiling": "0.25",
+  "scenarios": [
+    {"name": "保守", "pe_quantile": "0.25", "growth_delta": "-0.05", "wacc_delta": "0.01", "terminal_growth": "0.02"},
+    {"name": "基准", "pe_quantile": "0.50", "growth_delta": "0", "wacc_delta": "0", "terminal_growth": "0.025"},
+    {"name": "乐观", "pe_quantile": "0.75", "growth_delta": "0.05", "wacc_delta": "-0.01", "terminal_growth": "0.03"}
+  ],
+  "symbols": {
+    "AAPL": {
+      "sic": "3571",
+      "wacc": "0.0971",
+      "wacc_source": {
+        "title": "Damodaran 美国 Computers/Peripherals 行业资本成本，36家公司",
+        "url": "https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/wacc.html",
+        "as_of": "2026-01",
+        "note": "行业代理参数9.71%，不是已估算或确认的AAPL自身WACC；需根据最新利率、杠杆及风险复核。"
+      }
+    }
+  }
+}

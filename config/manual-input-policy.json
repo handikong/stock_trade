@@ -1,0 +1,8 @@
+{
+  "version": "manual-input-v1",
+  "currency": "USD",
+  "period_type": "ntm",
+  "earnings_basis": "unspecified",
+  "pe_eps_reference": "unspecified",
+  "pe_statistic": "quartiles"
+}

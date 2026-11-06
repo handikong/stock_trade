@@ -1,0 +1,5 @@
+{
+  "version": "mg7-initial-v1",
+  "name": "MG7初始自选股池",
+  "symbols": ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"]
+}

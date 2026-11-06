@@ -1,0 +1,11 @@
+{
+  "version": "post-close-schedule-v1",
+  "enabled": true,
+  "timezone": "Asia/Shanghai",
+  "start_date": "2026-11-06",
+  "market_time": "06:00",
+  "signal_time": "07:00",
+  "catch_up_until": "10:00",
+  "poll_seconds": 30,
+  "volume_top50_enabled": true
+}

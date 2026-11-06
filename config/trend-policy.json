@@ -1,0 +1,21 @@
+{
+  "version": "three-family-trend-research-v1",
+  "review_status": "draft",
+  "note": "仅为可修改的研究模板，阈值未做收益或分类效果验证；不产生买卖许可。日线主判断、完整周线单独给背景。",
+  "daily": {
+    "ma_fast": 50, "ma_slow": 200, "slope_lookback": 10,
+    "structure_lookback": 126, "pivot_count": 2, "efficiency_window": 20,
+    "enter": {"structure_delta_atr": 0.3, "slope_min": 0.02, "efficiency_min": 0.3, "displacement_atr_min": 1.0, "price_buffer_atr": 0.0, "alignment_buffer_atr": 0.0},
+    "hold": {"structure_delta_atr": 0.0, "slope_min": 0.005, "efficiency_min": 0.2, "displacement_atr_min": 0.5, "price_buffer_atr": -0.5, "alignment_buffer_atr": -0.5},
+    "range": {"lookback": 63, "minimum_touches": 2, "touch_spacing": 7, "touch_tolerance_atr": 0.5, "minimum_width_atr": 2.0, "maximum_width_atr": 12.0, "containment_min": 0.9, "breakout_buffer_atr": 0.3, "slope_max": 0.015, "efficiency_max": 0.25, "crossing_window": 20, "minimum_crossings": 3},
+    "confirmation_bars": 3, "minimum_dwell": 3
+  },
+  "weekly": {
+    "ma_fast": 10, "ma_slow": 40, "slope_lookback": 3,
+    "structure_lookback": 52, "pivot_count": 2, "efficiency_window": 10,
+    "enter": {"structure_delta_atr": 0.3, "slope_min": 0.02, "efficiency_min": 0.3, "displacement_atr_min": 1.0, "price_buffer_atr": 0.0, "alignment_buffer_atr": 0.0},
+    "hold": {"structure_delta_atr": 0.0, "slope_min": 0.005, "efficiency_min": 0.2, "displacement_atr_min": 0.5, "price_buffer_atr": -0.5, "alignment_buffer_atr": -0.5},
+    "range": {"lookback": 26, "minimum_touches": 2, "touch_spacing": 7, "touch_tolerance_atr": 0.5, "minimum_width_atr": 2.0, "maximum_width_atr": 12.0, "containment_min": 0.9, "breakout_buffer_atr": 0.3, "slope_max": 0.015, "efficiency_max": 0.25, "crossing_window": 12, "minimum_crossings": 2},
+    "confirmation_bars": 2, "minimum_dwell": 2
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "version": "us-index-liquidity-v1",
+  "lookback_sessions": 20,
+  "minimum_average_dollar_volume": "100000000",
+  "minimum_close": "5",
+  "maximum_members_age_days": 7,
+  "request_interval_seconds": 0.5,
+  "members_file": "config/us-index-members.json"
+}

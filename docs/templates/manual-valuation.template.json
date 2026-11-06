@@ -1,0 +1,88 @@
+{
+  "schema_version": "manual-valuation-v1",
+  "symbol": "GOOG",
+  "as_of": null,
+  "currency": "USD",
+  "security_type": "EQUITY",
+  "latest_report_period_end": null,
+  "current_ttm": {
+    "period_start": null,
+    "period_end": null,
+    "eps": null,
+    "eps_basis": null,
+    "source_ids": []
+  },
+  "observed_pe": {
+    "value": null,
+    "as_of": null,
+    "basis": null,
+    "price_reference": null,
+    "eps_reference": null,
+    "source_ids": []
+  },
+  "target": {
+    "date": null,
+    "eps_period_start": null,
+    "eps_period_end": null,
+    "eps_period_type": null,
+    "eps_basis": null,
+    "normalization_note": null,
+    "scenarios": [
+      {
+        "name": "保守",
+        "eps": null,
+        "pe": null,
+        "eps_origin": null,
+        "eps_reason": null,
+        "pe_reason": null,
+        "source_ids": []
+      },
+      {
+        "name": "基准",
+        "eps": null,
+        "pe": null,
+        "eps_origin": null,
+        "eps_reason": null,
+        "pe_reason": null,
+        "source_ids": []
+      },
+      {
+        "name": "乐观",
+        "eps": null,
+        "pe": null,
+        "eps_origin": null,
+        "eps_reason": null,
+        "pe_reason": null,
+        "source_ids": []
+      }
+    ]
+  },
+  "dcf": {
+    "nonfinancial_confirmed": false,
+    "amount_scale": null,
+    "shares_scale": null,
+    "wacc": null,
+    "terminal_growth": null,
+    "cash": null,
+    "debt": null,
+    "other_claims": null,
+    "shares": null,
+    "years": [
+      {"ebit": null, "tax_rate": null, "da": null, "capex": null, "delta_wc": null},
+      {"ebit": null, "tax_rate": null, "da": null, "capex": null, "delta_wc": null}
+    ],
+    "year_one_state": null,
+    "source_note": null,
+    "terminal_policy_note": null,
+    "source_ids": []
+  },
+  "technical_alignment": {
+    "annual_required_return": null,
+    "cash_flow_treatment": null,
+    "source_note": null,
+    "source_ids": []
+  },
+  "sources": [],
+  "missing_fields": [],
+  "risks": []
+}

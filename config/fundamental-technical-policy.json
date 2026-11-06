@@ -1,0 +1,8 @@
+{
+  "version": "fundamental-technical-v1",
+  "enabled": true,
+  "dcf_max_age_days": 0,
+  "confluence_min_strength": "strong",
+  "confluence_min_models": 2,
+  "note": "当前研究参考，不生成买卖许可。DCF默认须为当前资料日；未来EPS目标须有手工股权要求收益率和明确价格/分红口径。情景不是概率，估值不创建或移动技术区间。"
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#20374c">
+  <title>见微 · 持仓与研究</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <aside class="sidebar">
+    <a class="brand" href="#/holdings"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 23V13h5v10zm9 0V5h5v18zm9 0V9h5v14z" fill="currentColor"/></svg><span>见微<small>持仓与研究</small></span></a>
+    <div class="nav-caption">我的工作台</div>
+    <nav aria-label="主要导航">
+      <a href="#/holdings" data-nav="holdings"><span data-icon="wallet"></span>持仓总览<span id="holding-count" class="nav-count">—</span></a>
+      <a href="#/watchlist" data-nav="watchlist"><span data-icon="radar"></span>扫描股票池<span id="pool-count" class="nav-count">—</span></a>
+      <a href="#/research" data-nav="research"><span data-icon="search"></span>个股研究</a>
+    </nav>
+    <div class="sidebar-note"><span class="small-dot"></span>盘后整理，人工决策<p>让每一次买卖都有依据。</p></div>
+    <div class="sidebar-bottom"><span>本地个人工作台</span><button class="icon-button" id="token-open" aria-label="设置访问口令"><span data-icon="settings"></span></button></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <div class="market-switch" aria-label="市场"><button class="market-active" aria-pressed="true">美股 <span>USD</span></button><button disabled title="A股暂未开放">A股 <span>暂未开放</span></button></div>
+      <form id="global-search" role="search"><label class="sr-only" for="global-symbol">查询美股代码</label><span data-icon="search"></span><input id="global-symbol" name="symbol" maxlength="15" placeholder="查询股票，例如 GOOG" autocomplete="off" autocapitalize="characters"><button type="submit" class="search-submit" aria-label="查询股票"><span data-icon="arrow"></span></button></form>
+      <span id="connection" class="connection">正在连接服务</span>
+    </header>
+    <main id="main" tabindex="-1">
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <section id="workspace-job" class="job-strip" aria-live="polite" hidden><div><strong id="workspace-job-label"></strong><span id="workspace-job-percent"></span></div><progress id="workspace-job-progress" max="100" value="0"></progress><p id="workspace-job-detail"></p></section>
+
+      <section id="page-holdings" class="page">
+        <div class="page-heading"><div><p class="eyebrow">PORTFOLIO OVERVIEW</p><h1>我的持仓</h1><p class="subtitle">先看仓位，再做判断。</p></div><button class="primary" data-add-position><span data-icon="plus"></span>添加持仓</button></div>
+        <div id="portfolio-metrics" class="metric-strip" aria-label="持仓汇总"><div class="metric"><span>正在读取持仓</span><strong>—</strong></div></div>
+        <div class="portfolio-grid">
+          <section class="panel positions-panel"><div class="panel-heading"><div><h2>持仓明细 <span id="positions-total" class="count-label"></span></h2><p>按你录入的数量与成本均价计算</p></div><button class="secondary compact" id="refresh-holdings"><span data-icon="refresh"></span>更新行情</button></div><div id="positions-content" class="loading-state">正在读取持仓记录…</div></section>
+          <aside class="portfolio-aside"><section class="panel allocation-panel"><div class="panel-heading"><div><h2>持仓构成</h2><p>已录入股票的市值占比</p></div><span data-icon="pie"></span></div><div id="allocation-content"></div></section><section class="quiet-note"><span data-icon="info"></span><div><h3>从真实持仓开始</h3><p>添加或编辑这里的记录，不会下单，也不会自动改变扫描名单。</p><a href="#/watchlist">管理扫描名单 <span aria-hidden="true">↗</span></a></div></section></aside>
+        </div>
+        <p id="portfolio-note" class="footnote"></p>
+      </section>
+
+      <section id="page-watchlist" class="page" hidden>
+        <div class="page-heading"><div><p class="eyebrow">WATCHLIST & SIGNALS</p><h1>扫描股票池</h1><p class="subtitle">关注值得研究的机会，保留每次扫描的依据。</p></div><button class="primary" id="pool-add-open"><span data-icon="plus"></span>添加股票</button></div>
+        <div class="scan-toolbar panel"><div class="scan-summary"><span class="scan-symbol" data-icon="radar"></span><div><strong id="scan-summary-title">读取扫描名单</strong><p id="scan-summary-detail">只扫描名单中的股票，不会自动买卖或发送通知。</p></div></div><div class="scan-controls"><label class="check-label"><input id="scan-refresh" type="checkbox">扫描前更新行情</label><button class="secondary" id="scan-start"><span data-icon="play"></span>开始扫描</button></div></div>
+        <section class="panel"><div class="panel-heading"><div><h2>我的扫描名单 <span id="pool-total" class="count-label"></span></h2><p id="last-scan-label">尚无扫描记录</p></div><button class="text-button" id="reload-pool">重新读取</button></div><div id="pool-content" class="loading-state">正在读取扫描名单…</div></section>
+        <p class="footnote">扫描信号属于技术跟踪，不代表已持仓；移出名单会保留历史记录。</p>
+      </section>
+
+      <section id="page-research" class="page" hidden>
+        <div class="page-heading"><div><p class="eyebrow">COMPANY RESEARCH</p><h1>个股研究</h1><p class="subtitle">把估值与价格结构放在一起看。</p></div><span class="soft-label">美股 · 研究模式</span></div>
+        <form id="research-search" class="research-search panel"><label for="research-symbol">美股代码</label><input id="research-symbol" name="symbol" maxlength="15" placeholder="GOOG、AAPL、NVDA…" required autocomplete="off" autocapitalize="characters"><button type="submit" class="primary"><span data-icon="search"></span>查询研究</button></form>
+        <div id="research-empty" class="research-welcome"><span class="welcome-mark" data-icon="research"></span><h2>从一只股票开始</h2><p>查询已保存的估值、支撑压力和技术依据。首次查询时获取日线，K线仅在后台计算。</p><div id="recent-stocks" class="recent-stocks"></div></div>
+        <div id="research-body" hidden>
+          <section class="company-heading"><div class="company-title"><span id="company-avatar" class="stock-avatar large"></span><div><div class="company-name-line"><h2 id="company-symbol"></h2><span id="company-type" class="badge"></span></div><p id="company-name"></p></div></div><div class="company-actions"><button class="secondary compact" id="research-pool-add"><span data-icon="plus"></span>加入扫描</button><button class="secondary compact" id="research-refresh"><span data-icon="refresh"></span>更新行情</button><button class="icon-button" id="research-export" aria-label="导出研究JSON"><span data-icon="download"></span></button></div></section>
+          <section id="research-job" class="job-strip" aria-live="polite" hidden><div><strong id="research-job-label"></strong><span id="research-job-percent"></span></div><progress id="research-job-progress" max="100" value="0"></progress><p id="research-job-detail"></p></section>
+          <div id="research-metrics" class="metric-strip research-metrics"></div>
+          <section class="panel"><div class="panel-heading"><div><h2>前瞻估值参考</h2><p>EPS × PE，由程序计算；行业参照单独比较</p></div><button id="valuation-jump" class="text-button">录入估值数据 <span aria-hidden="true">↙</span></button></div><div id="valuation-content" class="panel-body"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>支撑与压力</h2><p>保留技术区间的强弱、角色与确认依据</p></div><span class="soft-label">日线计算</span></div><div id="technical-content" class="panel-body"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>技术与估值配合</h2><p>估值参考不改变技术强弱，也不代替交易计划</p></div></div><div id="combined-content" class="panel-body"></div></section>
+          <section id="valuation-editor" class="panel">
+            <div class="panel-heading">
+              <div><h2>录入研究数据</h2><p>粘贴大模型返回的EPS＋PE JSON，先预览，再确认保存</p></div>
+              <button class="secondary compact" id="copy-prompt"><span data-icon="copy"></span>复制提问模板</button>
+            </div>
+            <div class="panel-body">
+              <label for="valuation-json">EPS 与 PE 数据</label>
+              <textarea id="valuation-json" class="json-editor" rows="12" spellcheck="false" aria-describedby="valuation-help"></textarea>
+              <p id="valuation-help" class="field-help">数值使用字符串，缺值填null；industry_pe可选。修改内容后需要重新预览。已有新版草稿会自动载入并保留预测期间；更新一年预测请先新建输入。</p>
+              <div id="valuation-error" class="form-error" role="alert" hidden></div>
+              <div class="editor-actions">
+                <div><button class="secondary" id="valuation-preview-button">预览计算</button><button class="text-button" id="valuation-new">新建输入</button></div>
+                <div><button class="text-button" id="valuation-draft" disabled>保存草稿</button><button class="primary" id="valuation-confirm" disabled>确认保存</button></div>
+              </div>
+              <div id="valuation-preview-content" class="valuation-preview" hidden></div>
+            </div>
+          </section>
+          <p class="footnote">手工输入由本人核对；估值情景不是未来一年股价的最高或最低承诺。</p>
+        </div>
+      </section>
+      <footer><span>见微 · 持仓与研究</span><span>记录依据，保留判断。</span></footer>
+    </main>
+  </div>
+
+  <dialog id="position-dialog" aria-labelledby="position-dialog-title"><form id="position-form"><div class="dialog-heading"><div><p class="eyebrow">MY POSITION</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">填写当前实际持有的数量及成本均价，报价币种为美元。</p><div class="form-grid"><label>股票代码<input id="position-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"></label><label>股票名称 <span class="optional">选填</span><input name="name" maxlength="100" placeholder="例如 谷歌"></label><label>持股数量<input name="quantity" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 20"></label><label>成本均价 · USD<input name="average_cost" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 180.50"></label><label class="span-2">备注 <span class="optional">选填</span><textarea name="notes" maxlength="1000" rows="3" placeholder="记录这笔持仓的背景"></textarea></label></div><div id="position-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div></form></dialog>
+  <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与两套已设置策略的扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
+  <dialog id="remove-dialog" aria-labelledby="remove-title"><div class="dialog-heading"><h2 id="remove-title">移除记录</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p id="remove-description" class="dialog-intro"></p><div id="remove-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button class="secondary" data-close-dialog>取消</button><button class="danger" id="remove-confirm">确认移除</button></div></dialog>
+  <dialog id="token-dialog" aria-labelledby="token-title"><form id="token-form"><div class="dialog-heading"><h2 id="token-title">访问口令</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">仅在服务端设置了访问口令时填写。口令只保留在当前标签页中。</p><label for="token-input">访问口令</label><input id="token-input" type="password" autocomplete="off"><div id="token-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">保存并连接</button></div></form></dialog>
+  <dialog id="prompt-dialog" aria-labelledby="prompt-title"><div class="dialog-heading"><h2 id="prompt-title">大模型提问模板</h2><button class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><label for="prompt-text">可手动选择并复制</label><textarea id="prompt-text" rows="16" readonly></textarea><div class="dialog-footer"><button class="secondary" data-close-dialog>关闭</button></div></dialog>
+</body>
+</html>

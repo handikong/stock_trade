@@ -1,0 +1,2958 @@
+{
+  "version": "us-index-members-v1",
+  "retrieved_at": "2026-11-05T14:06:04.801491+00:00",
+  "sources": [
+    {
+      "index": "NASDAQ100",
+      "source_type": "official_public_constituent_table",
+      "url": "https://www.nasdaq.com/articles/global-indexes/nasdaq-100-index",
+      "as_of": null,
+      "retrieved_at": "2026-11-05T14:06:04.801491+00:00",
+      "note": "官网公开成分表，经网页工具读取；文章发布日期不是成分生效日，表格未标明独立生效日。",
+      "members": [
+        {
+          "symbol": "AAPL",
+          "source_symbol": "AAPL"
+        },
+        {
+          "symbol": "ABNB",
+          "source_symbol": "ABNB"
+        },
+        {
+          "symbol": "ADBE",
+          "source_symbol": "ADBE"
+        },
+        {
+          "symbol": "ADI",
+          "source_symbol": "ADI"
+        },
+        {
+          "symbol": "ADP",
+          "source_symbol": "ADP"
+        },
+        {
+          "symbol": "ADSK",
+          "source_symbol": "ADSK"
+        },
+        {
+          "symbol": "AEP",
+          "source_symbol": "AEP"
+        },
+        {
+          "symbol": "ALAB",
+          "source_symbol": "ALAB"
+        },
+        {
+          "symbol": "ALNY",
+          "source_symbol": "ALNY"
+        },
+        {
+          "symbol": "AMAT",
+          "source_symbol": "AMAT"
+        },
+        {
+          "symbol": "AMD",
+          "source_symbol": "AMD"
+        },
+        {
+          "symbol": "AMGN",
+          "source_symbol": "AMGN"
+        },
+        {
+          "symbol": "AMZN",
+          "source_symbol": "AMZN"
+        },
+        {
+          "symbol": "APP",
+          "source_symbol": "APP"
+        },
+        {
+          "symbol": "ARM",
+          "source_symbol": "ARM"
+        },
+        {
+          "symbol": "ASML",
+          "source_symbol": "ASML"
+        },
+        {
+          "symbol": "AVGO",
+          "source_symbol": "AVGO"
+        },
+        {
+          "symbol": "AXON",
+          "source_symbol": "AXON"
+        },
+        {
+          "symbol": "BKNG",
+          "source_symbol": "BKNG"
+        },
+        {
+          "symbol": "BKR",
+          "source_symbol": "BKR"
+        },
+        {
+          "symbol": "CCEP",
+          "source_symbol": "CCEP"
+        },
+        {
+          "symbol": "CDNS",
+          "source_symbol": "CDNS"
+        },
+        {
+          "symbol": "CEG",
+          "source_symbol": "CEG"
+        },
+        {
+          "symbol": "CMCSA",
+          "source_symbol": "CMCSA"
+        },
+        {
+          "symbol": "COST",
+          "source_symbol": "COST"
+        },
+        {
+          "symbol": "CPRT",
+          "source_symbol": "CPRT"
+        },
+        {
+          "symbol": "CRWD",
+          "source_symbol": "CRWD"
+        },
+        {
+          "symbol": "CRWV",
+          "source_symbol": "CRWV"
+        },
+        {
+          "symbol": "CSCO",
+          "source_symbol": "CSCO"
+        },
+        {
+          "symbol": "CSX",
+          "source_symbol": "CSX"
+        },
+        {
+          "symbol": "CTAS",
+          "source_symbol": "CTAS"
+        },
+        {
+          "symbol": "DASH",
+          "source_symbol": "DASH"
+        },
+        {
+          "symbol": "DDOG",
+          "source_symbol": "DDOG"
+        },
+        {
+          "symbol": "DXCM",
+          "source_symbol": "DXCM"
+        },
+        {
+          "symbol": "EXC",
+          "source_symbol": "EXC"
+        },
+        {
+          "symbol": "FANG",
+          "source_symbol": "FANG"
+        },
+        {
+          "symbol": "FAST",
+          "source_symbol": "FAST"
+        },
+        {
+          "symbol": "FER",
+          "source_symbol": "FER"
+        },
+        {
+          "symbol": "FTNT",
+          "source_symbol": "FTNT"
+        },
+        {
+          "symbol": "GEHC",
+          "source_symbol": "GEHC"
+        },
+        {
+          "symbol": "GILD",
+          "source_symbol": "GILD"
+        },
+        {
+          "symbol": "GOOG",
+          "source_symbol": "GOOG"
+        },
+        {
+          "symbol": "GOOGL",
+          "source_symbol": "GOOGL"
+        },
+        {
+          "symbol": "HON",
+          "source_symbol": "HON"
+        },
+        {
+          "symbol": "HONA",
+          "source_symbol": "HONA"
+        },
+        {
+          "symbol": "IDXX",
+          "source_symbol": "IDXX"
+        },
+        {
+          "symbol": "INTC",
+          "source_symbol": "INTC"
+        },
+        {
+          "symbol": "INTU",
+          "source_symbol": "INTU"
+        },
+        {
+          "symbol": "ISRG",
+          "source_symbol": "ISRG"
+        },
+        {
+          "symbol": "KDP",
+          "source_symbol": "KDP"
+        },
+        {
+          "symbol": "KHC",
+          "source_symbol": "KHC"
+        },
+        {
+          "symbol": "KLAC",
+          "source_symbol": "KLAC"
+        },
+        {
+          "symbol": "LIN",
+          "source_symbol": "LIN"
+        },
+        {
+          "symbol": "LITE",
+          "source_symbol": "LITE"
+        },
+        {
+          "symbol": "LRCX",
+          "source_symbol": "LRCX"
+        },
+        {
+          "symbol": "MAR",
+          "source_symbol": "MAR"
+        },
+        {
+          "symbol": "MCHP",
+          "source_symbol": "MCHP"
+        },
+        {
+          "symbol": "MDLZ",
+          "source_symbol": "MDLZ"
+        },
+        {
+          "symbol": "MELI",
+          "source_symbol": "MELI"
+        },
+        {
+          "symbol": "META",
+          "source_symbol": "META"
+        },
+        {
+          "symbol": "MNST",
+          "source_symbol": "MNST"
+        },
+        {
+          "symbol": "MPWR",
+          "source_symbol": "MPWR"
+        },
+        {
+          "symbol": "MRVL",
+          "source_symbol": "MRVL"
+        },
+        {
+          "symbol": "MSFT",
+          "source_symbol": "MSFT"
+        },
+        {
+          "symbol": "MSTR",
+          "source_symbol": "MSTR"
+        },
+        {
+          "symbol": "MU",
+          "source_symbol": "MU"
+        },
+        {
+          "symbol": "NBIS",
+          "source_symbol": "NBIS"
+        },
+        {
+          "symbol": "NFLX",
+          "source_symbol": "NFLX"
+        },
+        {
+          "symbol": "NVDA",
+          "source_symbol": "NVDA"
+        },
+        {
+          "symbol": "NXPI",
+          "source_symbol": "NXPI"
+        },
+        {
+          "symbol": "ODFL",
+          "source_symbol": "ODFL"
+        },
+        {
+          "symbol": "ORLY",
+          "source_symbol": "ORLY"
+        },
+        {
+          "symbol": "PANW",
+          "source_symbol": "PANW"
+        },
+        {
+          "symbol": "PAYX",
+          "source_symbol": "PAYX"
+        },
+        {
+          "symbol": "PCAR",
+          "source_symbol": "PCAR"
+        },
+        {
+          "symbol": "PDD",
+          "source_symbol": "PDD"
+        },
+        {
+          "symbol": "PEP",
+          "source_symbol": "PEP"
+        },
+        {
+          "symbol": "PLTR",
+          "source_symbol": "PLTR"
+        },
+        {
+          "symbol": "PYPL",
+          "source_symbol": "PYPL"
+        },
+        {
+          "symbol": "QCOM",
+          "source_symbol": "QCOM"
+        },
+        {
+          "symbol": "REGN",
+          "source_symbol": "REGN"
+        },
+        {
+          "symbol": "RKLB",
+          "source_symbol": "RKLB"
+        },
+        {
+          "symbol": "ROP",
+          "source_symbol": "ROP"
+        },
+        {
+          "symbol": "ROST",
+          "source_symbol": "ROST"
+        },
+        {
+          "symbol": "SBUX",
+          "source_symbol": "SBUX"
+        },
+        {
+          "symbol": "SHOP",
+          "source_symbol": "SHOP"
+        },
+        {
+          "symbol": "SNDK",
+          "source_symbol": "SNDK"
+        },
+        {
+          "symbol": "SNPS",
+          "source_symbol": "SNPS"
+        },
+        {
+          "symbol": "SPCX",
+          "source_symbol": "SPCX"
+        },
+        {
+          "symbol": "STX",
+          "source_symbol": "STX"
+        },
+        {
+          "symbol": "TER",
+          "source_symbol": "TER"
+        },
+        {
+          "symbol": "TMUS",
+          "source_symbol": "TMUS"
+        },
+        {
+          "symbol": "TRI",
+          "source_symbol": "TRI"
+        },
+        {
+          "symbol": "TSLA",
+          "source_symbol": "TSLA"
+        },
+        {
+          "symbol": "TTWO",
+          "source_symbol": "TTWO"
+        },
+        {
+          "symbol": "TXN",
+          "source_symbol": "TXN"
+        },
+        {
+          "symbol": "VRTX",
+          "source_symbol": "VRTX"
+        },
+        {
+          "symbol": "WBD",
+          "source_symbol": "WBD"
+        },
+        {
+          "symbol": "WDAY",
+          "source_symbol": "WDAY"
+        },
+        {
+          "symbol": "WDC",
+          "source_symbol": "WDC"
+        },
+        {
+          "symbol": "WMT",
+          "source_symbol": "WMT"
+        },
+        {
+          "symbol": "XEL",
+          "source_symbol": "XEL"
+        }
+      ],
+      "excluded_non_tradable_items": []
+    },
+    {
+      "index": "SP500",
+      "source_type": "SPY_equity_holdings_proxy",
+      "url": "https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-spy.xlsx",
+      "as_of": "2026-11-04",
+      "retrieved_at": "2026-11-05T14:06:04.801491+00:00",
+      "note": "发行商SPY完整美元股票持仓作为标普500候选名单代理；不是官方逐日指数成分授权数据，排除现金及非股票项目。",
+      "raw_file": "data/universe/sources/SPY-latest.xlsx",
+      "members": [
+        {
+          "symbol": "NVDA",
+          "source_symbol": "NVDA",
+          "name": "NVIDIA CORP"
+        },
+        {
+          "symbol": "MSFT",
+          "source_symbol": "MSFT",
+          "name": "MICROSOFT CORP"
+        },
+        {
+          "symbol": "AMZN",
+          "source_symbol": "AMZN",
+          "name": "AMAZON.COM INC"
+        },
+        {
+          "symbol": "GOOGL",
+          "source_symbol": "GOOGL",
+          "name": "ALPHABET INC CL A"
+        },
+        {
+          "symbol": "AVGO",
+          "source_symbol": "AVGO",
+          "name": "BROADCOM INC"
+        },
+        {
+          "symbol": "META",
+          "source_symbol": "META",
+          "name": "META PLATFORMS INC CLASS A"
+        },
+        {
+          "symbol": "GOOG",
+          "source_symbol": "GOOG",
+          "name": "ALPHABET INC CL C"
+        },
+        {
+          "symbol": "LLY",
+          "source_symbol": "LLY",
+          "name": "ELI LILLY + CO"
+        },
+        {
+          "symbol": "TSLA",
+          "source_symbol": "TSLA",
+          "name": "TESLA INC"
+        },
+        {
+          "symbol": "BRK-B",
+          "source_symbol": "BRK.B",
+          "name": "BERKSHIRE HATHAWAY INC CL B"
+        },
+        {
+          "symbol": "JPM",
+          "source_symbol": "JPM",
+          "name": "JPMORGAN CHASE + CO"
+        },
+        {
+          "symbol": "MU",
+          "source_symbol": "MU",
+          "name": "MICRON TECHNOLOGY INC"
+        },
+        {
+          "symbol": "AMD",
+          "source_symbol": "AMD",
+          "name": "ADVANCED MICRO DEVICES"
+        },
+        {
+          "symbol": "V",
+          "source_symbol": "V",
+          "name": "VISA INC CLASS A SHARES"
+        },
+        {
+          "symbol": "XOM",
+          "source_symbol": "XOM",
+          "name": "EXXONMOBIL HOLDINGS CORP"
+        },
+        {
+          "symbol": "JNJ",
+          "source_symbol": "JNJ",
+          "name": "JOHNSON + JOHNSON"
+        },
+        {
+          "symbol": "WMT",
+          "source_symbol": "WMT",
+          "name": "WALMART INC"
+        },
+        {
+          "symbol": "MA",
+          "source_symbol": "MA",
+          "name": "MASTERCARD INC   A"
+        },
+        {
+          "symbol": "ABBV",
+          "source_symbol": "ABBV",
+          "name": "ABBVIE INC"
+        },
+        {
+          "symbol": "COST",
+          "source_symbol": "COST",
+          "name": "COSTCO WHOLESALE CORP"
+        },
+        {
+          "symbol": "CVX",
+          "source_symbol": "CVX",
+          "name": "CHEVRON CORP"
+        },
+        {
+          "symbol": "CSCO",
+          "source_symbol": "CSCO",
+          "name": "CISCO SYSTEMS INC"
+        },
+        {
+          "symbol": "PLTR",
+          "source_symbol": "PLTR",
+          "name": "PALANTIR TECHNOLOGIES INC A"
+        },
+        {
+          "symbol": "PG",
+          "source_symbol": "PG",
+          "name": "PROCTER + GAMBLE CO/THE"
+        },
+        {
+          "symbol": "KO",
+          "source_symbol": "KO",
+          "name": "COCA COLA CO/THE"
+        },
+        {
+          "symbol": "MRK",
+          "source_symbol": "MRK",
+          "name": "MERCK + CO. INC."
+        },
+        {
+          "symbol": "UNH",
+          "source_symbol": "UNH",
+          "name": "UNITEDHEALTH GROUP INC"
+        },
+        {
+          "symbol": "HD",
+          "source_symbol": "HD",
+          "name": "HOME DEPOT INC"
+        },
+        {
+          "symbol": "GE",
+          "source_symbol": "GE",
+          "name": "GENERAL ELECTRIC"
+        },
+        {
+          "symbol": "BAC",
+          "source_symbol": "BAC",
+          "name": "BANK OF AMERICA CORP"
+        },
+        {
+          "symbol": "PM",
+          "source_symbol": "PM",
+          "name": "PHILIP MORRIS INTERNATIONAL"
+        },
+        {
+          "symbol": "AMAT",
+          "source_symbol": "AMAT",
+          "name": "APPLIED MATERIALS INC"
+        },
+        {
+          "symbol": "INTC",
+          "source_symbol": "INTC",
+          "name": "INTEL CORP"
+        },
+        {
+          "symbol": "TXN",
+          "source_symbol": "TXN",
+          "name": "TEXAS INSTRUMENTS INC"
+        },
+        {
+          "symbol": "PANW",
+          "source_symbol": "PANW",
+          "name": "PALO ALTO NETWORKS INC"
+        },
+        {
+          "symbol": "LRCX",
+          "source_symbol": "LRCX",
+          "name": "LAM RESEARCH CORP"
+        },
+        {
+          "symbol": "NFLX",
+          "source_symbol": "NFLX",
+          "name": "NETFLIX INC"
+        },
+        {
+          "symbol": "CAT",
+          "source_symbol": "CAT",
+          "name": "CATERPILLAR INC"
+        },
+        {
+          "symbol": "GS",
+          "source_symbol": "GS",
+          "name": "GOLDMAN SACHS GROUP INC"
+        },
+        {
+          "symbol": "RTX",
+          "source_symbol": "RTX",
+          "name": "RTX CORP"
+        },
+        {
+          "symbol": "WFC",
+          "source_symbol": "WFC",
+          "name": "WELLS FARGO + CO"
+        },
+        {
+          "symbol": "TMO",
+          "source_symbol": "TMO",
+          "name": "THERMO FISHER SCIENTIFIC INC"
+        },
+        {
+          "symbol": "AMGN",
+          "source_symbol": "AMGN",
+          "name": "AMGEN INC"
+        },
+        {
+          "symbol": "CRWD",
+          "source_symbol": "CRWD",
+          "name": "CROWDSTRIKE HOLDINGS INC   A"
+        },
+        {
+          "symbol": "ORCL",
+          "source_symbol": "ORCL",
+          "name": "ORACLE CORP"
+        },
+        {
+          "symbol": "LIN",
+          "source_symbol": "LIN",
+          "name": "LINDE PLC"
+        },
+        {
+          "symbol": "IBM",
+          "source_symbol": "IBM",
+          "name": "INTL BUSINESS MACHINES CORP"
+        },
+        {
+          "symbol": "MS",
+          "source_symbol": "MS",
+          "name": "MORGAN STANLEY"
+        },
+        {
+          "symbol": "GEV",
+          "source_symbol": "GEV",
+          "name": "GE VERNOVA INC"
+        },
+        {
+          "symbol": "GILD",
+          "source_symbol": "GILD",
+          "name": "GILEAD SCIENCES INC"
+        },
+        {
+          "symbol": "C",
+          "source_symbol": "C",
+          "name": "CITIGROUP INC"
+        },
+        {
+          "symbol": "DIS",
+          "source_symbol": "DIS",
+          "name": "WALT DISNEY CO/THE"
+        },
+        {
+          "symbol": "ABT",
+          "source_symbol": "ABT",
+          "name": "ABBOTT LABORATORIES"
+        },
+        {
+          "symbol": "MCD",
+          "source_symbol": "MCD",
+          "name": "MCDONALD S CORP"
+        },
+        {
+          "symbol": "ADI",
+          "source_symbol": "ADI",
+          "name": "ANALOG DEVICES INC"
+        },
+        {
+          "symbol": "KLAC",
+          "source_symbol": "KLAC",
+          "name": "KLA CORP"
+        },
+        {
+          "symbol": "APH",
+          "source_symbol": "APH",
+          "name": "AMPHENOL CORP CL A"
+        },
+        {
+          "symbol": "PEP",
+          "source_symbol": "PEP",
+          "name": "PEPSICO INC"
+        },
+        {
+          "symbol": "VZ",
+          "source_symbol": "VZ",
+          "name": "VERIZON COMMUNICATIONS INC"
+        },
+        {
+          "symbol": "ANET",
+          "source_symbol": "ANET",
+          "name": "ARISTA NETWORKS INC"
+        },
+        {
+          "symbol": "CRM",
+          "source_symbol": "CRM",
+          "name": "SALESFORCE INC"
+        },
+        {
+          "symbol": "QCOM",
+          "source_symbol": "QCOM",
+          "name": "QUALCOMM INC"
+        },
+        {
+          "symbol": "NEE",
+          "source_symbol": "NEE",
+          "name": "NEXTERA ENERGY INC"
+        },
+        {
+          "symbol": "UNP",
+          "source_symbol": "UNP",
+          "name": "UNION PACIFIC CORP"
+        },
+        {
+          "symbol": "WELL",
+          "source_symbol": "WELL",
+          "name": "WELLTOWER INC"
+        },
+        {
+          "symbol": "BLK",
+          "source_symbol": "BLK",
+          "name": "BLACKROCK INC"
+        },
+        {
+          "symbol": "PFE",
+          "source_symbol": "PFE",
+          "name": "PFIZER INC"
+        },
+        {
+          "symbol": "AXP",
+          "source_symbol": "AXP",
+          "name": "AMERICAN EXPRESS CO"
+        },
+        {
+          "symbol": "ISRG",
+          "source_symbol": "ISRG",
+          "name": "INTUITIVE SURGICAL INC"
+        },
+        {
+          "symbol": "DE",
+          "source_symbol": "DE",
+          "name": "DEERE + CO"
+        },
+        {
+          "symbol": "COP",
+          "source_symbol": "COP",
+          "name": "CONOCOPHILLIPS"
+        },
+        {
+          "symbol": "ACN",
+          "source_symbol": "ACN",
+          "name": "ACCENTURE PLC CL A"
+        },
+        {
+          "symbol": "TJX",
+          "source_symbol": "TJX",
+          "name": "TJX COMPANIES INC"
+        },
+        {
+          "symbol": "SCHW",
+          "source_symbol": "SCHW",
+          "name": "SCHWAB (CHARLES) CORP"
+        },
+        {
+          "symbol": "SNDK",
+          "source_symbol": "SNDK",
+          "name": "SANDISK CORP"
+        },
+        {
+          "symbol": "T",
+          "source_symbol": "T",
+          "name": "AT+T INC"
+        },
+        {
+          "symbol": "DHR",
+          "source_symbol": "DHR",
+          "name": "DANAHER CORP"
+        },
+        {
+          "symbol": "SPGI",
+          "source_symbol": "SPGI",
+          "name": "S+P GLOBAL INC"
+        },
+        {
+          "symbol": "UBER",
+          "source_symbol": "UBER",
+          "name": "UBER TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "MRVL",
+          "source_symbol": "MRVL",
+          "name": "MARVELL TECHNOLOGY INC"
+        },
+        {
+          "symbol": "BA",
+          "source_symbol": "BA",
+          "name": "BOEING CO/THE"
+        },
+        {
+          "symbol": "VRTX",
+          "source_symbol": "VRTX",
+          "name": "VERTEX PHARMACEUTICALS INC"
+        },
+        {
+          "symbol": "ETN",
+          "source_symbol": "ETN",
+          "name": "EATON CORP PLC"
+        },
+        {
+          "symbol": "PGR",
+          "source_symbol": "PGR",
+          "name": "PROGRESSIVE CORP"
+        },
+        {
+          "symbol": "CB",
+          "source_symbol": "CB",
+          "name": "CHUBB LTD"
+        },
+        {
+          "symbol": "BMY",
+          "source_symbol": "BMY",
+          "name": "BRISTOL MYERS SQUIBB CO"
+        },
+        {
+          "symbol": "MO",
+          "source_symbol": "MO",
+          "name": "ALTRIA GROUP INC"
+        },
+        {
+          "symbol": "LOW",
+          "source_symbol": "LOW",
+          "name": "LOWE S COS INC"
+        },
+        {
+          "symbol": "MDT",
+          "source_symbol": "MDT",
+          "name": "MEDTRONIC PLC"
+        },
+        {
+          "symbol": "BKNG",
+          "source_symbol": "BKNG",
+          "name": "BOOKING HOLDINGS INC"
+        },
+        {
+          "symbol": "COF",
+          "source_symbol": "COF",
+          "name": "CAPITAL ONE FINANCIAL CORP"
+        },
+        {
+          "symbol": "STX",
+          "source_symbol": "STX",
+          "name": "SEAGATE TECHNOLOGY HOLDINGS"
+        },
+        {
+          "symbol": "SBUX",
+          "source_symbol": "SBUX",
+          "name": "STARBUCKS CORP"
+        },
+        {
+          "symbol": "PLD",
+          "source_symbol": "PLD",
+          "name": "PROLOGIS INC"
+        },
+        {
+          "symbol": "MCK",
+          "source_symbol": "MCK",
+          "name": "MCKESSON CORP"
+        },
+        {
+          "symbol": "NEM",
+          "source_symbol": "NEM",
+          "name": "NEWMONT CORP"
+        },
+        {
+          "symbol": "LMT",
+          "source_symbol": "LMT",
+          "name": "LOCKHEED MARTIN CORP"
+        },
+        {
+          "symbol": "ADP",
+          "source_symbol": "ADP",
+          "name": "AUTOMATIC DATA PROCESSING"
+        },
+        {
+          "symbol": "SYK",
+          "source_symbol": "SYK",
+          "name": "STRYKER CORP"
+        },
+        {
+          "symbol": "WDC",
+          "source_symbol": "WDC",
+          "name": "WESTERN DIGITAL CORP"
+        },
+        {
+          "symbol": "PH",
+          "source_symbol": "PH",
+          "name": "PARKER HANNIFIN CORP"
+        },
+        {
+          "symbol": "DELL",
+          "source_symbol": "DELL",
+          "name": "DELL TECHNOLOGIES  C"
+        },
+        {
+          "symbol": "NOW",
+          "source_symbol": "NOW",
+          "name": "SERVICENOW INC"
+        },
+        {
+          "symbol": "CME",
+          "source_symbol": "CME",
+          "name": "CME GROUP INC"
+        },
+        {
+          "symbol": "MPC",
+          "source_symbol": "MPC",
+          "name": "MARATHON PETROLEUM CORP"
+        },
+        {
+          "symbol": "SO",
+          "source_symbol": "SO",
+          "name": "SOUTHERN CO/THE"
+        },
+        {
+          "symbol": "VLO",
+          "source_symbol": "VLO",
+          "name": "VALERO ENERGY CORP"
+        },
+        {
+          "symbol": "EQIX",
+          "source_symbol": "EQIX",
+          "name": "EQUINIX INC"
+        },
+        {
+          "symbol": "BNY",
+          "source_symbol": "BNY",
+          "name": "BANK OF NEW YORK MELLON CORP"
+        },
+        {
+          "symbol": "PSX",
+          "source_symbol": "PSX",
+          "name": "PHILLIPS 66"
+        },
+        {
+          "symbol": "CVS",
+          "source_symbol": "CVS",
+          "name": "CVS HEALTH CORP"
+        },
+        {
+          "symbol": "DUK",
+          "source_symbol": "DUK",
+          "name": "DUKE ENERGY CORP"
+        },
+        {
+          "symbol": "MRSH",
+          "source_symbol": "MRSH",
+          "name": "MARSH + MCLENNAN COS"
+        },
+        {
+          "symbol": "MMM",
+          "source_symbol": "MMM",
+          "name": "3M CO"
+        },
+        {
+          "symbol": "ADBE",
+          "source_symbol": "ADBE",
+          "name": "ADOBE INC"
+        },
+        {
+          "symbol": "ICE",
+          "source_symbol": "ICE",
+          "name": "INTERCONTINENTAL EXCHANGE IN"
+        },
+        {
+          "symbol": "INTU",
+          "source_symbol": "INTU",
+          "name": "INTUIT INC"
+        },
+        {
+          "symbol": "CSX",
+          "source_symbol": "CSX",
+          "name": "CSX CORP"
+        },
+        {
+          "symbol": "MRNA",
+          "source_symbol": "MRNA",
+          "name": "MODERNA INC"
+        },
+        {
+          "symbol": "USB",
+          "source_symbol": "USB",
+          "name": "US BANCORP"
+        },
+        {
+          "symbol": "EMR",
+          "source_symbol": "EMR",
+          "name": "EMERSON ELECTRIC CO"
+        },
+        {
+          "symbol": "BX",
+          "source_symbol": "BX",
+          "name": "BLACKSTONE INC"
+        },
+        {
+          "symbol": "GLW",
+          "source_symbol": "GLW",
+          "name": "CORNING INC"
+        },
+        {
+          "symbol": "ELV",
+          "source_symbol": "ELV",
+          "name": "ELEVANCE HEALTH INC"
+        },
+        {
+          "symbol": "PNC",
+          "source_symbol": "PNC",
+          "name": "PNC FINANCIAL SERVICES GROUP"
+        },
+        {
+          "symbol": "GD",
+          "source_symbol": "GD",
+          "name": "GENERAL DYNAMICS CORP"
+        },
+        {
+          "symbol": "REGN",
+          "source_symbol": "REGN",
+          "name": "REGENERON PHARMACEUTICALS"
+        },
+        {
+          "symbol": "CDNS",
+          "source_symbol": "CDNS",
+          "name": "CADENCE DESIGN SYS INC"
+        },
+        {
+          "symbol": "MAR",
+          "source_symbol": "MAR",
+          "name": "MARRIOTT INTERNATIONAL  CL A"
+        },
+        {
+          "symbol": "AMT",
+          "source_symbol": "AMT",
+          "name": "AMERICAN TOWER CORP"
+        },
+        {
+          "symbol": "TT",
+          "source_symbol": "TT",
+          "name": "TRANE TECHNOLOGIES PLC"
+        },
+        {
+          "symbol": "FCX",
+          "source_symbol": "FCX",
+          "name": "FREEPORT MCMORAN INC"
+        },
+        {
+          "symbol": "WM",
+          "source_symbol": "WM",
+          "name": "WASTE MANAGEMENT INC"
+        },
+        {
+          "symbol": "SNPS",
+          "source_symbol": "SNPS",
+          "name": "SYNOPSYS INC"
+        },
+        {
+          "symbol": "CMCSA",
+          "source_symbol": "CMCSA",
+          "name": "COMCAST CORP CLASS A"
+        },
+        {
+          "symbol": "PWR",
+          "source_symbol": "PWR",
+          "name": "QUANTA SERVICES INC"
+        },
+        {
+          "symbol": "MDLZ",
+          "source_symbol": "MDLZ",
+          "name": "MONDELEZ INTERNATIONAL INC A"
+        },
+        {
+          "symbol": "UPS",
+          "source_symbol": "UPS",
+          "name": "UNITED PARCEL SERVICE CL B"
+        },
+        {
+          "symbol": "TRV",
+          "source_symbol": "TRV",
+          "name": "TRAVELERS COS INC/THE"
+        },
+        {
+          "symbol": "HWM",
+          "source_symbol": "HWM",
+          "name": "HOWMET AEROSPACE INC"
+        },
+        {
+          "symbol": "JCI",
+          "source_symbol": "JCI",
+          "name": "JOHNSON CONTROLS INTERNATION"
+        },
+        {
+          "symbol": "HLT",
+          "source_symbol": "HLT",
+          "name": "HILTON WORLDWIDE HOLDINGS IN"
+        },
+        {
+          "symbol": "WMB",
+          "source_symbol": "WMB",
+          "name": "WILLIAMS COS INC"
+        },
+        {
+          "symbol": "SHW",
+          "source_symbol": "SHW",
+          "name": "SHERWIN WILLIAMS CO/THE"
+        },
+        {
+          "symbol": "RCL",
+          "source_symbol": "RCL",
+          "name": "ROYAL CARIBBEAN CRUISES LTD"
+        },
+        {
+          "symbol": "MSI",
+          "source_symbol": "MSI",
+          "name": "MOTOROLA SOLUTIONS INC"
+        },
+        {
+          "symbol": "CEG",
+          "source_symbol": "CEG",
+          "name": "CONSTELLATION ENERGY"
+        },
+        {
+          "symbol": "GM",
+          "source_symbol": "GM",
+          "name": "GENERAL MOTORS CO"
+        },
+        {
+          "symbol": "CI",
+          "source_symbol": "CI",
+          "name": "THE CIGNA GROUP"
+        },
+        {
+          "symbol": "FTNT",
+          "source_symbol": "FTNT",
+          "name": "FORTINET INC"
+        },
+        {
+          "symbol": "ECL",
+          "source_symbol": "ECL",
+          "name": "ECOLAB INC"
+        },
+        {
+          "symbol": "VRT",
+          "source_symbol": "VRT",
+          "name": "VERTIV HOLDINGS CO A"
+        },
+        {
+          "symbol": "CTAS",
+          "source_symbol": "CTAS",
+          "name": "CINTAS CORP"
+        },
+        {
+          "symbol": "CL",
+          "source_symbol": "CL",
+          "name": "COLGATE PALMOLIVE CO"
+        },
+        {
+          "symbol": "ROST",
+          "source_symbol": "ROST",
+          "name": "ROSS STORES INC"
+        },
+        {
+          "symbol": "MCO",
+          "source_symbol": "MCO",
+          "name": "MOODY S CORP"
+        },
+        {
+          "symbol": "NSC",
+          "source_symbol": "NSC",
+          "name": "NORFOLK SOUTHERN CORP"
+        },
+        {
+          "symbol": "EOG",
+          "source_symbol": "EOG",
+          "name": "EOG RESOURCES INC"
+        },
+        {
+          "symbol": "TMUS",
+          "source_symbol": "TMUS",
+          "name": "T MOBILE US INC"
+        },
+        {
+          "symbol": "SLB",
+          "source_symbol": "SLB",
+          "name": "SLB LTD"
+        },
+        {
+          "symbol": "ITW",
+          "source_symbol": "ITW",
+          "name": "ILLINOIS TOOL WORKS"
+        },
+        {
+          "symbol": "HCA",
+          "source_symbol": "HCA",
+          "name": "HCA HEALTHCARE INC"
+        },
+        {
+          "symbol": "DASH",
+          "source_symbol": "DASH",
+          "name": "DOORDASH INC   A"
+        },
+        {
+          "symbol": "ORLY",
+          "source_symbol": "ORLY",
+          "name": "O REILLY AUTOMOTIVE INC"
+        },
+        {
+          "symbol": "TGT",
+          "source_symbol": "TGT",
+          "name": "TARGET CORP"
+        },
+        {
+          "symbol": "SPG",
+          "source_symbol": "SPG",
+          "name": "SIMON PROPERTY GROUP INC"
+        },
+        {
+          "symbol": "ABNB",
+          "source_symbol": "ABNB",
+          "name": "AIRBNB INC CLASS A"
+        },
+        {
+          "symbol": "AJG",
+          "source_symbol": "AJG",
+          "name": "ARTHUR J GALLAGHER + CO"
+        },
+        {
+          "symbol": "APP",
+          "source_symbol": "APP",
+          "name": "APPLOVIN CORP CLASS A"
+        },
+        {
+          "symbol": "AON",
+          "source_symbol": "AON",
+          "name": "AON PLC CLASS A"
+        },
+        {
+          "symbol": "HON",
+          "source_symbol": "HON",
+          "name": "HONEYWELL INTERNATIONAL INC"
+        },
+        {
+          "symbol": "FDX",
+          "source_symbol": "FDX",
+          "name": "FEDEX CORP"
+        },
+        {
+          "symbol": "APD",
+          "source_symbol": "APD",
+          "name": "AIR PRODUCTS + CHEMICALS INC"
+        },
+        {
+          "symbol": "AEP",
+          "source_symbol": "AEP",
+          "name": "AMERICAN ELECTRIC POWER"
+        },
+        {
+          "symbol": "NOC",
+          "source_symbol": "NOC",
+          "name": "NORTHROP GRUMMAN CORP"
+        },
+        {
+          "symbol": "URI",
+          "source_symbol": "URI",
+          "name": "UNITED RENTALS INC"
+        },
+        {
+          "symbol": "KKR",
+          "source_symbol": "KKR",
+          "name": "KKR + CO INC"
+        },
+        {
+          "symbol": "MNST",
+          "source_symbol": "MNST",
+          "name": "MONSTER BEVERAGE CORP"
+        },
+        {
+          "symbol": "HOOD",
+          "source_symbol": "HOOD",
+          "name": "ROBINHOOD MARKETS INC   A"
+        },
+        {
+          "symbol": "ALL",
+          "source_symbol": "ALL",
+          "name": "ALLSTATE CORP"
+        },
+        {
+          "symbol": "COR",
+          "source_symbol": "COR",
+          "name": "CENCORA INC"
+        },
+        {
+          "symbol": "TDG",
+          "source_symbol": "TDG",
+          "name": "TRANSDIGM GROUP INC"
+        },
+        {
+          "symbol": "NXPI",
+          "source_symbol": "NXPI",
+          "name": "NXP SEMICONDUCTORS NV"
+        },
+        {
+          "symbol": "KMB",
+          "source_symbol": "KMB",
+          "name": "KIMBERLY CLARK CORP"
+        },
+        {
+          "symbol": "HPE",
+          "source_symbol": "HPE",
+          "name": "HEWLETT PACKARD ENTERPRISE"
+        },
+        {
+          "symbol": "BSX",
+          "source_symbol": "BSX",
+          "name": "BOSTON SCIENTIFIC CORP"
+        },
+        {
+          "symbol": "CRH",
+          "source_symbol": "CRH",
+          "name": "CRH PLC"
+        },
+        {
+          "symbol": "DLR",
+          "source_symbol": "DLR",
+          "name": "DIGITAL REALTY TRUST INC"
+        },
+        {
+          "symbol": "CMI",
+          "source_symbol": "CMI",
+          "name": "CUMMINS INC"
+        },
+        {
+          "symbol": "GWW",
+          "source_symbol": "GWW",
+          "name": "WW GRAINGER INC"
+        },
+        {
+          "symbol": "TEL",
+          "source_symbol": "TEL",
+          "name": "TE CONNECTIVITY PLC"
+        },
+        {
+          "symbol": "DDOG",
+          "source_symbol": "DDOG",
+          "name": "DATADOG INC   CLASS A"
+        },
+        {
+          "symbol": "MPWR",
+          "source_symbol": "MPWR",
+          "name": "MONOLITHIC POWER SYSTEMS INC"
+        },
+        {
+          "symbol": "TFC",
+          "source_symbol": "TFC",
+          "name": "TRUIST FINANCIAL CORP"
+        },
+        {
+          "symbol": "KMI",
+          "source_symbol": "KMI",
+          "name": "KINDER MORGAN INC"
+        },
+        {
+          "symbol": "D",
+          "source_symbol": "D",
+          "name": "DOMINION ENERGY INC"
+        },
+        {
+          "symbol": "TRGP",
+          "source_symbol": "TRGP",
+          "name": "TARGA RESOURCES CORP"
+        },
+        {
+          "symbol": "FAST",
+          "source_symbol": "FAST",
+          "name": "FASTENAL CO"
+        },
+        {
+          "symbol": "CAH",
+          "source_symbol": "CAH",
+          "name": "CARDINAL HEALTH INC"
+        },
+        {
+          "symbol": "NUE",
+          "source_symbol": "NUE",
+          "name": "NUCOR CORP"
+        },
+        {
+          "symbol": "BE",
+          "source_symbol": "BE",
+          "name": "BLOOM ENERGY CORP  A"
+        },
+        {
+          "symbol": "APO",
+          "source_symbol": "APO",
+          "name": "APOLLO GLOBAL MANAGEMENT INC"
+        },
+        {
+          "symbol": "PSA",
+          "source_symbol": "PSA",
+          "name": "PUBLIC STORAGE"
+        },
+        {
+          "symbol": "EW",
+          "source_symbol": "EW",
+          "name": "EDWARDS LIFESCIENCES CORP"
+        },
+        {
+          "symbol": "ADSK",
+          "source_symbol": "ADSK",
+          "name": "AUTODESK INC"
+        },
+        {
+          "symbol": "BDX",
+          "source_symbol": "BDX",
+          "name": "BECTON DICKINSON AND CO"
+        },
+        {
+          "symbol": "O",
+          "source_symbol": "O",
+          "name": "REALTY INCOME CORP"
+        },
+        {
+          "symbol": "PCAR",
+          "source_symbol": "PCAR",
+          "name": "PACCAR INC"
+        },
+        {
+          "symbol": "OKE",
+          "source_symbol": "OKE",
+          "name": "ONEOK INC"
+        },
+        {
+          "symbol": "AFL",
+          "source_symbol": "AFL",
+          "name": "AFLAC INC"
+        },
+        {
+          "symbol": "CVNA",
+          "source_symbol": "CVNA",
+          "name": "CARVANA CO"
+        },
+        {
+          "symbol": "LITE",
+          "source_symbol": "LITE",
+          "name": "LUMENTUM HOLDINGS INC"
+        },
+        {
+          "symbol": "IDXX",
+          "source_symbol": "IDXX",
+          "name": "IDEXX LABORATORIES INC"
+        },
+        {
+          "symbol": "MET",
+          "source_symbol": "MET",
+          "name": "METLIFE INC"
+        },
+        {
+          "symbol": "AME",
+          "source_symbol": "AME",
+          "name": "AMETEK INC"
+        },
+        {
+          "symbol": "SRE",
+          "source_symbol": "SRE",
+          "name": "SEMPRA"
+        },
+        {
+          "symbol": "AZO",
+          "source_symbol": "AZO",
+          "name": "AUTOZONE INC"
+        },
+        {
+          "symbol": "DAL",
+          "source_symbol": "DAL",
+          "name": "DELTA AIR LINES INC"
+        },
+        {
+          "symbol": "ETR",
+          "source_symbol": "ETR",
+          "name": "ENTERGY CORP"
+        },
+        {
+          "symbol": "PYPL",
+          "source_symbol": "PYPL",
+          "name": "PAYPAL HOLDINGS INC"
+        },
+        {
+          "symbol": "XEL",
+          "source_symbol": "XEL",
+          "name": "XCEL ENERGY INC"
+        },
+        {
+          "symbol": "HUM",
+          "source_symbol": "HUM",
+          "name": "HUMANA INC"
+        },
+        {
+          "symbol": "A",
+          "source_symbol": "A",
+          "name": "AGILENT TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "KDP",
+          "source_symbol": "KDP",
+          "name": "KEURIG DR PEPPER INC"
+        },
+        {
+          "symbol": "EBAY",
+          "source_symbol": "EBAY",
+          "name": "EBAY INC"
+        },
+        {
+          "symbol": "F",
+          "source_symbol": "F",
+          "name": "FORD MOTOR CO"
+        },
+        {
+          "symbol": "WAB",
+          "source_symbol": "WAB",
+          "name": "WABTEC CORP"
+        },
+        {
+          "symbol": "HONA",
+          "source_symbol": "HONA",
+          "name": "HONEYWELL AEROSPACE INC"
+        },
+        {
+          "symbol": "BKR",
+          "source_symbol": "BKR",
+          "name": "BAKER HUGHES CO"
+        },
+        {
+          "symbol": "FITB",
+          "source_symbol": "FITB",
+          "name": "FIFTH THIRD BANCORP"
+        },
+        {
+          "symbol": "ROK",
+          "source_symbol": "ROK",
+          "name": "ROCKWELL AUTOMATION INC"
+        },
+        {
+          "symbol": "MSCI",
+          "source_symbol": "MSCI",
+          "name": "MSCI INC"
+        },
+        {
+          "symbol": "KEYS",
+          "source_symbol": "KEYS",
+          "name": "KEYSIGHT TECHNOLOGIES IN"
+        },
+        {
+          "symbol": "NKE",
+          "source_symbol": "NKE",
+          "name": "NIKE INC  CL B"
+        },
+        {
+          "symbol": "ROP",
+          "source_symbol": "ROP",
+          "name": "ROPER TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "LHX",
+          "source_symbol": "LHX",
+          "name": "L3HARRIS TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "NDAQ",
+          "source_symbol": "NDAQ",
+          "name": "NASDAQ INC"
+        },
+        {
+          "symbol": "DVN",
+          "source_symbol": "DVN",
+          "name": "DEVON ENERGY CORP"
+        },
+        {
+          "symbol": "FERG",
+          "source_symbol": "FERG",
+          "name": "FERGUSON ENTERPRISES INC"
+        },
+        {
+          "symbol": "GRMN",
+          "source_symbol": "GRMN",
+          "name": "GARMIN LTD"
+        },
+        {
+          "symbol": "RSG",
+          "source_symbol": "RSG",
+          "name": "REPUBLIC SERVICES INC"
+        },
+        {
+          "symbol": "EXC",
+          "source_symbol": "EXC",
+          "name": "EXELON CORP"
+        },
+        {
+          "symbol": "STT",
+          "source_symbol": "STT",
+          "name": "STATE STREET CORP"
+        },
+        {
+          "symbol": "VYLR",
+          "source_symbol": "VYLR",
+          "name": "VYLOR INC"
+        },
+        {
+          "symbol": "XYZ",
+          "source_symbol": "XYZ",
+          "name": "BLOCK INC"
+        },
+        {
+          "symbol": "AMP",
+          "source_symbol": "AMP",
+          "name": "AMERIPRISE FINANCIAL INC"
+        },
+        {
+          "symbol": "VEEV",
+          "source_symbol": "VEEV",
+          "name": "VEEVA SYSTEMS INC CLASS A"
+        },
+        {
+          "symbol": "WAT",
+          "source_symbol": "WAT",
+          "name": "WATERS CORP"
+        },
+        {
+          "symbol": "CARR",
+          "source_symbol": "CARR",
+          "name": "CARRIER GLOBAL CORP"
+        },
+        {
+          "symbol": "VTR",
+          "source_symbol": "VTR",
+          "name": "VENTAS INC"
+        },
+        {
+          "symbol": "VMRK",
+          "source_symbol": "VMRK",
+          "name": "VIVMARK RESIDENTIAL"
+        },
+        {
+          "symbol": "YUM",
+          "source_symbol": "YUM",
+          "name": "YUM  BRANDS INC"
+        },
+        {
+          "symbol": "ED",
+          "source_symbol": "ED",
+          "name": "CONSOLIDATED EDISON INC"
+        },
+        {
+          "symbol": "CMG",
+          "source_symbol": "CMG",
+          "name": "CHIPOTLE MEXICAN GRILL INC"
+        },
+        {
+          "symbol": "PRU",
+          "source_symbol": "PRU",
+          "name": "PRUDENTIAL FINANCIAL INC"
+        },
+        {
+          "symbol": "IQV",
+          "source_symbol": "IQV",
+          "name": "IQVIA HOLDINGS INC"
+        },
+        {
+          "symbol": "AIG",
+          "source_symbol": "AIG",
+          "name": "AMERICAN INTERNATIONAL GROUP"
+        },
+        {
+          "symbol": "OXY",
+          "source_symbol": "OXY",
+          "name": "OCCIDENTAL PETROLEUM CORP"
+        },
+        {
+          "symbol": "MCHP",
+          "source_symbol": "MCHP",
+          "name": "MICROCHIP TECHNOLOGY INC"
+        },
+        {
+          "symbol": "WDAY",
+          "source_symbol": "WDAY",
+          "name": "WORKDAY INC CLASS A"
+        },
+        {
+          "symbol": "CBRE",
+          "source_symbol": "CBRE",
+          "name": "CBRE GROUP INC   A"
+        },
+        {
+          "symbol": "CCL",
+          "source_symbol": "CCL",
+          "name": "CARNIVAL CORP LTD"
+        },
+        {
+          "symbol": "DHI",
+          "source_symbol": "DHI",
+          "name": "DR HORTON INC"
+        },
+        {
+          "symbol": "TER",
+          "source_symbol": "TER",
+          "name": "TERADYNE INC"
+        },
+        {
+          "symbol": "KR",
+          "source_symbol": "KR",
+          "name": "KROGER CO"
+        },
+        {
+          "symbol": "CCI",
+          "source_symbol": "CCI",
+          "name": "CROWN CASTLE INC"
+        },
+        {
+          "symbol": "GEHC",
+          "source_symbol": "GEHC",
+          "name": "GE HEALTHCARE TECHNOLOGY"
+        },
+        {
+          "symbol": "VMC",
+          "source_symbol": "VMC",
+          "name": "VULCAN MATERIALS CO"
+        },
+        {
+          "symbol": "WEC",
+          "source_symbol": "WEC",
+          "name": "WEC ENERGY GROUP INC"
+        },
+        {
+          "symbol": "CIEN",
+          "source_symbol": "CIEN",
+          "name": "CIENA CORP"
+        },
+        {
+          "symbol": "FIX",
+          "source_symbol": "FIX",
+          "name": "COMFORT SYSTEMS USA INC"
+        },
+        {
+          "symbol": "COHR",
+          "source_symbol": "COHR",
+          "name": "COHERENT CORP"
+        },
+        {
+          "symbol": "VST",
+          "source_symbol": "VST",
+          "name": "VISTRA CORP"
+        },
+        {
+          "symbol": "PAYX",
+          "source_symbol": "PAYX",
+          "name": "PAYCHEX INC"
+        },
+        {
+          "symbol": "BIIB",
+          "source_symbol": "BIIB",
+          "name": "BIOGEN INC"
+        },
+        {
+          "symbol": "UAL",
+          "source_symbol": "UAL",
+          "name": "UNITED AIRLINES HOLDINGS INC"
+        },
+        {
+          "symbol": "CNC",
+          "source_symbol": "CNC",
+          "name": "CENTENE CORP"
+        },
+        {
+          "symbol": "ACGL",
+          "source_symbol": "ACGL",
+          "name": "ARCH CAPITAL GROUP LTD"
+        },
+        {
+          "symbol": "FANG",
+          "source_symbol": "FANG",
+          "name": "DIAMONDBACK ENERGY INC"
+        },
+        {
+          "symbol": "HIG",
+          "source_symbol": "HIG",
+          "name": "HARTFORD INSURANCE GROUP INC"
+        },
+        {
+          "symbol": "P",
+          "source_symbol": "P",
+          "name": "EVERPURE INC A"
+        },
+        {
+          "symbol": "SYY",
+          "source_symbol": "SYY",
+          "name": "SYSCO CORP"
+        },
+        {
+          "symbol": "ZTS",
+          "source_symbol": "ZTS",
+          "name": "ZOETIS INC"
+        },
+        {
+          "symbol": "NTAP",
+          "source_symbol": "NTAP",
+          "name": "NETAPP INC"
+        },
+        {
+          "symbol": "TTWO",
+          "source_symbol": "TTWO",
+          "name": "TAKE TWO INTERACTIVE SOFTWRE"
+        },
+        {
+          "symbol": "PEG",
+          "source_symbol": "PEG",
+          "name": "PUBLIC SERVICE ENTERPRISE GP"
+        },
+        {
+          "symbol": "EXPE",
+          "source_symbol": "EXPE",
+          "name": "EXPEDIA GROUP INC"
+        },
+        {
+          "symbol": "CBOE",
+          "source_symbol": "CBOE",
+          "name": "CBOE GLOBAL MARKETS INC"
+        },
+        {
+          "symbol": "IRM",
+          "source_symbol": "IRM",
+          "name": "IRON MOUNTAIN INC"
+        },
+        {
+          "symbol": "IBKR",
+          "source_symbol": "IBKR",
+          "name": "INTERACTIVE BROKERS GRO CL A"
+        },
+        {
+          "symbol": "RMD",
+          "source_symbol": "RMD",
+          "name": "RESMED INC"
+        },
+        {
+          "symbol": "AXON",
+          "source_symbol": "AXON",
+          "name": "AXON ENTERPRISE INC"
+        },
+        {
+          "symbol": "MTD",
+          "source_symbol": "MTD",
+          "name": "METTLER TOLEDO INTERNATIONAL"
+        },
+        {
+          "symbol": "ADM",
+          "source_symbol": "ADM",
+          "name": "ARCHER DANIELS MIDLAND CO"
+        },
+        {
+          "symbol": "ILMN",
+          "source_symbol": "ILMN",
+          "name": "ILLUMINA INC"
+        },
+        {
+          "symbol": "EXR",
+          "source_symbol": "EXR",
+          "name": "EXTRA SPACE STORAGE INC"
+        },
+        {
+          "symbol": "COIN",
+          "source_symbol": "COIN",
+          "name": "COINBASE GLOBAL INC  CLASS A"
+        },
+        {
+          "symbol": "MLM",
+          "source_symbol": "MLM",
+          "name": "MARTIN MARIETTA MATERIALS"
+        },
+        {
+          "symbol": "ODFL",
+          "source_symbol": "ODFL",
+          "name": "OLD DOMINION FREIGHT LINE"
+        },
+        {
+          "symbol": "DXCM",
+          "source_symbol": "DXCM",
+          "name": "DEXCOM INC"
+        },
+        {
+          "symbol": "FISV",
+          "source_symbol": "FISV",
+          "name": "FISERV INC"
+        },
+        {
+          "symbol": "TWLO",
+          "source_symbol": "TWLO",
+          "name": "TWILIO INC   A"
+        },
+        {
+          "symbol": "EQT",
+          "source_symbol": "EQT",
+          "name": "EQT CORP"
+        },
+        {
+          "symbol": "NTRS",
+          "source_symbol": "NTRS",
+          "name": "NORTHERN TRUST CORP"
+        },
+        {
+          "symbol": "STLD",
+          "source_symbol": "STLD",
+          "name": "STEEL DYNAMICS INC"
+        },
+        {
+          "symbol": "MTB",
+          "source_symbol": "MTB",
+          "name": "M + T BANK CORP"
+        },
+        {
+          "symbol": "HBAN",
+          "source_symbol": "HBAN",
+          "name": "HUNTINGTON BANCSHARES INC"
+        },
+        {
+          "symbol": "WSM",
+          "source_symbol": "WSM",
+          "name": "WILLIAMS SONOMA INC"
+        },
+        {
+          "symbol": "OKTA",
+          "source_symbol": "OKTA",
+          "name": "OKTA INC"
+        },
+        {
+          "symbol": "AEE",
+          "source_symbol": "AEE",
+          "name": "AMEREN CORPORATION"
+        },
+        {
+          "symbol": "WTW",
+          "source_symbol": "WTW",
+          "name": "WILLIS TOWERS WATSON PLC"
+        },
+        {
+          "symbol": "DG",
+          "source_symbol": "DG",
+          "name": "DOLLAR GENERAL CORP"
+        },
+        {
+          "symbol": "ARES",
+          "source_symbol": "ARES",
+          "name": "ARES MANAGEMENT CORP   A"
+        },
+        {
+          "symbol": "OTIS",
+          "source_symbol": "OTIS",
+          "name": "OTIS WORLDWIDE CORP"
+        },
+        {
+          "symbol": "ATO",
+          "source_symbol": "ATO",
+          "name": "ATMOS ENERGY CORP"
+        },
+        {
+          "symbol": "AWK",
+          "source_symbol": "AWK",
+          "name": "AMERICAN WATER WORKS CO INC"
+        },
+        {
+          "symbol": "LH",
+          "source_symbol": "LH",
+          "name": "LABCORP HOLDINGS INC"
+        },
+        {
+          "symbol": "CTSH",
+          "source_symbol": "CTSH",
+          "name": "COGNIZANT TECH SOLUTIONS A"
+        },
+        {
+          "symbol": "PCG",
+          "source_symbol": "PCG",
+          "name": "P G + E CORP"
+        },
+        {
+          "symbol": "TDY",
+          "source_symbol": "TDY",
+          "name": "TELEDYNE TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "RJF",
+          "source_symbol": "RJF",
+          "name": "RAYMOND JAMES FINANCIAL INC"
+        },
+        {
+          "symbol": "CINF",
+          "source_symbol": "CINF",
+          "name": "CINCINNATI FINANCIAL CORP"
+        },
+        {
+          "symbol": "LYV",
+          "source_symbol": "LYV",
+          "name": "LIVE NATION ENTERTAINMENT IN"
+        },
+        {
+          "symbol": "IR",
+          "source_symbol": "IR",
+          "name": "INGERSOLL RAND INC"
+        },
+        {
+          "symbol": "DOV",
+          "source_symbol": "DOV",
+          "name": "DOVER CORP"
+        },
+        {
+          "symbol": "DTE",
+          "source_symbol": "DTE",
+          "name": "DTE ENERGY COMPANY"
+        },
+        {
+          "symbol": "WST",
+          "source_symbol": "WST",
+          "name": "WEST PHARMACEUTICAL SERVICES"
+        },
+        {
+          "symbol": "VLTO",
+          "source_symbol": "VLTO",
+          "name": "VERALTO CORP"
+        },
+        {
+          "symbol": "FLEX",
+          "source_symbol": "FLEX",
+          "name": "FLEX LTD"
+        },
+        {
+          "symbol": "PPG",
+          "source_symbol": "PPG",
+          "name": "PPG INDUSTRIES INC"
+        },
+        {
+          "symbol": "DGX",
+          "source_symbol": "DGX",
+          "name": "QUEST DIAGNOSTICS INC"
+        },
+        {
+          "symbol": "ULTA",
+          "source_symbol": "ULTA",
+          "name": "ULTA BEAUTY INC"
+        },
+        {
+          "symbol": "DLTR",
+          "source_symbol": "DLTR",
+          "name": "DOLLAR TREE INC"
+        },
+        {
+          "symbol": "EME",
+          "source_symbol": "EME",
+          "name": "EMCOR GROUP INC"
+        },
+        {
+          "symbol": "CFG",
+          "source_symbol": "CFG",
+          "name": "CITIZENS FINANCIAL GROUP"
+        },
+        {
+          "symbol": "VICI",
+          "source_symbol": "VICI",
+          "name": "VICI PROPERTIES INC"
+        },
+        {
+          "symbol": "ON",
+          "source_symbol": "ON",
+          "name": "ON SEMICONDUCTOR"
+        },
+        {
+          "symbol": "EL",
+          "source_symbol": "EL",
+          "name": "ESTEE LAUDER COMPANIES CL A"
+        },
+        {
+          "symbol": "HAL",
+          "source_symbol": "HAL",
+          "name": "HALLIBURTON CO"
+        },
+        {
+          "symbol": "HPQ",
+          "source_symbol": "HPQ",
+          "name": "HP INC"
+        },
+        {
+          "symbol": "CPAY",
+          "source_symbol": "CPAY",
+          "name": "CORPAY INC"
+        },
+        {
+          "symbol": "CPRT",
+          "source_symbol": "CPRT",
+          "name": "COPART INC"
+        },
+        {
+          "symbol": "JBL",
+          "source_symbol": "JBL",
+          "name": "JABIL INC"
+        },
+        {
+          "symbol": "PPL",
+          "source_symbol": "PPL",
+          "name": "PPL CORP"
+        },
+        {
+          "symbol": "CNP",
+          "source_symbol": "CNP",
+          "name": "CENTERPOINT ENERGY INC"
+        },
+        {
+          "symbol": "CHD",
+          "source_symbol": "CHD",
+          "name": "CHURCH + DWIGHT CO INC"
+        },
+        {
+          "symbol": "ES",
+          "source_symbol": "ES",
+          "name": "EVERSOURCE ENERGY"
+        },
+        {
+          "symbol": "DRI",
+          "source_symbol": "DRI",
+          "name": "DARDEN RESTAURANTS INC"
+        },
+        {
+          "symbol": "VRSN",
+          "source_symbol": "VRSN",
+          "name": "VERISIGN INC"
+        },
+        {
+          "symbol": "VRSK",
+          "source_symbol": "VRSK",
+          "name": "VERISK ANALYTICS INC"
+        },
+        {
+          "symbol": "EXPD",
+          "source_symbol": "EXPD",
+          "name": "EXPEDITORS INTL WASH INC"
+        },
+        {
+          "symbol": "PHM",
+          "source_symbol": "PHM",
+          "name": "PULTEGROUP INC"
+        },
+        {
+          "symbol": "HSY",
+          "source_symbol": "HSY",
+          "name": "HERSHEY CO/THE"
+        },
+        {
+          "symbol": "CASY",
+          "source_symbol": "CASY",
+          "name": "CASEY S GENERAL STORES INC"
+        },
+        {
+          "symbol": "Q",
+          "source_symbol": "Q",
+          "name": "QNITY ELECTRONICS INC"
+        },
+        {
+          "symbol": "TPR",
+          "source_symbol": "TPR",
+          "name": "TAPESTRY INC"
+        },
+        {
+          "symbol": "RF",
+          "source_symbol": "RF",
+          "name": "REGIONS FINANCIAL CORP"
+        },
+        {
+          "symbol": "FE",
+          "source_symbol": "FE",
+          "name": "FIRSTENERGY CORP"
+        },
+        {
+          "symbol": "STE",
+          "source_symbol": "STE",
+          "name": "STERIS PLC"
+        },
+        {
+          "symbol": "TROW",
+          "source_symbol": "TROW",
+          "name": "T ROWE PRICE GROUP INC"
+        },
+        {
+          "symbol": "SYF",
+          "source_symbol": "SYF",
+          "name": "SYNCHRONY FINANCIAL"
+        },
+        {
+          "symbol": "OMC",
+          "source_symbol": "OMC",
+          "name": "OMNICOM GROUP"
+        },
+        {
+          "symbol": "SW",
+          "source_symbol": "SW",
+          "name": "SMURFIT WESTROCK PLC"
+        },
+        {
+          "symbol": "EIX",
+          "source_symbol": "EIX",
+          "name": "EDISON INTERNATIONAL"
+        },
+        {
+          "symbol": "XYL",
+          "source_symbol": "XYL",
+          "name": "XYLEM INC"
+        },
+        {
+          "symbol": "DOW",
+          "source_symbol": "DOW",
+          "name": "DOW INC"
+        },
+        {
+          "symbol": "HUBB",
+          "source_symbol": "HUBB",
+          "name": "HUBBELL INC"
+        },
+        {
+          "symbol": "PKG",
+          "source_symbol": "PKG",
+          "name": "PACKAGING CORP OF AMERICA"
+        },
+        {
+          "symbol": "PFG",
+          "source_symbol": "PFG",
+          "name": "PRINCIPAL FINANCIAL GROUP"
+        },
+        {
+          "symbol": "LUV",
+          "source_symbol": "LUV",
+          "name": "SOUTHWEST AIRLINES CO"
+        },
+        {
+          "symbol": "EFX",
+          "source_symbol": "EFX",
+          "name": "EQUIFAX INC"
+        },
+        {
+          "symbol": "IFF",
+          "source_symbol": "IFF",
+          "name": "INTL FLAVORS + FRAGRANCES"
+        },
+        {
+          "symbol": "AMCR",
+          "source_symbol": "AMCR",
+          "name": "AMCOR PLC"
+        },
+        {
+          "symbol": "CMS",
+          "source_symbol": "CMS",
+          "name": "CMS ENERGY CORP"
+        },
+        {
+          "symbol": "VTRS",
+          "source_symbol": "VTRS",
+          "name": "VIATRIS INC"
+        },
+        {
+          "symbol": "KHC",
+          "source_symbol": "KHC",
+          "name": "KRAFT HEINZ CO/THE"
+        },
+        {
+          "symbol": "STZ",
+          "source_symbol": "STZ",
+          "name": "CONSTELLATION BRANDS INC A"
+        },
+        {
+          "symbol": "NI",
+          "source_symbol": "NI",
+          "name": "NISOURCE INC"
+        },
+        {
+          "symbol": "BR",
+          "source_symbol": "BR",
+          "name": "BROADRIDGE FINANCIAL SOLUTIO"
+        },
+        {
+          "symbol": "GPN",
+          "source_symbol": "GPN",
+          "name": "GLOBAL PAYMENTS INC"
+        },
+        {
+          "symbol": "BRO",
+          "source_symbol": "BRO",
+          "name": "BROWN + BROWN INC"
+        },
+        {
+          "symbol": "ZBH",
+          "source_symbol": "ZBH",
+          "name": "ZIMMER BIOMET HOLDINGS INC"
+        },
+        {
+          "symbol": "PTC",
+          "source_symbol": "PTC",
+          "name": "PTC INC"
+        },
+        {
+          "symbol": "CDW",
+          "source_symbol": "CDW",
+          "name": "CDW CORP/DE"
+        },
+        {
+          "symbol": "FSLR",
+          "source_symbol": "FSLR",
+          "name": "FIRST SOLAR INC"
+        },
+        {
+          "symbol": "INCY",
+          "source_symbol": "INCY",
+          "name": "INCYTE CORP"
+        },
+        {
+          "symbol": "SBAC",
+          "source_symbol": "SBAC",
+          "name": "SBA COMMUNICATIONS CORP"
+        },
+        {
+          "symbol": "FTV",
+          "source_symbol": "FTV",
+          "name": "FORTIVE CORP"
+        },
+        {
+          "symbol": "DD",
+          "source_symbol": "DD",
+          "name": "DUPONT DE NEMOURS INC"
+        },
+        {
+          "symbol": "EXE",
+          "source_symbol": "EXE",
+          "name": "EXPAND ENERGY CORP"
+        },
+        {
+          "symbol": "BBY",
+          "source_symbol": "BBY",
+          "name": "BEST BUY CO INC"
+        },
+        {
+          "symbol": "EVRG",
+          "source_symbol": "EVRG",
+          "name": "EVERGY INC"
+        },
+        {
+          "symbol": "KEY",
+          "source_symbol": "KEY",
+          "name": "KEYCORP"
+        },
+        {
+          "symbol": "TSCO",
+          "source_symbol": "TSCO",
+          "name": "TRACTOR SUPPLY COMPANY"
+        },
+        {
+          "symbol": "GIS",
+          "source_symbol": "GIS",
+          "name": "GENERAL MILLS INC"
+        },
+        {
+          "symbol": "SNA",
+          "source_symbol": "SNA",
+          "name": "SNAP ON INC"
+        },
+        {
+          "symbol": "LNT",
+          "source_symbol": "LNT",
+          "name": "ALLIANT ENERGY CORP"
+        },
+        {
+          "symbol": "SWKS",
+          "source_symbol": "SWKS",
+          "name": "SKYWORKS SOLUTIONS INC"
+        },
+        {
+          "symbol": "IP",
+          "source_symbol": "IP",
+          "name": "INTERNATIONAL PAPER CO"
+        },
+        {
+          "symbol": "FFIV",
+          "source_symbol": "FFIV",
+          "name": "F5 INC"
+        },
+        {
+          "symbol": "J",
+          "source_symbol": "J",
+          "name": "JACOBS SOLUTIONS INC"
+        },
+        {
+          "symbol": "L",
+          "source_symbol": "L",
+          "name": "LOEWS CORP"
+        },
+        {
+          "symbol": "BALL",
+          "source_symbol": "BALL",
+          "name": "BALL CORP"
+        },
+        {
+          "symbol": "HST",
+          "source_symbol": "HST",
+          "name": "HOST HOTELS + RESORTS INC"
+        },
+        {
+          "symbol": "RVTY",
+          "source_symbol": "RVTY",
+          "name": "REVVITY INC"
+        },
+        {
+          "symbol": "LEN",
+          "source_symbol": "LEN",
+          "name": "LENNAR CORP A"
+        },
+        {
+          "symbol": "SWK",
+          "source_symbol": "SWK",
+          "name": "STANLEY BLACK + DECKER INC"
+        },
+        {
+          "symbol": "NRG",
+          "source_symbol": "NRG",
+          "name": "NRG ENERGY INC"
+        },
+        {
+          "symbol": "NDSN",
+          "source_symbol": "NDSN",
+          "name": "NORDSON CORP"
+        },
+        {
+          "symbol": "KIM",
+          "source_symbol": "KIM",
+          "name": "KIMCO REALTY CORP"
+        },
+        {
+          "symbol": "ESS",
+          "source_symbol": "ESS",
+          "name": "ESSEX PROPERTY TRUST INC"
+        },
+        {
+          "symbol": "GPC",
+          "source_symbol": "GPC",
+          "name": "GENUINE PARTS CO"
+        },
+        {
+          "symbol": "WRB",
+          "source_symbol": "WRB",
+          "name": "WR BERKLEY CORP"
+        },
+        {
+          "symbol": "IEX",
+          "source_symbol": "IEX",
+          "name": "IDEX CORP"
+        },
+        {
+          "symbol": "HAS",
+          "source_symbol": "HAS",
+          "name": "HASBRO INC"
+        },
+        {
+          "symbol": "LDOS",
+          "source_symbol": "LDOS",
+          "name": "LEIDOS HOLDINGS INC"
+        },
+        {
+          "symbol": "TSN",
+          "source_symbol": "TSN",
+          "name": "TYSON FOODS INC CL A"
+        },
+        {
+          "symbol": "MAS",
+          "source_symbol": "MAS",
+          "name": "MASCO CORP"
+        },
+        {
+          "symbol": "JBHT",
+          "source_symbol": "JBHT",
+          "name": "HUNT (JB) TRANSPRT SVCS INC"
+        },
+        {
+          "symbol": "CF",
+          "source_symbol": "CF",
+          "name": "CF INDUSTRIES HOLDINGS INC"
+        },
+        {
+          "symbol": "TPL",
+          "source_symbol": "TPL",
+          "name": "TEXAS PACIFIC LAND CORP"
+        },
+        {
+          "symbol": "SMCI",
+          "source_symbol": "SMCI",
+          "name": "SUPER MICRO COMPUTER INC"
+        },
+        {
+          "symbol": "GEN",
+          "source_symbol": "GEN",
+          "name": "GEN DIGITAL INC"
+        },
+        {
+          "symbol": "ALLE",
+          "source_symbol": "ALLE",
+          "name": "ALLEGION PLC"
+        },
+        {
+          "symbol": "LYB",
+          "source_symbol": "LYB",
+          "name": "LYONDELLBASELL INDU CL A"
+        },
+        {
+          "symbol": "NVR",
+          "source_symbol": "NVR",
+          "name": "NVR INC"
+        },
+        {
+          "symbol": "TYL",
+          "source_symbol": "TYL",
+          "name": "TYLER TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "ZBRA",
+          "source_symbol": "ZBRA",
+          "name": "ZEBRA TECHNOLOGIES CORP CL A"
+        },
+        {
+          "symbol": "CHRW",
+          "source_symbol": "CHRW",
+          "name": "C.H. ROBINSON WORLDWIDE INC"
+        },
+        {
+          "symbol": "APA",
+          "source_symbol": "APA",
+          "name": "APA CORP"
+        },
+        {
+          "symbol": "WY",
+          "source_symbol": "WY",
+          "name": "WEYERHAEUSER CO"
+        },
+        {
+          "symbol": "RL",
+          "source_symbol": "RL",
+          "name": "RALPH LAUREN CORP"
+        },
+        {
+          "symbol": "FDXF",
+          "source_symbol": "FDXF",
+          "name": "FEDEX FREIGHT HOLDING CO"
+        },
+        {
+          "symbol": "CRL",
+          "source_symbol": "CRL",
+          "name": "CHARLES RIVER LABORATORIES"
+        },
+        {
+          "symbol": "FIS",
+          "source_symbol": "FIS",
+          "name": "FIDELITY NATIONAL INFO SERV"
+        },
+        {
+          "symbol": "AIZ",
+          "source_symbol": "AIZ",
+          "name": "ASSURANT INC"
+        },
+        {
+          "symbol": "BG",
+          "source_symbol": "BG",
+          "name": "BUNGE GLOBAL SA"
+        },
+        {
+          "symbol": "FICO",
+          "source_symbol": "FICO",
+          "name": "FAIR ISAAC CORP"
+        },
+        {
+          "symbol": "TXT",
+          "source_symbol": "TXT",
+          "name": "TEXTRON INC"
+        },
+        {
+          "symbol": "EG",
+          "source_symbol": "EG",
+          "name": "EVEREST GROUP LTD"
+        },
+        {
+          "symbol": "GDDY",
+          "source_symbol": "GDDY",
+          "name": "GODADDY INC   CLASS A"
+        },
+        {
+          "symbol": "RDDT",
+          "source_symbol": "RDDT",
+          "name": "REDDIT INC CL A"
+        },
+        {
+          "symbol": "INVH",
+          "source_symbol": "INVH",
+          "name": "INVITATION HOMES INC"
+        },
+        {
+          "symbol": "AVY",
+          "source_symbol": "AVY",
+          "name": "AVERY DENNISON CORP"
+        },
+        {
+          "symbol": "MAA",
+          "source_symbol": "MAA",
+          "name": "MID AMERICA APARTMENT COMM"
+        },
+        {
+          "symbol": "SJM",
+          "source_symbol": "SJM",
+          "name": "JM SMUCKER CO/THE"
+        },
+        {
+          "symbol": "DOC",
+          "source_symbol": "DOC",
+          "name": "HEALTHPEAK PROPERTIES INC"
+        },
+        {
+          "symbol": "FOXA",
+          "source_symbol": "FOXA",
+          "name": "FOX CORP   CLASS A"
+        },
+        {
+          "symbol": "BAX",
+          "source_symbol": "BAX",
+          "name": "BAXTER INTERNATIONAL INC"
+        },
+        {
+          "symbol": "ECHO",
+          "source_symbol": "ECHO",
+          "name": "ECHOSTAR CORP A"
+        },
+        {
+          "symbol": "CHTR",
+          "source_symbol": "CHTR",
+          "name": "CHARTER COMMUNICATIONS INC A"
+        },
+        {
+          "symbol": "CSGP",
+          "source_symbol": "CSGP",
+          "name": "COSTAR GROUP INC"
+        },
+        {
+          "symbol": "IVZ",
+          "source_symbol": "IVZ",
+          "name": "INVESCO LTD"
+        },
+        {
+          "symbol": "IT",
+          "source_symbol": "IT",
+          "name": "GARTNER INC"
+        },
+        {
+          "symbol": "SOLV",
+          "source_symbol": "SOLV",
+          "name": "SOLVENTUM CORP"
+        },
+        {
+          "symbol": "MKC",
+          "source_symbol": "MKC",
+          "name": "MCCORMICK + CO NON VTG SHRS"
+        },
+        {
+          "symbol": "PNW",
+          "source_symbol": "PNW",
+          "name": "PINNACLE WEST CAPITAL"
+        },
+        {
+          "symbol": "JKHY",
+          "source_symbol": "JKHY",
+          "name": "JACK HENRY + ASSOCIATES INC"
+        },
+        {
+          "symbol": "REG",
+          "source_symbol": "REG",
+          "name": "REGENCY CENTERS CORP"
+        },
+        {
+          "symbol": "TRMB",
+          "source_symbol": "TRMB",
+          "name": "TRIMBLE INC"
+        },
+        {
+          "symbol": "COO",
+          "source_symbol": "COO",
+          "name": "COOPER COS INC/THE"
+        },
+        {
+          "symbol": "GL",
+          "source_symbol": "GL",
+          "name": "GLOBE LIFE INC"
+        },
+        {
+          "symbol": "AKAM",
+          "source_symbol": "AKAM",
+          "name": "AKAMAI TECHNOLOGIES INC"
+        },
+        {
+          "symbol": "FDS",
+          "source_symbol": "FDS",
+          "name": "FACTSET RESEARCH SYSTEMS INC"
+        },
+        {
+          "symbol": "CLX",
+          "source_symbol": "CLX",
+          "name": "CLOROX COMPANY"
+        },
+        {
+          "symbol": "DECK",
+          "source_symbol": "DECK",
+          "name": "DECKERS OUTDOOR CORP"
+        },
+        {
+          "symbol": "HII",
+          "source_symbol": "HII",
+          "name": "HUNTINGTON INGALLS INDUSTRIE"
+        },
+        {
+          "symbol": "LULU",
+          "source_symbol": "LULU",
+          "name": "LULULEMON ATHLETICA INC"
+        },
+        {
+          "symbol": "PNR",
+          "source_symbol": "PNR",
+          "name": "PENTAIR PLC"
+        },
+        {
+          "symbol": "TKO",
+          "source_symbol": "TKO",
+          "name": "TKO GROUP HOLDINGS INC"
+        },
+        {
+          "symbol": "PODD",
+          "source_symbol": "PODD",
+          "name": "INSULET CORP"
+        },
+        {
+          "symbol": "TECH",
+          "source_symbol": "TECH",
+          "name": "BIO TECHNE CORP"
+        },
+        {
+          "symbol": "LII",
+          "source_symbol": "LII",
+          "name": "LENNOX INTERNATIONAL INC"
+        },
+        {
+          "symbol": "ROL",
+          "source_symbol": "ROL",
+          "name": "ROLLINS INC"
+        },
+        {
+          "symbol": "DPZ",
+          "source_symbol": "DPZ",
+          "name": "DOMINO S PIZZA INC"
+        },
+        {
+          "symbol": "ALB",
+          "source_symbol": "ALB",
+          "name": "ALBEMARLE CORP"
+        },
+        {
+          "symbol": "NWSA",
+          "source_symbol": "NWSA",
+          "name": "NEWS CORP   CLASS A"
+        },
+        {
+          "symbol": "GNRC",
+          "source_symbol": "GNRC",
+          "name": "GENERAC HOLDINGS INC"
+        },
+        {
+          "symbol": "UDR",
+          "source_symbol": "UDR",
+          "name": "UDR INC"
+        },
+        {
+          "symbol": "ALGN",
+          "source_symbol": "ALGN",
+          "name": "ALIGN TECHNOLOGY INC"
+        },
+        {
+          "symbol": "AES",
+          "source_symbol": "AES",
+          "name": "AES CORP"
+        },
+        {
+          "symbol": "BXP",
+          "source_symbol": "BXP",
+          "name": "BXP INC"
+        },
+        {
+          "symbol": "CPT",
+          "source_symbol": "CPT",
+          "name": "CAMDEN PROPERTY TRUST"
+        },
+        {
+          "symbol": "LVS",
+          "source_symbol": "LVS",
+          "name": "LAS VEGAS SANDS CORP"
+        },
+        {
+          "symbol": "UHS",
+          "source_symbol": "UHS",
+          "name": "UNIVERSAL HEALTH SERVICES B"
+        },
+        {
+          "symbol": "BEN",
+          "source_symbol": "BEN",
+          "name": "FRANKLIN TEMPLETON INC"
+        },
+        {
+          "symbol": "FRT",
+          "source_symbol": "FRT",
+          "name": "FEDERAL REALTY INVS TRUST"
+        },
+        {
+          "symbol": "APTV",
+          "source_symbol": "APTV",
+          "name": "APTIV PLC"
+        },
+        {
+          "symbol": "NCLH",
+          "source_symbol": "NCLH",
+          "name": "NORWEGIAN CRUISE LINE HOLDIN"
+        },
+        {
+          "symbol": "HSIC",
+          "source_symbol": "HSIC",
+          "name": "HENRY SCHEIN INC"
+        },
+        {
+          "symbol": "FOX",
+          "source_symbol": "FOX",
+          "name": "FOX CORP   CLASS B"
+        },
+        {
+          "symbol": "AOS",
+          "source_symbol": "AOS",
+          "name": "SMITH (A.O.) CORP"
+        },
+        {
+          "symbol": "ARE",
+          "source_symbol": "ARE",
+          "name": "ALEXANDRIA REAL ESTATE EQUIT"
+        },
+        {
+          "symbol": "ERIE",
+          "source_symbol": "ERIE",
+          "name": "ERIE INDEMNITY COMPANY CL A"
+        },
+        {
+          "symbol": "MOS",
+          "source_symbol": "MOS",
+          "name": "MOSAIC CO/THE"
+        },
+        {
+          "symbol": "HRL",
+          "source_symbol": "HRL",
+          "name": "HORMEL FOODS CORP"
+        },
+        {
+          "symbol": "DVA",
+          "source_symbol": "DVA",
+          "name": "DAVITA INC"
+        },
+        {
+          "symbol": "WYNN",
+          "source_symbol": "WYNN",
+          "name": "WYNN RESORTS LTD"
+        },
+        {
+          "symbol": "MGM",
+          "source_symbol": "MGM",
+          "name": "MGM RESORTS INTERNATIONAL"
+        },
+        {
+          "symbol": "BF-B",
+          "source_symbol": "BF.B",
+          "name": "BROWN FORMAN CORP CLASS B"
+        },
+        {
+          "symbol": "SKYD",
+          "source_symbol": "SKYD",
+          "name": "SKYDANCE CORP"
+        },
+        {
+          "symbol": "NWS",
+          "source_symbol": "NWS",
+          "name": "NEWS CORP   CLASS B"
+        }
+      ],
+      "excluded_non_tradable_items": [
+        {
+          "symbol": "-",
+          "source_symbol": "-",
+          "name": "US DOLLAR"
+        },
+        {
+          "symbol": "2602335D",
+          "source_symbol": "2602335D",
+          "name": "CONTRA HOLOGIC INCORPO"
+        }
+      ]
+    }
+  ]
+}

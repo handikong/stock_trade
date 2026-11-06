@@ -1,0 +1,22 @@
+{
+  "version": "index-members-adjustments-v1",
+  "changes": [
+    {
+      "index": "NASDAQ100",
+      "base_symbols_digest": "e60aa74df84b13c94f25f963019b4b99e5673642a8629378ea704970b74cc7a3",
+      "effective_date": "2026-10-09",
+      "remove": [
+        "WBD"
+      ],
+      "add": [
+        {
+          "symbol": "MRNA",
+          "source_symbol": "MRNA",
+          "name": "Moderna, Inc."
+        }
+      ],
+      "source_url": "https://ir.nasdaq.com/news-releases/news-release-details/moderna-inc-join-nasdaq-100-indexr-beginning-october-9-2026",
+      "note": "Nasdaq官方2026-10-01公告：10月9日开盘前MRNA替换WBD；公开教育表尚未更新。本更正仅适用这份完整代码集合，避免套用到未来已变化的名单。"
+    }
+  ]
+}

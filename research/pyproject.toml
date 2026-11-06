@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-research"
+version = "0.1.0"
+description = "个人美股研究：行情缓存、证据存档、前瞻与情景估值"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "sqlalchemy>=2.0,<2.1",
+  "psycopg[binary]>=3.2,<4", "pydantic-settings>=2.7,<3",
+  "httpx>=0.28,<1", "yfinance>=0.2.66,<0.3", "pandas>=2.2,<3",
+  "exchange-calendars>=4.8,<5", "beautifulsoup4>=4.13,<5",
+  "pypdf>=6,<7", "python-multipart>=0.0.20,<1"
+]
+
+[project.scripts]
+stock-research = "stock_research.cli:main"
+stock-trend = "stock_research.trend_cli:main"
+stock-watchlist = "stock_research.watchlist_cli:main"
+stock-backtest = "stock_research.backtest_cli:main"
+stock-notify = "stock_research.notify_cli:main"
+stock-input = "stock_research.input_cli:main"
+stock-levels = "stock_research.levels_cli:main"
+stock-schedule = "stock_research.schedule_cli:main"
+stock-universe = "stock_research.universe_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["stock_research*"]

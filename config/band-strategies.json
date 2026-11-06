@@ -1,0 +1,49 @@
+{
+  "version": "multi-strategy-ema-v5-macd-icon1-common-exits-v2",
+  "note": "默认独立启用EMA20高点回踩与MACD12/26/9图标1买入提示。回踩策略最多容忍5根连续红带；图标1仅按零轴下金叉，不叠加回踩或红带期限。其他策略草稿关闭。",
+  "stop_buffer_atr": 0.3,
+  "entry_buffer_atr": 0.25,
+  "max_risk_atr": 2.5,
+  "exits": {
+    "enabled": true,
+    "fast_ema_period": 5,
+    "slow_ema_period": 10,
+    "macd_low_lookback": 10,
+    "macd_stop_buffer_atr": 0.3
+  },
+  "macd_arrow": {
+    "enabled": true,
+    "short": 12,
+    "long": 26,
+    "m": 9
+  },
+  "pullback": {
+    "enabled": true,
+    "ema_period": 20,
+    "peak_lookback": 20,
+    "rise_lookback": 10,
+    "min_rise_atr": 3.0,
+    "min_peak_distance_atr": 2.0,
+    "touch_tolerance_atr": 0.25,
+    "max_consecutive_red_bars": 5
+  },
+  "breakout": {
+    "enabled": false,
+    "lookback": 20,
+    "volume_lookback": 20,
+    "min_volume_ratio": 1.2,
+    "max_distance_level_atr": 0.75,
+    "max_distance_slow_atr": 3.0,
+    "stop_below_level_atr": 0.75
+  },
+  "rebound": {
+    "enabled": false,
+    "support_lookback": 20,
+    "stabilization_bars": 3,
+    "momentum_bars": 2,
+    "near_support_atr": 0.75,
+    "max_distance_trigger_atr": 0.75,
+    "min_reward_risk": 1.5,
+    "max_holding_calendar_months": 1
+  }
+}
