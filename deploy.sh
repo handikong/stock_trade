@@ -10,8 +10,10 @@ venv_python="$root/.venv/bin/python"
 runtime="$root/data/deploy"
 pidfile="$runtime/worker.pid"
 logfile="$runtime/worker.log"
-host=127.0.0.1
+host="${STOCK_TRADE_HOST:-0.0.0.0}"
 port=8000
+[[ "$host" == 0.0.0.0 || "$host" == 127.0.0.1 ]] ||
+    fail "STOCK_TRADE_HOST 只支持 0.0.0.0 或 127.0.0.1"
 
 for binary in git flock nohup "$python_bin"; do
     command -v "$binary" >/dev/null || fail "缺少 $binary"
@@ -43,7 +45,7 @@ if [[ ! -x "$venv_python" ]]; then
 fi
 "$venv_python" -m pip install --disable-pip-version-check -e ./research
 printf '初始化数据库与首次部署的股票池…\n'
-"$venv_python" -m stock_research.deploy_init
+"$venv_python" -m stock_research.deploy_init --listen-host "$host"
 
 running() {
     local first
@@ -93,7 +95,7 @@ nohup "$venv_python" -m uvicorn stock_research.api:app \
 new_pid=$!
 printf '%s\n' "$new_pid" > "$pidfile"
 
-if ! "$venv_python" - "$host" "$port" "$new_pid" <<'PY'
+if ! "$venv_python" - 127.0.0.1 "$port" "$new_pid" <<'PY'
 import os
 import socket
 import sys
@@ -117,4 +119,7 @@ then
     fail "后台未在30秒内监听 $host:$port；请查看 $logfile"
 fi
 owned_worker "$new_pid" || fail "监听进程与本次启动不匹配，请查看 $logfile"
-printf '部署完成，后台 PID %s，入口 http://%s:%s\n日志：%s\n' "$new_pid" "$host" "$port" "$logfile"
+printf '部署完成，后台 PID %s，监听 %s:%s\n日志：%s\n' "$new_pid" "$host" "$port" "$logfile"
+if [[ "$host" == 0.0.0.0 ]]; then
+    printf '访问地址：http://服务器IP:%s（网页口令为部署配置中的 APP_TOKEN）\n' "$port"
+fi
