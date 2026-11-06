@@ -16,7 +16,6 @@ const paths = {
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-5L4 9m16 6-3 3a7 7 0 0 1-12-5"/>',
   arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>',
-  settings:'<circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 1 3h4l1-3 3-1 2-3-2-2 1-3-3-2-1-3z"/>',
   pie:'<path d="M12 3v9h9M9 3.5A9 9 0 1 0 20.5 15"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>', play:'<path d="m8 4 12 8-12 8z"/>',
   research:'<path d="M5 3h10l4 4v13H5zM14 3v5h5M8 12h8m-8 4h5"/>',
@@ -46,15 +45,11 @@ function notice(message = '', error = false) {
 }
 function formError(id, message = '') { const node = $(id); node.textContent = message; node.hidden = !message; }
 async function api(path, options = {}) {
-  const headers = {'X-App-Token':sessionStorage.getItem('research-token') || '', ...options.headers};
+  const headers = {...options.headers};
   if (options.body) headers['Content-Type'] = 'application/json';
   let response;
   try { response = await fetch('/api/v1' + path, {...options,headers,cache:'no-store'}); }
   catch { throw new Error('无法连接服务，请确认后台已启动后重试。'); }
-  if (response.status === 401) {
-    $('#connection').textContent = '需要访问口令';
-    if (!document.querySelector('dialog[open]')) openToken();
-  }
   let data;
   try { data = await response.json(); }
   catch { throw new Error('服务未返回有效结果，请稍后重试。'); }
@@ -285,7 +280,6 @@ function openPosition(id = null) {
   $('#position-dialog').showModal();
 }
 function openPool() { $('#pool-form').reset(); formError('#pool-error'); $('#pool-dialog').showModal(); }
-function openToken() { $('#token-input').value = sessionStorage.getItem('research-token') || ''; formError('#token-error'); if (!$('#token-dialog').open) $('#token-dialog').showModal(); }
 function removeRecord(title, description, action) {
   $('#remove-title').textContent = title; $('#remove-description').textContent = description;
   state.pendingRemoval = action; formError('#remove-error'); $('#remove-dialog').showModal();
@@ -336,14 +330,6 @@ $('#remove-confirm').addEventListener('click', event => {
     catch (error) { formError('#remove-error',error.message); }
   });
 });
-$('#token-form').addEventListener('submit', event => {
-  event.preventDefault();
-  void busy(event.currentTarget.querySelector('[type=submit]'),async () => {
-    sessionStorage.setItem('research-token',$('#token-input').value);
-    try { await api('/config'); $('#token-dialog').close(); await boot(); }
-    catch (error) { formError('#token-error',error.message); }
-  });
-});
 document.addEventListener('click', event => {
   const close = event.target.closest('[data-close-dialog]');
   if (close) { close.closest('dialog').close(); return; }
@@ -367,7 +353,6 @@ for (const id of ['global-search','research-search']) $('#' + id).addEventListen
   const expected = '#/research?symbol=' + encodeURIComponent(code.toUpperCase());
   if (location.hash === expected) void loadStock(code); else researchHash(code);
 });
-$('#token-open').addEventListener('click',openToken);
 $('#pool-add-open').addEventListener('click',openPool);
 $('#reload-pool').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { await loadWorkspace(); notice('已读取最新记录。'); } catch (error) { notice(error.message,true); } }); });
 $('#scan-start').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { const job = await post('/watchlist/scan',{refresh:$('#scan-refresh').checked}); await monitorJob(job.job_id,'watchlist_scan'); } catch (error) { notice(error.message,true); } }); });
@@ -443,7 +428,7 @@ async function boot() {
     } catch (error) { notice(`工作台已连接，最近记录读取不完整：${error.message}`,true); }
   } catch (error) {
     $('#connection').textContent = '服务待连接'; $('#connection').classList.remove('ready'); notice(error.message,true);
-    $('#positions-content').innerHTML = empty('暂时无法读取持仓','请确认服务已启动，或通过左下角设置访问口令后重试。');
+    $('#positions-content').innerHTML = empty('暂时无法读取持仓','请确认后台正在运行，然后刷新页面重试。');
   } finally { state.booting = false; }
 }
 icons(); route(); void boot();

@@ -151,7 +151,6 @@ docker compose up --build -d
 | DEEPSEEK_API_KEY | DeepSeek API密钥，只保存在服务端环境，不填入页面 |
 | DEEPSEEK_MODEL / BASE_URL | 默认deepseek-flash与官方接口，可按实际账号调整 |
 | DEEPSEEK_THINKING | 是否开启思考；默认false，减少不必要的思考输出开销 |
-| APP_TOKEN | 可选访问口令；设定后页面左下角输入，当前标签页sessionStorage保存 |
 | DATABASE_URL / DATA_DIR | 外部数据库及原文路径；为空数据库使用SQLite开发模式 |
 | HISTORY_YEARS / MARKET_CACHE_HOURS | 后台行情深度与复核期限 |
 | DISCLOSURE_CACHE_HOURS | 一致预期、日程、EPS修订/趋势的动态资料有效期，默认24小时；不控制财报及业绩附件 |
@@ -194,7 +193,7 @@ docker compose up --build -d
 4. 使用公司确认的未来财报事件冻结预期；已过公布时点的事件应拒绝冻结。
 5. 输入有依据的EPS与DCF假设，检查期间、数量级、WACC>g与一年后状态要求。
 6. 设置DeepSeek后分析选定材料，核对证据、usage和再次调用的缓存；这会使用你的API额度。
-7. 保存研究快照，核对导出版本及原文下载；如设访问口令，核对接口访问。
+7. 保存研究快照，核对导出版本及原文下载。
 
 这些是用户操作清单，没有写入测试文件或自动化测试脚本。初次交付只做代码阅读；用户随后授权的AAPL真实强制抓取已执行，成功项和限制分别记录在[原始诊断](11-AAPL-data-review.md)和[修复后结果](12-research-repairs.md)，不代表其他分支或整体验收已通过。
 

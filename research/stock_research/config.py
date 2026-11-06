@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-flash"
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_thinking: bool = False
-    app_token: SecretStr = SecretStr("")
     feishu_webhook_url: SecretStr = SecretStr("")
     feishu_signing_secret: SecretStr = SecretStr("")
     feishu_timeout_seconds: int = Field(15, ge=3, le=60)

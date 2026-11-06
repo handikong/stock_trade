@@ -1,6 +1,6 @@
 # 个人美股交易决策系统
 
-Linux 服务器首次运行 `bash deploy.sh`，之后运行 `bash update.sh`。两条命令都拉取当前分支的上游更新、安装依赖并重启单进程后台；新库初始化509只美股关注池，已有关注记录保留。见[一键部署说明](docs/41-linux-deploy.md)。
+Linux 服务器首次运行 `bash deploy.sh`，之后运行 `bash update.sh`。`deploy.sh` 安装依赖并为新库导入509只美股关注股；`update.sh` 只拉取当前分支的上游代码并重启单进程后台。已有关注记录保留。见[一键部署说明](docs/41-linux-deploy.md)。
 
 盘后任务可自动累计[美股成交股数前50](docs/40-volume-leaders.md)：北京时间06:00先取榜、去重加入关注池，新增股票参加同一轮行情更新和后续策略扫描。用 `.venv/bin/python -m stock_research.schedule_cli leaders` 查看最新保存的榜单。
 

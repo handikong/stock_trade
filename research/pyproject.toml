@@ -9,7 +9,7 @@ description = "个人美股研究：行情缓存、证据存档、前瞻与情�
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "sqlalchemy>=2.0,<2.1",
-  "psycopg[binary]>=3.2,<4", "pydantic-settings>=2.7,<3", "python-dotenv>=1,<2",
+  "psycopg[binary]>=3.2,<4", "pydantic-settings>=2.7,<3",
   "httpx>=0.28,<1", "yfinance>=0.2.66,<0.3", "pandas>=2.2,<3",
   "exchange-calendars>=4.8,<5", "beautifulsoup4>=4.13,<5",
   "pypdf>=6,<7", "python-multipart>=0.0.20,<1"

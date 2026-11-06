@@ -1,4 +1,3 @@
-import secrets
 from contextlib import asynccontextmanager
 from typing import Literal
 from urllib.parse import urlparse
@@ -42,9 +41,6 @@ async def access(request: Request, call_next):
         origin=request.headers.get("origin")
         if origin and urlparse(origin).netloc!=request.headers.get("host"):
             return JSONResponse({"detail":"只接受同一站点发起的请求"},status_code=403)
-        expected=settings.app_token.get_secret_value()
-        if expected and not secrets.compare_digest(request.headers.get("x-app-token",""),expected):
-            return JSONResponse({"detail":"请输入正确的访问口令"},status_code=401)
     response=await call_next(request)
     response.headers["X-Content-Type-Options"]="nosniff"
     response.headers["Referrer-Policy"]="same-origin"
