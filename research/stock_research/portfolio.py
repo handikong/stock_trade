@@ -96,12 +96,16 @@ def _context(session, code=None):
     env = risk.market_context(session,assets["SPY"],qqq,target,cfg)
     result["environment"] = env
     result["equity"] = result["floor"] = result["buffer"] = result["risk_free"] = result["cash_free"] = None
+    result.update(principal_loss=None,principal_loss_rate=None)
     if account:
         principal = D(account["principal"])
-        result["floor"] = principal*(1-D(account["loss_percent"])/100)+D(account["net_flows"])
+        net_flows = D(account["net_flows"])
+        result["floor"] = principal*(1-D(account["loss_percent"])/100)+net_flows
         if not positions["unknown"]:
             equity = D(account["total_cash"])+positions["market_value"]
             result["equity"] = equity
+            loss = max(ZERO,principal-(equity-net_flows))
+            result.update(principal_loss=loss,principal_loss_rate=loss/principal)
             result["buffer"] = equity-result["floor"]
             result["risk_free"] = (max(ZERO,result["buffer"]-max(positions["guard_risk"],positions["stress_risk"])-reserved_risk)
                                    if D(account["loss_percent"])>0 else ZERO)
@@ -110,9 +114,10 @@ def _context(session, code=None):
 
 
 def _summary(ctx):
-    keys = ("market_value","equity","floor","buffer","guard_risk","stress_risk","risk_free","cash_free",
+    keys = ("market_value","equity","principal_loss","floor","buffer","guard_risk","stress_risk","risk_free","cash_free",
             "reserved_cash","reserved_risk","aggressive_value","tactical_value")
     return {**{k:cash(ctx[k]) if ctx[k] is not None else None for k in keys},
+            "principal_loss_rate":str(ctx["principal_loss_rate"]) if ctx["principal_loss_rate"] is not None else None,
             "stress_samples":ctx["stress_samples"],"unknown":ctx["unknown"],"position_count":len(ctx["positions"])}
 
 

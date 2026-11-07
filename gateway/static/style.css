@@ -10,6 +10,7 @@
 .portfolio-section{margin:0 0 24px}
 .portfolio-grid+.portfolio-section{margin:24px 0 0}
 .portfolio-budget{margin-bottom:12px}
+@media(min-width:851px){.portfolio-budget{grid-template-columns:repeat(5,minmax(0,1fr))}}
 .portfolio-budget .metric strong{font-size:24px}
 .portfolio-plan+.portfolio-plan{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
 .portfolio-plan summary{padding:4px 0}

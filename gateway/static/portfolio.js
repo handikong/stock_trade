@@ -19,6 +19,8 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
     const metrics = [
       metric('账户估算净值',num(s.equity),`收盘标记 ${view.as_of}`,'',true),
       metric('券商可用现金',num(a.available_cash),`总现金 ${money(a.total_cash)}`,'',true),
+      metric('本金亏损',num(s.principal_loss),s.principal_loss_rate == null ? '等待完整账户估值' : `占本金 ${pct(s.principal_loss_rate)} · 上限 ${num(a.loss_percent)}%`,
+        Number(s.principal_loss) > 0 ? 'loss' : '',true),
       metric('本金保护参考线',num(s.floor),`距底线 ${money(s.buffer)}`,tone(s.buffer),true),
       metric('剩余新增风险',num(s.risk_free),`计划预留 ${money(s.reserved_risk)}`,'',true),
     ].join('');

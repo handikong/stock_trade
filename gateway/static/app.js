@@ -1,4 +1,4 @@
-import {connectPortfolio} from './portfolio.js?v=20261107-position';
+import {connectPortfolio} from './portfolio.js?v=20261107-principal-loss';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
