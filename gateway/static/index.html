@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=20261107-push-history">
-  <script type="module" src="/app.js?v=20261107-push-history"></script>
+  <script type="module" src="/app.js?v=20261107-intraday"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -41,7 +41,10 @@
           <div id="portfolio-account-content" class="panel-body" aria-live="polite">正在读取账户…</div>
         </section>
         <div class="portfolio-grid">
-          <section class="panel positions-panel"><div class="panel-heading"><div><h2>持仓明细 <span id="positions-total" class="count-label"></span></h2><p>按你录入的数量与成本均价计算</p></div><button class="secondary compact" id="refresh-holdings"><span data-icon="refresh"></span>更新行情</button></div><div id="positions-content" class="loading-state">正在读取持仓记录…</div></section>
+          <section class="panel positions-panel"><div class="panel-heading"><div><h2>持仓明细 <span id="positions-total" class="count-label"></span></h2><p>按你录入的数量与成本均价计算</p></div><button class="secondary compact" id="refresh-holdings"><span data-icon="refresh"></span>更新行情</button></div>
+            <div class="panel-body"><p id="intraday-state" class="inline-note" role="status" aria-atomic="true"></p><p id="intraday-summary" class="subline" hidden></p></div>
+            <div id="positions-content" class="loading-state">正在读取持仓记录…</div>
+          </section>
           <aside class="portfolio-aside"><section class="panel allocation-panel"><div class="panel-heading"><div><h2>持仓构成</h2><p>已录入股票的市值占比</p></div><span data-icon="pie"></span></div><div id="allocation-content"></div></section><section class="quiet-note"><span data-icon="info"></span><div><h3>从真实持仓开始</h3><p>添加或编辑这里的记录，不会下单，也不会自动改变扫描名单。</p><a href="#/watchlist">管理扫描名单 <span aria-hidden="true">↗</span></a></div></section></aside>
         </div>
         <section class="panel portfolio-section">
@@ -82,7 +85,7 @@
         <form class="panel push-filters" id="push-filters">
           <label>推送类型<select name="category">
             <option value="">全部类型</option><option value="market">大盘推送</option><option value="stock">个股推送</option>
-            <option value="watchlist">关注推送</option><option value="holdings">持仓复盘</option><option value="test">连通性测试</option>
+            <option value="watchlist">关注推送</option><option value="holdings">持仓复盘</option><option value="intraday">盘中预警</option><option value="test">连通性测试</option>
           </select></label>
           <label>日期 <span class="optional">留空查看最近 30 天</span><input type="date" name="day" min="1970-01-01"></label>
           <button class="primary" type="submit"><span data-icon="search"></span>查询</button>

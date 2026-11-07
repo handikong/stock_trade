@@ -1,5 +1,7 @@
 # 个人美股交易决策系统
 
+可启用 [Go 盘中监控](docs/48-intraday.md)，使用 Alpaca IEX 更新持仓和 QQQ、SPY。北京时间凌晨 2 点起停止发起盘中飞书提醒，实时行情继续更新至常规收盘。
+
 工作台「推送记录」按北京时间分组，可按日期和类型筛选大盘、个股、关注列表、持仓复盘及飞书连通性测试。点开记录可查看正文与投递结果。见[推送记录](docs/47-push-history.md)。
 
 北京时间周一至周五08:00生成[持仓复盘](docs/46-holdings-brief.md)并发送飞书，逐只展示近五日走势、支撑压力与操作建议。用 `.venv/bin/python -m stock_research.schedule_cli holdings-brief` 查看归档。

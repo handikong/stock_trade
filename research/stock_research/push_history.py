@@ -12,10 +12,10 @@ from .config import settings
 from .notification_cards import card_text
 from .store import Job, Session, SignalDelivery, WatchlistState, now
 
-Category = Literal["market", "stock", "watchlist", "holdings", "test"]
+Category = Literal["market", "stock", "watchlist", "holdings", "intraday", "test"]
 BEIJING = ZoneInfo("Asia/Shanghai")
 CATEGORIES = {"market":"大盘推送", "stock":"个股推送", "watchlist":"关注推送",
-              "holdings":"持仓复盘", "test":"连通性测试"}
+              "holdings":"持仓复盘", "intraday":"盘中预警", "test":"连通性测试"}
 STATUS_LABELS = {"SENT":"飞书已接收", "FAILED":"失败", "UNKNOWN":"结果未知", "SENDING":"发送中"}
 HOLDINGS_STATUSES = {"已发送":"SENT", "失败":"FAILED", "结果未知":"UNKNOWN", "发送中":"SENDING"}
 SIGNAL_LABELS = {"BUY":"策略买点", "ALERT":"退出预警", "EXIT":"退出条件", "EXIT_CONDITION":"退出条件"}
@@ -140,11 +140,14 @@ def listing(*, category: Category | None = None, day: date | None = None, limit=
         if not separator or instant is None or not key or len(cursor) > 180:
             raise ValueError("分页位置无效，请重新查询推送记录")
         before = instant.isoformat(timespec="microseconds"), key
-    records = list(_database_records(lower, category)) if category != "test" else []
+    records = list(_database_records(lower, category)) if category not in ("test","intraday") else []
     if category in (None, "stock"):
         records.extend(_manual_records("stock", "research-notifications", "个股研究快照"))
     if category in (None, "test"):
         records.extend(_manual_records("test", "notification-probes", "飞书连通性测试"))
+    if category in (None, "intraday"):
+        from .intraday import FOLDER
+        records.extend(_manual_records("intraday", FOLDER, "盘中预警"))
     selected = (row for row in records if row and first <= row["date"] <= end)
 
     def order(row):

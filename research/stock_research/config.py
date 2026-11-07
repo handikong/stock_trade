@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     feishu_signing_secret: SecretStr = SecretStr("")
     feishu_timeout_seconds: int = Field(15, ge=3, le=60)
     feishu_max_messages_per_run: int = Field(20, ge=1, le=100)
+    intraday_enabled: bool = False
+    intraday_feishu_enabled: bool = True
+    intraday_binary: Path = ROOT / "data" / "deploy" / "stock-intraday"
+    intraday_policy_file: Path = ROOT / "config" / "intraday-policy.json"
+    apca_api_key_id: SecretStr = SecretStr("")
+    apca_api_secret_key: SecretStr = SecretStr("")
     history_years: int = Field(3, ge=1, le=15)
     market_cache_hours: int = Field(12, ge=1, le=168)
     # 仅控制一致预期、日程、修订等动态资料；已保存财报/业绩附件不设TTL。

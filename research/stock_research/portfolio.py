@@ -75,7 +75,7 @@ def _remaining(plans):
     return [(p,stage) for p in plans if p["status"]=="active" for stage in p["stages"] if stage["remaining"]>0]
 
 
-def _context(session, code=None):
+def _context(session, code=None, *, live_prices=None):
     cfg = risk.policy()
     cal,target = market.calendar_context()
     stored = list(session.scalars(select(PositionPlan).where(PositionPlan.status=="active",PositionPlan.expires_at>stamp())
@@ -86,6 +86,12 @@ def _context(session, code=None):
     assets = {key:risk.asset(session,key,target,cfg) for key in sorted(symbols)}
     plans = [_plan_view(p,_plan_status(p,assets[p.symbol])) for p in stored]
     reservations = _remaining(plans)
+    env = risk.market_context(session,assets["SPY"],assets["QQQ"],target,cfg)
+    if live_prices is not None:
+        for symbol in session.scalars(select(ManualPosition.symbol).where(ManualPosition.active.is_(True))):
+            # 保留日线的历史压力和技术基准，仓位金额使用新鲜盘中报价。
+            item = assets[symbol]
+            item["price"] = live_prices.get(symbol) if item["bars"] else None
     qqq = assets["QQQ"]
     positions = risk.exposure(session,assets,qqq,cfg)
     account = _account_view(session.get(PortfolioAccount,ACCOUNT))
@@ -93,7 +99,6 @@ def _context(session, code=None):
     reserved_risk = sum((D(s["risk_per_share"])*s["remaining"] for _,s in reservations),ZERO)
     result = {"cfg":cfg,"target":target,"calendar":cal,"assets":assets,"plans":plans,"account":account,
               "reservations":reservations,"reserved_cash":reserved,"reserved_risk":reserved_risk,**positions}
-    env = risk.market_context(session,assets["SPY"],qqq,target,cfg)
     result["environment"] = env
     result["equity"] = result["floor"] = result["buffer"] = result["risk_free"] = result["cash_free"] = None
     result.update(principal_loss=None,principal_loss_rate=None)
@@ -412,7 +417,7 @@ def _find_stage(plan,stage_id):
     return result
 
 
-def _check(session,ctx,plan,stage):
+def _check(session,ctx,plan,stage,*,intraday=False):
     cfg, account, env = (ctx[key] for key in ("cfg","account","environment"))
     item = ctx["assets"][plan["symbol"]]
     price = item["price"]
@@ -448,9 +453,9 @@ def _check(session,ctx,plan,stage):
     if price is None:
         messages.append("缺少该股当前完整日线")
     elif price<=D(stage["stop"]):
-        messages.append("收盘已触及该档保护位")
+        messages.append("当前价已触及该档保护位" if intraday else "收盘已触及该档保护位")
     elif stage["id"]!="manual" and price>D(stage["max_price"]):
-        messages.append("收盘高于这档最高接受价，等待回踩")
+        messages.append("当前价高于这档最高接受价，等待回踩" if intraday else "收盘高于这档最高接受价，等待回踩")
     if item["profile"].get("type")=="EQUITY" and not plan["override"]:
         security_id = item.get("security_id")
         if security_id:
@@ -461,6 +466,10 @@ def _check(session,ctx,plan,stage):
         held = any(row["symbol"]==plan["symbol"] for row in ctx["positions"])
         if not held or (plan["evaluation"]["kind"]=="新开仓" and not any(f["stage"]=="entry" for f in plan["fills"])):
             messages.append("请先确认首仓成交")
+        if intraday:
+            # 盘中调用方已用已完成分钟线确认；现金、估值、集中度和计划约束仍共用。
+            return {"ready":not messages,"reasons":messages,"as_of":ctx["target"],
+                    "price":cash(price) if price is not None else None}
         bars = [b for b in item["bars"] if b["date"]>plan["as_of"]]
         trigger = D(stage["trigger"])
         if stage["id"]=="left":

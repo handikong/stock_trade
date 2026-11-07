@@ -37,7 +37,7 @@ def destination(required=True):
     return hashlib.sha256(url.encode()).hexdigest()
 
 
-def send(card):
+def send(card, *, allowed=None):
     destination()
     body = {"msg_type": "interactive", "card": card}
     secret = settings.feishu_signing_secret.get_secret_value()
@@ -52,6 +52,8 @@ def send(card):
         logging.getLogger(name).setLevel(logging.WARNING)
     try:
         with httpx.Client(timeout=settings.feishu_timeout_seconds, trust_env=False, follow_redirects=False) as client:
+            if allowed is not None and not allowed():
+                return None
             response = client.post(settings.feishu_webhook_url.get_secret_value().strip(), json=body)
     except (httpx.ConnectError, httpx.ConnectTimeout):
         raise DeliveryFailure("无法建立飞书连接，本次未取得接收确认", "FAILED") from None

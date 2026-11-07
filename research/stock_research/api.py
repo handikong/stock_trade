@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import portfolio, push_history, weekly_valuation, workspace
+from . import intraday, portfolio, push_history, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -27,8 +27,12 @@ async def lifespan(app):
     initialize()
     settings.averages  # 仅在用户启动服务时校验配置，不在开发阶段自动运行。
     worker.start()
-    yield
-    worker.shutdown()
+    intraday.monitor.start()
+    try:
+        yield
+    finally:
+        intraday.monitor.shutdown()
+        worker.shutdown()
 
 
 app=FastAPI(title="个股研究",version="0.1.0",lifespan=lifespan,docs_url="/api/docs",openapi_url="/api/openapi.json")
@@ -143,6 +147,11 @@ def workspace_overview():
 @app.get("/api/v1/portfolio")
 def portfolio_overview():
     return portfolio.overview()
+
+
+@app.get("/api/v1/intraday")
+def intraday_overview():
+    return intraday.monitor.read()
 
 
 @app.put("/api/v1/portfolio/account")

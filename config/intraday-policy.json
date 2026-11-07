@@ -1,0 +1,8 @@
+{
+  "beijing_push_cutoff": "02:00",
+  "opening_minutes": 15,
+  "confirmation_minutes": 5,
+  "quote_max_age_seconds": 25,
+  "buffer_daily_atr": 0.10,
+  "scale_review_fraction": 0.35
+}
