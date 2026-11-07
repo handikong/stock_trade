@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import portfolio, weekly_valuation, workspace
+from . import portfolio, push_history, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -257,6 +257,12 @@ def workspace_jobs():
 def schedule_status():
     from . import post_close
     return post_close.status()
+
+
+@app.get("/api/v1/push-history")
+def push_history_list(category: push_history.Category | None = None, day: date | None = None,
+                      limit: int = 50, cursor: str | None = None):
+    return push_history.listing(category=category, day=day, limit=limit, cursor=cursor)
 
 
 class Refresh(BaseModel):

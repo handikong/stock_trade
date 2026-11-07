@@ -18,3 +18,70 @@
 #portfolio-evaluation .portfolio-actions{margin-top:14px}
 #position-form select{display:block;width:100%;min-height:40px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--ink)}
 @media(max-width:640px){.portfolio-budget .metric strong{font-size:20px}.page-heading .portfolio-actions{justify-content:flex-end}.portfolio-actions button{font-size:12px}}
+
+.push-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+  padding: 16px 20px;
+}
+.push-filters label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 8px;
+  font-size: 12px;
+  min-width: 145px;
+}
+.push-filters :is(input, select) {
+  grid-column: 1 / -1;
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #cbd6e0;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 11px;
+  color: var(--ink);
+}
+.push-status { margin: 14px 0; color: var(--muted); font-size: 13px; }
+.push-status.loss { color: var(--loss); }
+.push-status:empty { display: none; }
+.push-groups { display: grid; gap: 16px; margin: 18px 0; }
+.push-group .panel-heading { padding-top: 13px; padding-bottom: 13px; }
+.push-record { border-top: 1px solid var(--border); }
+.push-record summary {
+  display: grid;
+  grid-template-columns: 122px 88px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 24px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.push-record summary:hover { background: var(--canvas); }
+.push-record summary:focus-visible { outline-offset: -2px; }
+.push-record summary > .badge { justify-self: start; }
+.push-record summary strong { overflow-wrap: anywhere; }
+.push-record summary strong::before { content: "›"; display: inline-block; margin-right: 8px; color: var(--muted); }
+.push-record[open] summary strong::before { transform: rotate(90deg); }
+.push-time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.push-content {
+  padding: 3px 24px 17px;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.push-error { color: var(--loss); margin-bottom: 6px; }
+@media(max-width:640px) {
+  .push-filters { padding: 14px; }
+  .push-filters label { flex: 1 1 140px; }
+  .push-filters :is(input, select) { font-size: 16px; }
+  .push-record summary { grid-template-columns: auto auto 1fr; gap: 6px 8px; padding: 11px 15px; }
+  .push-record summary strong { grid-row: 2; grid-column: 1 / -1; }
+  .push-record summary > .badge:last-child { justify-self: end; }
+  .push-content { padding: 2px 15px 14px; }
+}
+@media(max-width:440px) {
+  .sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

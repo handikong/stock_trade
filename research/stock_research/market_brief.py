@@ -206,13 +206,20 @@ def render(report):
     return "\n".join(lines)
 
 
+def _card(report):
+    from .notification_cards import _text
+    body = "\n".join(_text(line,400) for line in render(report).splitlines()[1:])
+    return {"schema":"2.0","header":{"template":"blue","title":{"tag":"plain_text","content":LABELS[report["report_type"]]}},
+            "body":{"elements":[{"tag":"markdown","content":body}]}}
+
+
 def run(job,result,*,allowed,delivery_enabled,checkpoint):
     report = result.get("report")
     if report:
         if (report.get("model") or {}).get("status")=="requesting":
             report["model"] = {"status":"unknown","message":"DeepSeek 请求曾中断，保留程序研判"}
         if (report.get("delivery") or {}).get("status")=="sending":
-            report["delivery"] = {"status":"unknown","message":"上次投递结果未知，请核对群消息"}
+            report["delivery"].update(status="unknown",message="上次投递结果未知，请核对群消息")
     if not allowed():
         return {**result,"status":"expired","message":"大盘报告窗口已结束或任务已停用"}
     if "report" not in result:
@@ -227,16 +234,17 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
     elif report.get("model") is None:
         report["model"] = {"status":"skipped","message":"大盘简报已过运行窗口，显示程序研判"}
     if not report.get("delivery") and allowed() and delivery_enabled():
-        report["delivery"] = {"status":"sending"}
+        delivery = {"status":"sending","started_at":stamp()}
+        report["delivery"] = delivery
         checkpoint(job.id,result,95,"大盘简报待飞书确认")
         try:
-            from .notification_cards import _text
-            body = "\n".join(_text(line,400) for line in render(report).splitlines()[1:])
-            feishu.send({"schema":"2.0","header":{"template":"blue","title":{"tag":"plain_text","content":LABELS[report["report_type"]]}},
-                         "body":{"elements":[{"tag":"markdown","content":body}]}})
-            report["delivery"] = {"status":"sent"}
+            delivery["card"] = _card(report)
+            feishu.send(delivery["card"])
+            delivery["status"] = "sent"
         except (ValueError,feishu.DeliveryFailure) as exc:
-            report["delivery"] = {"status":getattr(exc,"status","failed").lower(),"message":str(exc)}
+            delivery.update(status=getattr(exc,"status","failed").lower(),message=str(exc))
+        delivery["finished_at"] = stamp()
+        checkpoint(job.id,result,95,"大盘简报投递结果已记录")
     warnings = list(report["warnings"])
     for item in (report.get("model") or {}, report.get("delivery") or {}):
         if item.get("message"):

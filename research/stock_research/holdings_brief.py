@@ -326,7 +326,7 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
         if not allowed() or not _unchanged(report):
             delivery.append({"part":part,"status":"跳过","message":"持仓、现金、计划、数据或运行窗口已变化，旧建议留作档案"})
             break
-        outcome = {"part":part,"status":"发送中"}
+        outcome = {"part":part,"status":"发送中","started_at":stamp(),"card":card}
         delivery.append(outcome)
         checkpoint(job.id,result,85,f"持仓卡片 {part} 待飞书确认")
         try:
@@ -339,6 +339,7 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
             outcome.update(status="结果未知" if exc.status=="UNKNOWN" else "失败",message=str(exc))
         except ValueError as exc:
             outcome.update(status="失败",message=str(exc))
+        outcome["finished_at"] = stamp()
         checkpoint(job.id,result,95,f"持仓卡片 {part} · {outcome['status']}")
         if outcome["status"]!="已发送":
             break

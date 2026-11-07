@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261107-principal-loss">
-  <script type="module" src="/app.js?v=20261107-principal-loss"></script>
+  <link rel="stylesheet" href="/style.css?v=20261107-push-history">
+  <script type="module" src="/app.js?v=20261107-push-history"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -18,6 +18,7 @@
       <a href="#/holdings" data-nav="holdings"><span data-icon="wallet"></span>持仓总览<span id="holding-count" class="nav-count">—</span></a>
       <a href="#/watchlist" data-nav="watchlist"><span data-icon="radar"></span>扫描股票池<span id="pool-count" class="nav-count">—</span></a>
       <a href="#/research" data-nav="research"><span data-icon="search"></span>个股研究</a>
+      <a href="#/push-history" data-nav="push-history"><span data-icon="bell"></span>推送记录</a>
     </nav>
     <div class="sidebar-note"><span class="small-dot"></span>盘后整理，人工决策<p>让每一次买卖都有依据。</p></div>
     <div class="sidebar-bottom"><span>本地个人工作台</span></div>
@@ -73,6 +74,22 @@
           <section class="panel"><div class="panel-heading"><div><h2>支撑与压力</h2><p>保留技术区间的强弱、角色与确认依据</p></div><span class="soft-label">日线计算</span></div><div id="technical-content" class="panel-body"></div></section>
           <section class="panel"><div class="panel-heading"><div><h2>技术与估值配合</h2><p>估值参考不改变技术强弱，也不代替交易计划</p></div></div><div id="combined-content" class="panel-body"></div></section>
         </div>
+      </section>
+      <section id="page-push-history" class="page" hidden>
+        <div class="page-heading">
+          <div><p class="eyebrow">FEISHU DELIVERY</p><h1>推送记录</h1><p class="subtitle">按北京时间查看飞书推送及投递结果。</p></div>
+        </div>
+        <form class="panel push-filters" id="push-filters">
+          <label>推送类型<select name="category">
+            <option value="">全部类型</option><option value="market">大盘推送</option><option value="stock">个股推送</option>
+            <option value="watchlist">关注推送</option><option value="holdings">持仓复盘</option><option value="test">连通性测试</option>
+          </select></label>
+          <label>日期 <span class="optional">留空查看最近 30 天</span><input type="date" name="day" min="1970-01-01"></label>
+          <button class="primary" type="submit"><span data-icon="search"></span>查询</button>
+        </form>
+        <p id="push-status" class="push-status" role="status"></p>
+        <div id="push-groups" class="push-groups"></div>
+        <button id="push-more" type="button" class="secondary" hidden>加载更多</button>
       </section>
       <footer><span>见微 · 持仓与研究</span><span>记录依据，保留判断。</span></footer>
     </main>

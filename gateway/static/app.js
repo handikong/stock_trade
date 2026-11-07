@@ -15,6 +15,7 @@ const when = value => {
 const paths = {
   wallet:'<path d="M20 8V5a1 1 0 0 0-1-1H5a3 3 0 0 0 0 6h15v10H5a3 3 0 0 1-3-3V7m18 6h-5v4h5"/>',
   radar:'<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6M5.7 5.7 12 12"/><circle cx="12" cy="12" r="4"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-5L4 9m16 6-3 3a7 7 0 0 1-12-5"/>',
   arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>',
@@ -39,6 +40,7 @@ function stock(code, name = '', index = 0) {
 }
 const state = {page:'holdings',symbol:'',report:null,workspace:null,timezone:'Asia/Shanghai',generation:0,workspaceGeneration:0,
   positions:new Map(),editPosition:null,pendingRemoval:null,jobs:new Map(),valuationEdit:null,booting:false,connected:false};
+const pushHistory = {generation:0,query:'',cursor:null,groups:new Map()};
 
 function notice(message = '', error = false) {
   const node = $('#notice'); node.textContent = message; node.hidden = !message; node.classList.toggle('error',error);
@@ -259,26 +261,94 @@ function removeRecord(title, description, action) {
   $('#remove-title').textContent = title; $('#remove-description').textContent = description;
   state.pendingRemoval = action; formError('#remove-error'); $('#remove-dialog').showModal();
 }
+function pushItem(item, expanded) {
+  const tones = {SENT:'positive',FAILED:'negative',UNKNOWN:'caution'};
+  const timeNote = item.estimated_time ? '（估计）' : '';
+  const content = item.body || '旧档案没有保存可显示的正文。';
+  return `<details class="push-record" data-record="${esc(item.id)}"${expanded ? ' open' : ''}><summary>
+    <span class="push-time">${esc(item.time)}${timeNote}</span>
+    ${badge(item.category_label)}
+    <strong>${esc(item.title)}</strong>
+    ${badge(item.status_label,tones[item.status])}
+  </summary><div class="push-content">
+    ${item.error ? `<p class="push-error">${esc(item.error)}</p>` : ''}
+    <p>${esc(content)}</p>
+  </div></details>`;
+}
+function renderPushHistory() {
+  const open = new Set([...document.querySelectorAll('#push-groups details[open]')].map(node => node.dataset.record));
+  $('#push-groups').innerHTML = [...pushHistory.groups].map(([day,items]) =>
+    `<section class="panel push-group"><div class="panel-heading"><h2><time datetime="${esc(day)}">${esc(day)}</time></h2></div>
+    ${items.map(item => pushItem(item,open.has(item.id))).join('')}</section>`).join('');
+  if (!pushHistory.groups.size) {
+    $('#push-groups').innerHTML = empty('暂无推送记录','当前筛选范围内没有投递档案。', '', true);
+  }
+}
+async function loadPushHistory(more = false) {
+  const form = $('#push-filters'), status = $('#push-status'), button = $('#push-more');
+  if (more && (!pushHistory.cursor || button.disabled)) return;
+  const generation = ++pushHistory.generation;
+  if (!more) {
+    const filters = new URLSearchParams();
+    for (const [key,value] of new FormData(form)) if (value) filters.set(key,value);
+    pushHistory.query = filters.toString();
+    pushHistory.cursor = null;
+    pushHistory.groups.clear();
+    $('#push-groups').replaceChildren();
+    button.hidden = true;
+  }
+  const filters = new URLSearchParams(pushHistory.query);
+  if (more) filters.set('cursor',pushHistory.cursor);
+  status.classList.remove('loss');
+  status.textContent = '正在读取推送记录…';
+  button.disabled = true;
+  try {
+    const data = await api('/push-history?' + filters.toString());
+    if (state.page !== 'push-history' || generation !== pushHistory.generation) return;
+    for (const group of data.groups) {
+      const items = pushHistory.groups.get(group.date) || [];
+      pushHistory.groups.set(group.date,[...items,...group.items]);
+    }
+    pushHistory.cursor = data.next_cursor;
+    renderPushHistory();
+    status.textContent = '';
+    button.hidden = !pushHistory.cursor;
+  } catch (error) {
+    if (state.page !== 'push-history' || generation !== pushHistory.generation) return;
+    status.classList.add('loss');
+    status.textContent = error.message;
+  } finally {
+    if (generation === pushHistory.generation) button.disabled = false;
+  }
+}
 function route() {
   // 页内锚点与页面路由分开，跳到主要内容不会切回持仓页。
   if (location.hash && !location.hash.startsWith('#/')) return;
   const [page, query = ''] = location.hash.replace(/^#\/?/,'').split('?');
-  const next = ['holdings','watchlist','research'].includes(page) ? page : 'holdings';
+  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录'};
+  const next = Object.hasOwn(pages,page) ? page : 'holdings';
   ++state.generation;
   state.page = next;
-  for (const p of ['holdings','watchlist','research']) {
+  for (const p of Object.keys(pages)) {
     $('#page-' + p).hidden = p !== next;
     const nav = document.querySelector(`[data-nav="${p}"]`);
     if (p === next) nav.setAttribute('aria-current','page'); else nav.removeAttribute('aria-current');
   }
-  document.title = `${({holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究'})[next]} · 见微`;
+  document.title = `${pages[next]} · 见微`;
   if (next === 'research') {
     const code = new URLSearchParams(query).get('symbol');
     if (state.connected && code && (code !== state.symbol || !state.report)) void loadStock(code);
     else if (state.report) renderResearch();
   }
+  if (next === 'push-history' && state.connected) void loadPushHistory();
 }
 function researchHash(code) { location.hash = '/research?symbol=' + encodeURIComponent(code.trim().toUpperCase()); }
+
+$('#push-filters').addEventListener('submit', event => {
+  event.preventDefault();
+  void loadPushHistory();
+});
+$('#push-more').addEventListener('click', () => { void loadPushHistory(true); });
 
 $('#position-form').addEventListener('submit', event => {
   event.preventDefault(); const form = event.currentTarget;

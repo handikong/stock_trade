@@ -185,8 +185,10 @@ def send_notice(report, *, allowed):
         report = {**report,"delivery":{"status":"SENDING","started_at":stamp()}}
         row.seed = report
         db.commit()
+    card = None
     try:
-        feishu.send(_card(report))
+        card = _card(report)
+        feishu.send(card)
         delivery = {"status":"SENT","message":"飞书确认接收"}
     except feishu.DeliveryFailure as exc:
         delivery = {"status":exc.status,"message":str(exc)}
@@ -194,7 +196,7 @@ def send_notice(report, *, allowed):
         delivery = {"status":"UNKNOWN","message":"无法确认飞书送达，不自动重发"}
     with watchlist.write_lock(), Session() as db:
         row = db.get(WatchlistState,_day_id(day))
-        report = {**row.seed,"delivery":{**delivery,"finished_at":stamp()}}
+        report = {**row.seed,"delivery":{**row.seed["delivery"],**delivery,"card":card,"finished_at":stamp()}}
         row.seed = report
         db.commit()
     return report
