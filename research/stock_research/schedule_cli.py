@@ -11,22 +11,42 @@ logger=logging.getLogger(__name__)
 def main(argv=None):
     parser = ChineseParser(description="查看系统内每日盘后任务；实际执行依赖单进程后台服务常驻。",add_help=False)
     parser.add_argument("-h","--help",action="help",help="查看中文说明")
-    parser.add_argument("action",choices=("status","tick","leaders","fetch-leaders"),nargs="?",default="status",
-        help="status查看计划；leaders只读已存榜单；fetch-leaders立即取榜预览；tick只入队")
+    parser.add_argument("action",choices=("status","tick","leaders","fetch-leaders","market-brief"),nargs="?",default="status",
+        help="status查看计划；leaders只读榜单；fetch-leaders立即取榜预览；market-brief查看已保存大盘报告；tick只入队")
     parser.add_argument("--json",action="store_true",help="输出完整状态JSON，不含凭据")
     parser.add_argument("--date", metavar="YYYY-MM-DD",
-        help="美东交易日；leaders查档案，fetch-leaders仅核对最近完整交易日")
+        help="榜单用美东交易日，大盘报告用北京时间日期")
+    parser.add_argument("--report",choices=("daily","monday","weekly"),help="仅筛选大盘报告类型，默认展示最新一份")
+    parser.add_argument("--preview",action="store_true",help="即时生成大盘预览，必要时更新行情并请求 DeepSeek")
     args = parser.parse_args(argv)
+    if args.report and args.action!="market-brief":
+        parser.error("--report 只适用于 market-brief")
+    if args.preview and (args.action!="market-brief" or args.report or args.date):
+        parser.error("--preview 只适用于即时大盘报告，请去掉 --date 和 --report")
     if args.date is not None:
-        if args.action not in ("leaders","fetch-leaders"):
-            parser.error("--date 只适用于 leaders 或 fetch-leaders")
+        if args.action not in ("leaders","fetch-leaders","market-brief"):
+            parser.error("--date 只适用于榜单或大盘报告")
         try:
             if date.fromisoformat(args.date).isoformat() != args.date:
                 raise ValueError
         except ValueError:
-            parser.error("--date 须为有效的 YYYY-MM-DD 美东交易日")
+            parser.error("--date 须为有效的 YYYY-MM-DD 日期")
     configure_console_logging()
     try:
+        if args.action=="market-brief":
+            from .cli_helpers import storage_ready
+            from .market_brief import preview, render, saved
+            if args.preview:
+                from .store import initialize
+                initialize()
+                value = preview()
+            else:
+                value = saved(report_type=args.report,local_date=args.date) if storage_ready("research_jobs") else None
+            if value is None:
+                print("尚无符合条件的大盘报告，请等待后台生成。")
+                return 1
+            print(dump(value) if args.json else render(value))
+            return 0
         if args.action=="fetch-leaders":
             from .volume_leaders import preview
             report = preview(args.date)
@@ -73,10 +93,12 @@ def main(argv=None):
                 print(f"开始日期{cfg['start_date']}；行情{cfg['market_time']}；买点/飞书{cfg['signal_time']}；补跑截止{cfg['catch_up_until']}")
                 if cfg["weekly_valuation_enabled"]:
                     print(f"估值：北京时间每周六 {cfg['weekly_valuation_time']} 更新全部关注股，当天可补跑")
+                if cfg["market_brief_enabled"]:
+                    print(f"大盘报告：北京时间周一至周六 {cfg['market_brief_time']}；补跑至 {cfg['market_brief_until']}")
                 print(value["message"])
                 labels={"queued":"排队中","running":"执行中","completed":"已结束","failed":"失败/停止"}
                 stages={"scheduled_futu_heat":"富途热榜","scheduled_market":"更新日线","scheduled_signals":"买点与推送",
-                        "scheduled_valuation":"每周估值"}
+                        "scheduled_valuation":"每周估值","scheduled_market_brief":"大盘报告"}
                 print(table(["交易日","阶段","状态","进度","说明"],[[j["target_session"],
                     stages[j["kind"]],
                     "部分待处理" if j["result_status"]=="partial" else labels.get(j["status"],j["status"]),
@@ -92,6 +114,9 @@ def main(argv=None):
         from .providers import failure_detail
         if args.action=="fetch-leaders":
             logger.error("未取得目标交易日的完整榜单：%s",failure_detail(exc)["message"])
+            return 1
+        if args.action=="market-brief":
+            logger.error("大盘报告未取得：%s",failure_detail(exc)["message"])
             return 1
         logger.error("盘后计划状态未取得：%s；新环境请先由你启动后台初始化存储",failure_detail(exc)["message"])
         return 1

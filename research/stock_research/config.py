@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     automatic_pe_policy_file: Path = ROOT / "config" / "automatic-pe-policy.json"
     manual_input_policy_file: Path = ROOT / "config" / "manual-input-policy.json"
     post_close_schedule_file: Path = ROOT / "config" / "post-close-schedule.json"
+    market_brief_slope_sessions: int = Field(5, ge=1, le=20)
+    market_brief_volume_high: float = Field(1.25, gt=1, le=5)
+    market_brief_volume_low: float = Field(0.80, gt=0, lt=1)
+    market_brief_level_buffer_atr: float = Field(0.15, gt=0, le=1)
     us_universe_policy_file: Path = ROOT / "config" / "us-universe-policy.json"
     technical_strength_file: Path = ROOT / "config" / "technical-strength.json"
     fundamental_technical_policy_file: Path = ROOT / "config" / "fundamental-technical-policy.json"

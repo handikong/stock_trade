@@ -10,5 +10,9 @@
   "volume_top50_enabled": false,
   "futu_heat_enabled": true,
   "weekly_valuation_enabled": true,
-  "weekly_valuation_time": "08:00"
+  "weekly_valuation_time": "08:00",
+  "market_brief_enabled": true,
+  "market_brief_time": "07:00",
+  "market_brief_until": "12:00",
+  "market_brief_feishu_enabled": false
 }

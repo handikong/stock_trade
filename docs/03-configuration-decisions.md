@@ -1,5 +1,7 @@
 # 配置契约与设计决策
 
+[大盘简报](44-market-brief.md)沿用`POST_CLOSE_SCHEDULE_FILE`，默认北京时间周一至周六07:00、12:00补跑截止，飞书独立开关。`MARKET_BRIEF_SLOPE_SESSIONS`、`MARKET_BRIEF_VOLUME_HIGH`、`MARKET_BRIEF_VOLUME_LOW`、`MARKET_BRIEF_LEVEL_BUFFER_ATR`可配置，报告记录所用参数。
+
 每周估值沿用`POST_CLOSE_SCHEDULE_FILE`。仓库配置启用`weekly_valuation_enabled`，`weekly_valuation_time`默认`08:00`，固定北京时间周六，当天可补跑；未声明开关的旧自定义配置默认停用。估值数据独立保存，详见[每周自动估值参考](43-weekly-valuation.md)。
 
 2026-11-05新增[指数候选流动性配置](39-index-universe.md)：`US_UNIVERSE_POLICY_FILE`默认`config/us-universe-policy.json`，20个完整交易日、日均成交金额100000000 USD、价格5 USD、来源最长7日、请求间隔0.5秒均可配。`config/us-index-members.json`是有出处/实际取得日的当前来源快照，SP500使用SPY持仓代理，不视为精确官方指数授权数据。人工增删优先于同步；未取得数据不视为低流动性，新UNKNOWN不加入、旧UNKNOWN保留。仅显式导入更新关注名单，不改MG7回测默认或自动下单；详见UNIV规则与U核对。

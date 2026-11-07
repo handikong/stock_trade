@@ -1,5 +1,7 @@
 # 个人美股交易决策系统
 
+北京时间周一至周六07:00生成[独立大盘简报](docs/44-market-brief.md)，周一开盘计划、周二至周五日报、周六周报。技术面结合SPY、QQQ、RSP与VIX，DeepSeek解读结构化证据及官方宏观消息。`.venv/bin/python -m stock_research.schedule_cli market-brief`查看。
+
 北京时间每周六08:00，后台重新抓取全部活动关注股的财年EPS与历史Forward PE。个股研究页「更正估值」可补缺项或改错值，网页、CLI和飞书共用更正后的[当前估值](docs/43-weekly-valuation.md)。旧手工档案可用`stock-input SYMBOL --history`查看。
 
 当前自动股票池来源是[富途美股热榜](docs/42-futu-heat-watchlist.md)。北京时间每日06:00取前100条，只保留股票；首次成功替换旧指数池，随后只追加新上榜股票，有新增就发飞书。行情更新和策略扫描仍只在有新美股收盘时执行。

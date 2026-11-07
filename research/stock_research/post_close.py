@@ -19,7 +19,7 @@ from .store import Job, Session, WatchlistEntry, digest, latest, stamp
 
 logger = logging.getLogger(__name__)
 KINDS = {"heat":"scheduled_futu_heat","market":"scheduled_market","signals":"scheduled_signals",
-         "valuation":"scheduled_valuation"}
+         "valuation":"scheduled_valuation","market_brief":"scheduled_market_brief"}
 
 
 class Policy(BaseModel):
@@ -36,6 +36,10 @@ class Policy(BaseModel):
     futu_heat_enabled: bool = False
     weekly_valuation_enabled: bool = False
     weekly_valuation_time: str = "08:00"
+    market_brief_enabled: bool = False
+    market_brief_time: str = "07:00"
+    market_brief_until: str = "12:00"
+    market_brief_feishu_enabled: bool = False
 
     @model_validator(mode="after")
     def valid(self):
@@ -44,11 +48,14 @@ class Policy(BaseModel):
         ZoneInfo(self.timezone)
         if date.fromisoformat(self.start_date).isoformat()!=self.start_date:
             raise ValueError("计划开始日期需要YYYY-MM-DD格式")
-        values = (self.market_time,self.signal_time,self.catch_up_until,self.weekly_valuation_time)
+        values = (self.market_time,self.signal_time,self.catch_up_until,self.weekly_valuation_time,
+                  self.market_brief_time,self.market_brief_until)
         if any(not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d",v) for v in values):
             raise ValueError("计划时间需要HH:MM格式")
         if not self.market_time < self.signal_time < self.catch_up_until:
             raise ValueError("需要满足行情时间＜策略时间＜当日补跑截止时间")
+        if not self.market_brief_time<self.market_brief_until:
+            raise ValueError("大盘报告生成时间需早于补跑截止")
         if self.futu_heat_enabled and self.volume_top50_enabled:
             raise ValueError("富途热榜与旧 Yahoo 成交量榜不能同时扩充关注池")
         return self
@@ -212,10 +219,44 @@ def _enqueue_valuation(cfg, day, target):
     return jid
 
 
+def _brief_day(cfg):
+    now = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
+    day = now.date().isoformat()
+    if (cfg.enabled and cfg.market_brief_enabled and day>=cfg.start_date and now.weekday()<6
+            and cfg.market_brief_time<=now.strftime("%H:%M")<cfg.market_brief_until):
+        return day, {0:"monday",5:"weekly"}.get(now.weekday(),"daily")
+    return None
+
+
+def _enqueue_brief(day, report_type):
+    jid = _job_id("market_brief",day)
+    with Session() as session:
+        if session.get(Job,jid):
+            return None
+    _, target = market.calendar_context()
+    anchor = security_for("SPY",create=True)
+    with Session() as session:
+        session.add(Job(id=jid,security_id=anchor.id,kind=KINDS["market_brief"],active_key="post-close:market-brief",
+            payload={"phase":"market_brief","local_date":day,"target_session":target,"report_type":report_type},
+            message=f"大盘报告排队中 · {day}（北京时间）"))
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            return None
+    logger.info("已创建大盘报告任务 · %s（北京时间），美股日线%s",day,target)
+    return jid
+
+
 def enqueue_due():
-    """只入队。日线与策略按交易日去重，估值按北京时间周六日期去重。"""
+    """只入队；大盘报告按北京时间日期去重，独立于关注列表及个股信号。"""
     cfg = policy()
+    brief = _brief_day(cfg)
+    brief_id = _enqueue_brief(*brief) if brief else None
     result = _enqueue_daily(cfg)
+    if brief_id:
+        result["queued"].insert(0,brief_id)
+        result["message"] = "已入队大盘报告"
     day = _valuation_day(cfg)
     if day and not result["queued"]:
         jid = _enqueue_valuation(cfg,day,result["target_session"])
@@ -396,6 +437,11 @@ def run(job):
     if job.kind == KINDS["valuation"]:
         from . import weekly_valuation
         return weekly_valuation.run(job,result,allowed=lambda: _valuation_day(policy()) == job.payload["local_date"])
+    if job.kind == KINDS["market_brief"]:
+        from . import market_brief
+        expected = (job.payload["local_date"],job.payload["report_type"])
+        return market_brief.run(job,result,allowed=lambda: _brief_day(policy())==expected,
+            delivery_enabled=lambda: policy().market_brief_feishu_enabled,checkpoint=_checkpoint)
     return _market(job,result) if job.kind==KINDS["market"] else _signals(job,result)
 
 
