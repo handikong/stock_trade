@@ -240,8 +240,8 @@ def _manual(data,item,cfg):
     return {"stage":stage,"reason":note}
 
 
-def _evaluate(session,code,manual=None):
-    ctx = _context(session,code)
+def _evaluate(session,code,manual=None,*,context=None):
+    ctx = context if context is not None else _context(session,code)
     cfg,account,env = (ctx[k] for k in ("cfg","account","environment"))
     item = ctx["assets"][code]
     price = item["price"]
