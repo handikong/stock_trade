@@ -9,6 +9,8 @@ from .config import settings
 from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
+SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals")
+
 logger=logging.getLogger(__name__)
 
 
@@ -44,7 +46,7 @@ def progress(job_id,percent,message):
 
 def run(job: Job):
     sid=job.security_id
-    if job.kind in ("scheduled_market","scheduled_signals"):
+    if job.kind in SCHEDULED_KINDS:
         from . import post_close
         return post_close.run(job)
     if job.kind=="holdings_refresh":
@@ -98,7 +100,7 @@ class Worker:
         try:
             # 普通中断任务维持原策略；盘后任务复用逐股进度及正式投递去重续跑。
             with Session() as session:
-                scheduled=("scheduled_market","scheduled_signals")
+                scheduled=SCHEDULED_KINDS
                 session.execute(update(Job).where(Job.status=="running",Job.kind.notin_(scheduled)).values(status="failed",active_key=None,
                     message="上次进程中断，已保存的数据保留，请按需重新发起",updated_at=stamp()))
                 session.execute(update(Job).where(Job.status=="running",Job.kind.in_(scheduled)).values(status="queued",
@@ -161,7 +163,7 @@ class Worker:
                     result={};status="failed";message="处理未完成，原缓存与已保存材料保留，请核对资料和配置后重试"
                 with Session() as session:
                     item=session.get(Job,job.id)
-                    if status=="failed" and not result and job.kind in ("scheduled_market","scheduled_signals"):
+                    if status=="failed" and not result and job.kind in SCHEDULED_KINDS:
                         result={**item.result,"status":"failed","message":message}
                     item.status=status;item.message=message;item.result=result;item.progress=100
                     item.active_key=None;item.updated_at=stamp()

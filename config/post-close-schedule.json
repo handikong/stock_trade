@@ -7,5 +7,6 @@
   "signal_time": "07:00",
   "catch_up_until": "10:00",
   "poll_seconds": 30,
-  "volume_top50_enabled": true
+  "volume_top50_enabled": false,
+  "futu_heat_enabled": true
 }

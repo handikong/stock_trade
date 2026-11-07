@@ -10,7 +10,7 @@ bash deploy.sh
 
 `deploy.sh` 创建或复用虚拟环境、安装 Python 依赖、建表和首次导入名单，再启动后台。日常更新用 `bash update.sh`，仅对当前分支执行 `git pull --ff-only` 并重启后台，不安装依赖或运行部署初始化命令。依赖发生变化时，拉取后重新运行 `bash deploy.sh`。拉取、依赖安装或初始化失败时，不会先停掉旧后台。SQLite 由 Python 自带的 `sqlite3` 模块提供，脚本先检查支持情况，无需另装数据库服务或 SQLite 命令行工具。已有 `.env` 不覆盖；缺少时创建 SQLite 默认配置，默认库文件为 `data/research.db`。需要飞书时另填实际的本机配置。
 
-新数据库首次写入 `config/deploy-watchlist.json` 中的509只美股。这是从截至2026-11-04完整行情的纳指100和标普500代理筛选档案取得的固定初始名单，不是实时全市场榜单。初始化不下载行情、不扫描策略、不发送飞书；日线和实时榜单由后续盘后任务更新。数据库只要已有关注记录或初始化状态，就不会补写初始池，包括用户已全部手动移出的情况。仅初始化、不拉代码或启动服务时，可执行：
+默认启用富途热榜时，新数据库建表后等待首次富途榜单，不导入旧509只指数初始池。已有库也在第一次成功的富途同步中替换关注池，历史资料仍保留；立即同步可执行 `.venv/bin/python -m stock_research.futu_heat_cli sync`。只有明确停用富途热榜的配置，才在空库使用 `config/deploy-watchlist.json` 旧种子。仅初始化、不拉代码或启动服务时，可执行：
 
 ```bash
 .venv/bin/python -m stock_research.deploy_init

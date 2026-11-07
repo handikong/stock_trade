@@ -18,7 +18,7 @@ from .service import security_for
 from .store import Job, Session, WatchlistEntry, digest, latest, stamp
 
 logger = logging.getLogger(__name__)
-KINDS = {"market":"scheduled_market","signals":"scheduled_signals"}
+KINDS = {"heat":"scheduled_futu_heat","market":"scheduled_market","signals":"scheduled_signals"}
 
 
 class Policy(BaseModel):
@@ -32,6 +32,7 @@ class Policy(BaseModel):
     catch_up_until: str
     poll_seconds: int = Field(ge=5,le=300)
     volume_top50_enabled: bool = False
+    futu_heat_enabled: bool = False
 
     @model_validator(mode="after")
     def valid(self):
@@ -45,6 +46,8 @@ class Policy(BaseModel):
             raise ValueError("计划时间需要HH:MM格式")
         if not self.market_time < self.signal_time < self.catch_up_until:
             raise ValueError("需要满足行情时间＜策略时间＜当日补跑截止时间")
+        if self.futu_heat_enabled and self.volume_top50_enabled:
+            raise ValueError("富途热榜与旧 Yahoo 成交量榜不能同时扩充关注池")
         return self
 
 
@@ -85,12 +88,54 @@ def _supported(symbol):
     return bool(re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}",symbol)) and not symbol.endswith((".SS",".SZ",".BJ"))
 
 
+def _heat_day(cfg):
+    now = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
+    day = now.date().isoformat()
+    if (cfg.enabled and cfg.futu_heat_enabled and day >= cfg.start_date
+            and cfg.market_time <= now.strftime("%H:%M") < cfg.catch_up_until):
+        return day
+    return None
+
+
+def _enqueue_heat(cfg, day):
+    jid = _job_id("heat",day)
+    with Session() as session:
+        if session.get(Job,jid):
+            return None
+    anchor = security_for("AAPL",create=True)
+    with Session() as session:
+        session.add(Job(id=jid,security_id=anchor.id,kind=KINDS["heat"],active_key="post-close:heat",
+            payload={"phase":"heat","local_date":day,"target_session":day,"policy":cfg.model_dump()},
+            message=f"富途美股热榜排队中 · {day}"))
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            return None
+    logger.info("已创建富途美股热榜任务 · %s（北京时间）", day)
+    return jid
+
+
 def enqueue_due():
     """只入队，不执行网络/模型/投递；同交易日同阶段确定ID永久防重复入队。"""
-    cfg = policy(); now,target,message = _target(cfg)
-    result = {"message":message,"local_date":now.date().isoformat(),"target_session":target,"queued":[]}
+    cfg = policy()
+    heat_day = _heat_day(cfg)
+    heat_id = _enqueue_heat(cfg,heat_day) if heat_day else None
+    now,target,message = _target(cfg)
+    result = {"message":message,"local_date":now.date().isoformat(),"target_session":target,
+              "queued":[heat_id] if heat_id else []}
     if target is None:
+        if heat_id:
+            result["message"] = "已入队每日富途热榜；没有新美股收盘，跳过行情及策略任务"
         return result
+    if cfg.futu_heat_enabled:
+        from . import futu_heat
+        with Session() as session:
+            dependency = session.get(Job,_job_id("heat",heat_day)) if heat_day else None
+            if heat_day and (not dependency or dependency.status not in ("completed","failed")):
+                return {**result,"message":"等待富途热榜同步结束，再冻结关注名单"}
+        if not futu_heat.ready():
+            return {**result,"message":"首次富途热榜尚未成功，保留旧池并暂停自动扫描"}
     members = watchlist.entries()
     if not members and not cfg.volume_top50_enabled:
         return {**result,"message":"关注列表为空，本次无股票可处理"}
@@ -163,7 +208,8 @@ def _cached(symbol, target):
 
 def _market(job, result):
     symbols = result.get("symbols", job.payload["symbols"])
-    if job.payload["policy"].get("volume_top50_enabled") and "volume_top50" not in result:
+    if (job.payload["policy"].get("volume_top50_enabled") and "volume_top50" not in result
+            and not policy().futu_heat_enabled):
         if not _allowed(job.payload):
             return {**result,"status":"expired","message":"盘后窗口已结束或任务停用，未获取成交量榜"}
         from . import volume_leaders
@@ -275,11 +321,29 @@ def _signals(job, result):
     return result
 
 
+def _heat(job, result):
+    from . import futu_heat
+    day = job.payload["local_date"]
+    allowed = lambda: _heat_day(policy()) == day
+    if not allowed():
+        return {**result,"status":"expired","message":"富途热榜更新窗口已结束或已停用"}
+    report = futu_heat.sync(day,send=True,allowed=allowed)
+    notice = report["delivery"]
+    if notice["status"] not in ("SENT","NO_ADDITIONS"):
+        result["warnings"].append({"message":notice.get("message") or f"飞书状态 {notice['status']}，未确认送达"})
+    result.update(status="partial" if result["warnings"] else "complete",
+                  added=[row["symbol"] for row in report["added"]], active_count=report["active_count"],
+                  delivery=notice,message=f"富途热榜完成：新增{len(report['added'])}只，当前{report['active_count']}只")
+    return result
+
+
 def run(job):
     if job.kind not in KINDS.values() or KINDS.get(job.payload.get("phase"))!=job.kind:
         raise ValueError("盘后任务阶段无效")
     result = {"phase":job.payload["phase"],"target_session":job.payload["target_session"],
               "items":[],"warnings":[],"status":"running",**(job.result or {})}
+    if job.kind == KINDS["heat"]:
+        return _heat(job,result)
     return _market(job,result) if job.kind==KINDS["market"] else _signals(job,result)
 
 
