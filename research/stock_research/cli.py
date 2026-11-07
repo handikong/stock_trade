@@ -40,14 +40,14 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--analyze", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--document-id", action="append", help=argparse.SUPPRESS)
     p.add_argument("--json", action="store_true", help="输出完整结构化JSON，便于核对或重定向保存")
-    p.add_argument("--details", action="store_true", help="展开手工输入/来源/计算结果与技术依据；不读取旧财报和电话会议")
+    p.add_argument("--details", action="store_true", help="展开估值数据/来源/计算结果与技术依据；不读取旧财报和电话会议")
     p.add_argument("--output", type=Path, metavar="文件路径", help="另存本次输出，不覆盖已有文件")
-    p.add_argument("--facts-limit", type=int, default=40, metavar="数量", help="兼容旧参数；当前报告仅展示手工财务输入")
+    p.add_argument("--facts-limit", type=int, default=40, metavar="数量", help="兼容旧参数")
     p.add_argument("--materials",type=Path,help=argparse.SUPPRESS)
     p.add_argument("--event",type=Path,help=argparse.SUPPRESS)
     p.add_argument("--freeze-preview",action="store_true",help=argparse.SUPPRESS)
-    p.add_argument("--valuation",type=Path,metavar="JSON文件",help="导入手工EPS＋PE JSON或旧v1/v2/v3估值；默认草稿")
-    p.add_argument("--confirm-valuation",action="store_true",help="与--valuation同时使用，明确确认本人已核对的手工资料")
+    p.add_argument("--valuation",type=Path,metavar="JSON文件",help="旧导入选项，现已停用")
+    p.add_argument("--confirm-valuation",action="store_true",help="旧确认选项，现已停用")
     p.add_argument("--guidance",type=Path,help=argparse.SUPPRESS)
     return p
 
@@ -135,9 +135,9 @@ def render_details(report: dict, facts_limit: int) -> str:
         lines.append(f"  失效复查：{show(zone.get('invalidation'))}")
     lines.append(show(technical.get("message")))
 
-    detail("手工数据、来源、估值计算与缺项", report.get("manual_valuation"), "请录入并确认手工资料。")
+    detail("估值来源、计算与缺项", report.get("automatic_valuation_reference"), "暂无适用估值。")
     detail("技术与基本面结合完整依据", report.get("fundamental_technical"), "尚无综合判断资料。")
-    detail("当前研究模式", report.get("research_scope"), "手工财务与程序技术计算。")
+    detail("当前研究模式", report.get("research_scope"), "每周估值与程序技术计算。")
     detail("数据状态", report.get("data_status"), "尚无状态。")
     section("本次处理与缺失说明")
     lines.append(dump(report["command"]))
@@ -153,14 +153,10 @@ def main() -> int:
         p.error("--facts-limit 不能为负数")
     if args.json and args.details:
         p.error("--json已包含完整数据，不与--details同时使用")
-    if args.confirm_valuation and not args.valuation:
-        p.error("--confirm-valuation必须与--valuation文件同时使用")
-    if args.analyze or args.document_id:
-        p.error("原自动研究链路已停用，请用--valuation录入本人核对的手工数据")
-    if any((args.materials,args.event,args.freeze_preview,args.guidance)):
-        p.error("旧原件/事件/指引导入与冻结流程已停用，请通过统一手工研究输入录入估值数据")
-    if args.cached and any((args.materials,args.event,args.freeze_preview,args.valuation,args.guidance)):
-        p.error("--cached只读缓存，不能同时导入资料、记录事件、冻结或新增估值")
+    if args.confirm_valuation or args.valuation:
+        p.error("旧手工估值导入已停用，请在个股研究页点击更正估值")
+    if args.analyze or args.document_id or any((args.materials,args.event,args.freeze_preview,args.guidance)):
+        p.error("旧财报、分析与指引导入流程已停用")
     try:
         symbol = args.symbol
         if not symbol:
@@ -182,32 +178,14 @@ def main() -> int:
         logger.info("开始研究：%s；模式：%s", security.symbol,
             "只读缓存" if args.cached else "强制刷新" if args.force else "优先复用有效缓存")
         command = {"mode":"cached" if args.cached else "force" if args.force else "refresh",
-            "steps":{}, "warnings":[], "analysis_requested":False,"analysis_policy":"manual-input-no-llm-v1",
-            "valuation_policy":"manual-eps-pe-v4"}
-        from .inputs import import_valuations
-        def input_step(label,fn):
-            logger.info("正在处理%s",label)
-            try:
-                command["steps"][label]=fn()
-            except Exception as exc:
-                from .providers import failure_detail
-                warning={**failure_detail(exc),"stage":label}
-                command["warnings"].append(warning)
-                logger.warning("[%s] %s",label,warning["message"])
+            "steps":{}, "warnings":[], "analysis_requested":False,"analysis_policy":"weekly-valuation-no-llm-v1",
+            "valuation_policy":"weekly-valuation-technical-v1"}
         if not args.cached:
             refreshed=refresh_sources(security.id,args.force,lambda percent,message:logger.info("[%s%%] %s",percent,message),
                 analyze_reports=False)
             command["steps"].update(refreshed["steps"]);command["warnings"].extend(refreshed["warnings"])
         else:
             logger.info("仅读取已保存研究数据，不请求外部来源或模型")
-        if args.valuation:
-            input_step("估值",lambda:import_valuations(security.id,args.valuation,confirm=args.confirm_valuation))
-            # 导入在行情之后进行；重新列手工状态，避免保留导入之前的缺失警告。
-            from .financial_reports import run_steps
-            from .manual_valuation import check
-            checked=run_steps(security.id,False,[(95,"正在核对导入后的手工估值","valuation",check)])
-            command["warnings"]=[w for w in command["warnings"] if w.get("stage")!="valuation"] + checked["warnings"]
-            command["steps"].update(checked["steps"])
         logger.info("正在汇总研究报告")
         report = build_report(security)
         report.pop("jobs", None)
@@ -221,7 +199,7 @@ def main() -> int:
             with output_path.open("x", encoding="utf-8") as target:
                 target.write(content)
             logger.info("报告已保存：%s", output_path)
-        if not report.get("market") and report["manual_valuation"]["status"] == "missing":
+        if not report.get("market") and not (report.get("automatic_valuation_reference") or {}).get("scenarios"):
             logger.error("未取得可用行情，报告中的缺失项请先核对网络与股票代码")
             return 1
         logger.info("研究输出完成：%s；行情缓存状态：%s；本次步骤警告：%s条",

@@ -1,16 +1,16 @@
-"""研究编排：行情/技术与本人录入的EPS/PE情景；不调用模型或旧财报链路。"""
+"""研究编排：行情、技术与可更正的每周估值。"""
 import logging
 import re
 from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from . import fundamental_technical, manual_valuation, market, technical, weekly_valuation
+from . import fundamental_technical, market, technical, weekly_valuation
 from .financial_reports import run_steps
 from .documents import document_summary
 from .store import Document, Job, Security, Session, Snapshot, latest, serialize_snapshot
 
 logger = logging.getLogger(__name__)
-RESEARCH_POLICY = "manual-eps-pe-technical-v4"
+RESEARCH_POLICY = "weekly-valuation-technical-v1"
 
 
 def security_for(symbol: str, create: bool = False) -> Security:
@@ -41,10 +41,9 @@ def job_json(job):
 
 def refresh_sources(security_id: str, force: bool = False,
                     on_progress: Callable[[int, str], None] | None = None, *, analyze_reports=False) -> dict:
-    # force仅更新行情，不恢复PE、财报、身份或模型请求。
+    # 日常研究刷新行情；估值采集由周六任务统一处理。
     return run_steps(security_id, force, [
         (10, "正在读取行情并计算技术支撑压力", "market", market.refresh_market),
-        (95, "正在读取手工输入并计算估值/列出缺项", "valuation", manual_valuation.check),
     ], on_progress)
 
 
@@ -52,7 +51,6 @@ def build_report(security: Security, *, include_history=False) -> dict:
     with Session() as session:
         security = session.get(Security, security.id)
         market_snapshot = latest(session, security.id, "market")
-        manual = manual_valuation.read(session, security)
         automatic = (None if security.profile.get("type") in ("ETF","MUTUALFUND")
                      else weekly_valuation.read(session,security.id))
         market_view = None if market_snapshot is None else {
@@ -60,7 +58,7 @@ def build_report(security: Security, *, include_history=False) -> dict:
         if market_view and market_view.get("technical"):
             market_view["technical"]["stale"] = not technical.is_current(market_view["technical"])
         cache = market.cache_state(market_snapshot)
-        combined = fundamental_technical.evaluate(market_view, cache, manual, security.profile)
+        combined = fundamental_technical.evaluate(market_view, cache, None, security.profile, weekly=automatic or {})
         # 普通查询不读取旧财报/电话会议正文，不扫描旧分析，不把旧结果回填为当前数据。
         keys = ("financials", "filings", "estimates", "earnings", "preview", "guidance", "analysis", "discovery",
                 "earnings_calendar", "eps_revisions", "eps_trend", "materials", "guidance_draft", "valuation_draft", "external_briefs")
@@ -80,24 +78,22 @@ def build_report(security: Security, *, include_history=False) -> dict:
             .order_by(Job.created_at.desc()).limit(8)))
         data_status = {
             "market":{"status":"available" if market_snapshot else "missing", "message":"日线及技术支撑压力仍由程序获取和计算，新鲜度见cache"},
-            "valuation":{"status":manual["status"], "message":manual["message"], "policy":manual_valuation.POLICY},
+            "valuation":{"status":"not_applicable" if automatic is None else "available" if automatic["scenarios"] else "missing",
+                         "message":automatic["message"] if automatic else "基金不适用公司EPS估值"},
             "fundamental_technical":{"status":combined["status"], "message":combined["message"]},
         }
         for key in ("financials", "estimates", "calls", "guidance", "preview", "calendar", "analysis", "external_briefs"):
-            data_status[key] = {"status":"manual_only", "message":"原自动研究链路已停用；资料由本人询问GPT、核对后录入，不读取旧财报/电话会议补齐"}
-        if security.profile.get("type") == "ETF":
-            data_status["valuation"] = {"status":"not_applicable", "message":"ETF不套用公司EPS/DCF模型"}
-        p = manual.get("input") or {}
+            data_status[key] = {"status":"disabled", "message":"当前研究使用每周估值和日线技术数据"}
         return {"symbol":security.symbol, "security_id":security.id, "profile":security.profile,
-            "research_policy":RESEARCH_POLICY, "analysis_policy":"manual-input-no-llm-v1",
+            "research_policy":RESEARCH_POLICY, "analysis_policy":"weekly-valuation-no-llm-v1",
             "cache":cache, "market":market_view, **payload,
             "fundamental_technical":combined,
-            "manual_valuation":manual, "automatic_valuation_reference":automatic,
+            "automatic_valuation_reference":automatic,
             "valuation_draft_history":history.get("valuation_draft"),
             "legacy_history":history, "valuations":valuations, "documents":[document_summary(d) for d in docs],
             "jobs":[job_json(j) for j in jobs], "data_status":data_status,
             "coverage":{"calls":0,"call_periods":[],"missing_call_periods":[],
                         "archived_documents":len(docs),"calls_required":False,"frozen_preview":False,
                         "official_financials":False,"legacy_history_included":include_history},
-            "research_scope":{"mode":"manual_financials", "report_periods":[p["latest_report_period_end"]] if p.get("latest_report_period_end") else [],
-                "selected_document_ids":[], "message":"已确认估值读取手工EPS及PE；每周自动估值参考单独展示，查询只读其缓存"}}
+            "research_scope":{"mode":"weekly_valuation", "report_periods":[], "selected_document_ids":[],
+                "message":"估值读取每周采集与网页更正后的当前版本"}}

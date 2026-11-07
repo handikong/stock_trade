@@ -38,9 +38,9 @@ def _zone(zone):
 
 def summarize(report):
     """仅派生展示内容；不新增估值、策略、止损或基本面通过条件。"""
-    manual = report.get("manual_valuation") or {}; market = report.get("market") or {}
+    current_valuation = report.get("automatic_valuation_reference") or {}; market = report.get("market") or {}
     technical = market.get("technical") or {}; cache = report.get("cache") or {}
-    profile = report.get("profile") or {}; combined = report.get("fundamental_technical") or {}
+    profile = report.get("profile") or {}
     current = cache.get("state")=="fresh" and not technical.get("stale") and technical.get("status")=="ready"
     zones = technical.get("zones",[]) if current else []
     levels = {}
@@ -50,49 +50,18 @@ def summarize(report):
         levels[kind] = next((text for z in candidates if (text := _zone(z))),
             "待更新" if not current else "暂无有效区间")
 
-    usable = manual.get("status") in ("available","partial") and bool(manual.get("input"))
-    p = manual.get("input") or {}; currency = p.get("currency")
-    groups = manual.get("valuation_sets") or []
-    history = next((g.get("scenarios",[]) for g in groups if g.get("kind")=="history"),manual.get("scenarios") or []) if usable else []
-    industry = next((g.get("scenarios",[]) for g in groups if g.get("kind")=="industry"),[]) if usable else []
-    prices = [_decimal(row.get("price")) for row in history]
-    prices = [v for v in prices if v is not None and v>0]
-    base = _decimal(history[1].get("price")) if len(history)==3 else None
-    if len(prices)==3:
-        valuation = " · ".join(f"{name} **{_price(value)}**" for name,value in zip(("保守","基准","乐观"),prices))
-    elif prices:
-        valuation = "情景参考 **"+" / ".join(_price(v) for v in prices)+"**"
-    elif usable and (manual.get("dcf_result") or {}).get("price"):
-        dcf = manual["dcf_result"]
-        valuation = f"DCF **{_price(dcf['price'])}**（资料日 {_text(dcf.get('as_of'))}）"
-    else:
-        valuation = "待复核" if manual.get("status")=="needs_review" else "待录入EPS / PE"
-    if currency and (prices or (usable and manual.get("dcf_result"))):
-        valuation += " "+_text(currency,3)
-    if usable and (p.get("target") or {}).get("date") and prices:
-        valuation = "目标日 "+_text(p["target"]["date"],10)+"\n"+valuation
-    industry_prices = [_decimal(row.get("price")) for row in industry]
-    industry_prices = [v for v in industry_prices if v is not None and v>0]
-    if industry_prices:
-        valuation += f"\n行业参照 {_price(min(industry_prices))}—{_price(max(industry_prices))} {_text(currency,3)}（单独参考）"
-
+    scenarios = current_valuation.get("scenarios") or []
     close = _decimal(market.get("last_price"))
-    comparable = (usable and p.get("schema_version") in ("manual-eps-pe-v4","manual-valuation-v2")
-                  and currency==profile.get("currency") and cache.get("state")=="fresh"
-                  and not combined.get("issues") and any(m.get("model")=="eps" for m in combined.get("models",[])))
-    if not usable:
-        reason = "估值待复核，暂无基本面买入依据。" if manual.get("status")=="needs_review" else "缺少已确认估值，暂无基本面买入依据。"
-    elif not comparable:
-        reason = "估值仅作假设参考，口径尚未满足基本面确认。"
-    elif base is not None and base>0 and close is not None and close>0:
-        with localcontext() as ctx:
-            ctx.prec = 48
-            space = (base/close-1)*100
-        reason = f"按录入假设，至基准估值空间{space:+.2f}%；仍需核对保守情景。" if space>0 else "现价已达到或超过基准估值，基本面不支持因该估值追价。"
+    if scenarios:
+        valuation = " · ".join(f"{row['name']} **{_price(row['price'])}**" for row in scenarios) + " USD"
+        if current_valuation.get("corrected_fields"):
+            valuation += " · 含网页更正"
+        if current_valuation.get("stale"):
+            valuation += " · 含旧数据"
+        reason = "财年EPS与Forward PE口径待核对，当前区间仅作估值参考。"
     else:
-        reason = "暂无可比基准估值，不能确认基本面支持。"
-    if prices and industry_prices and (max(industry_prices)<min(prices) or min(industry_prices)>max(prices)):
-        reason += "历史与行业参照不重叠，存在估值分歧。"
+        valuation = "估值资料待补" if current_valuation else "基金不适用公司EPS估值"
+        reason = current_valuation.get("message") or valuation
     quote = f"{market.get('last_complete_session') or '日期待补'} 收盘 {_price(close)} {_text(profile.get('currency') or '币种待核对',10)}"
     if cache.get("state")!="fresh":
         quote += " · 历史参考/待更新"

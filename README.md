@@ -1,6 +1,6 @@
 # 个人美股交易决策系统
 
-北京时间每周六08:00，后台重新抓取全部活动关注股的财年EPS与历史Forward PE，保存[每周自动估值参考](docs/43-weekly-valuation.md)。在个股研究页或`stock-research SYMBOL --cached`查看，和手工确认估值分开。
+北京时间每周六08:00，后台重新抓取全部活动关注股的财年EPS与历史Forward PE。个股研究页「更正估值」可补缺项或改错值，网页、CLI和飞书共用更正后的[当前估值](docs/43-weekly-valuation.md)。旧手工档案可用`stock-input SYMBOL --history`查看。
 
 当前自动股票池来源是[富途美股热榜](docs/42-futu-heat-watchlist.md)。北京时间每日06:00取前100条，只保留股票；首次成功替换旧指数池，随后只追加新上榜股票，有新增就发飞书。行情更新和策略扫描仍只在有新美股收盘时执行。
 

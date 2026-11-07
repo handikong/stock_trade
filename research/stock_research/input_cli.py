@@ -1,30 +1,30 @@
-"""独立手工录入入口：默认只预览，显式保存草稿或确认，不获取行情。"""
+"""旧手工估值档案的只读入口。"""
 import logging
 from pathlib import Path
 
 from .cli import ChineseParser, configure_console_logging, dump
-from .cli_helpers import emit, normalize_symbol, output_path, parse_input, storage_ready
+from .cli_helpers import emit, normalize_symbol, output_path, storage_ready
 from .console_tables import table
 
 logger = logging.getLogger("stock_research.input_cli")
 
 
 def parser():
-    p = ChineseParser(description="录入GPT返回的手工研究JSON：预览→保存草稿/本人确认→查询与版本历史。", add_help=False)
+    p = ChineseParser(description="查看旧手工估值档案；更正当前估值请使用个股研究页。", add_help=False)
     p.add_argument("-h", "--help", action="help", help="查看中文说明")
     p.add_argument("symbol", help="例如GOOG；必须与JSON中的大写股票代码一致")
-    p.add_argument("--file", type=Path, help="读取JSON文件；-表示管道/粘贴，不填则直接粘贴")
+    p.add_argument("--file", type=Path, help="旧选项，现已停用")
     action = p.add_mutually_exclusive_group()
-    action.add_argument("--save", action="store_true", help="保存未确认草稿，不取代当前确认版本")
-    action.add_argument("--confirm", action="store_true", help="明确表示本人已核对本次内容，保存为确认版本")
-    action.add_argument("--show", action="store_true", help="读取当前确认版本及最新草稿，不读取输入")
+    action.add_argument("--save", action="store_true", help="旧选项，现已停用")
+    action.add_argument("--confirm", action="store_true", help="旧选项，现已停用")
+    action.add_argument("--show", action="store_true", help="查看旧档案中最后确认版本及草稿")
     action.add_argument("--history", action="store_true", help="查看手工输入版本历史，不读取输入")
-    action.add_argument("--template", action="store_true", help="输出本股票空白JSON模板，需自行填写真实数据")
-    p.add_argument("--expected-hash", help="确认/保存时校验之前预览的input_hash，防止文件内容变化")
+    action.add_argument("--template", action="store_true", help="旧选项，现已停用")
+    p.add_argument("--expected-hash", help="旧选项，现已停用")
     p.add_argument("--limit", type=int, default=20, help="history最多条数，默认20，范围1～1000")
     p.add_argument("--json", action="store_true", help="输出完整结构化结果；template始终输出JSON")
     p.add_argument("--details", action="store_true", help="附上标准化输入、来源和完整计算依据")
-    p.add_argument("--output", type=Path, help="另存输出，拒绝覆盖；也可用于保存空白模板")
+    p.add_argument("--output", type=Path, help="另存输出，拒绝覆盖")
     return p
 
 
@@ -110,58 +110,28 @@ def main(argv=None):
     p = parser(); args = p.parse_args(argv); configure_console_logging()
     if args.json and args.details:
         p.error("--json已含完整数据，不与--details同时使用")
-    if args.file and any((args.show,args.history,args.template)):
-        p.error("--show/--history/--template不读取输入，不能与--file混用")
-    if args.expected_hash and not (args.save or args.confirm):
-        p.error("--expected-hash仅与--save或--confirm一起使用")
+    if not (args.show or args.history) or args.file or args.expected_hash:
+        p.error("旧手工录入已停用。更正估值请使用个股研究页；旧档案可用 --show 或 --history 查看")
     if not 1 <= args.limit <= 1000:
         p.error("--limit范围为1～1000")
     try:
         symbol = normalize_symbol(args.symbol); path = output_path(args.output)
         security = existing_security(symbol)
-        if args.template:
-            template = {"eps_conservative":None,"eps_base":None,"eps_optimistic":None,
-                        "pe_low":None,"pe_median":None,"pe_high":None,"industry_pe":None}
-            logger.info("三档EPS＋三档历史PE，industry_pe可选；股票由命令指定，不获取PE")
-            emit(dump(template)+"\n", path)
-            return 0
         from . import manual_valuation
         from .store import Session, Snapshot, serialize_snapshot
-        if args.show or args.history:
-            if security is None or not storage_ready("research_snapshots"):
-                raise LookupError("没有本股票手工档案，请先粘贴JSON预览，再用--save或--confirm保存")
-            with Session() as session:
-                if args.history:
-                    from sqlalchemy import select
-                    items = session.scalars(select(Snapshot).where(Snapshot.security_id==security.id, Snapshot.kind=="manual_valuation")
-                        .order_by(Snapshot.created_at.desc(),Snapshot.id.desc()).limit(args.limit))
-                    rows = [{"id":s.id,"status":s.payload["status"],"created_at":serialize_snapshot(s)["created_at"],
-                             "as_of":s.payload["input"].get("as_of"),"target_date":s.payload["input"].get("target",{}).get("date")} for s in items]
-                    result = {"symbol":symbol,"mode":"HISTORY","items":rows}
-                else:
-                    view = manual_valuation.read(session,security)
-                    result = {"symbol":symbol,"mode":"SHOW","message":"当前确认状态","result":view}
-        else:
-            data = parse_input(args.file)
-            logger.info("正在校验手工数据并计算预览，不请求行情、财报或模型")
-            preview = manual_valuation.evaluate(data, symbol, security.profile if security else {})
-            if security is not None:
-                from .eps_only import attach
-                with Session() as session:
-                    preview = attach(preview, session, security)
-            if args.expected_hash and args.expected_hash != preview["input_hash"]:
-                raise ValueError("输入与指定预览哈希不一致，请重新核对")
-            mode = "PREVIEW"; view = preview; message = "仅预览，尚未保存"
-            if args.save or args.confirm:
-                from .store import initialize
-                from .service import security_for
-                initialize()
-                security = security_for(symbol,create=True)
-                view = manual_valuation.save(security.id, data, confirm=args.confirm, expected_hash=preview["input_hash"])
-                mode = "CONFIRM" if args.confirm else "DRAFT"
-                message = "已保存本人确认版本" if args.confirm else "已保存未确认草稿"
-                logger.info("%s；版本%s",message,view["id"])
-            result = {"symbol":symbol,"mode":mode,"message":message,"result":view}
+        if security is None or not storage_ready("research_snapshots"):
+            raise LookupError("本股票没有旧手工估值档案")
+        with Session() as session:
+            if args.history:
+                from sqlalchemy import select
+                items = session.scalars(select(Snapshot).where(Snapshot.security_id==security.id, Snapshot.kind=="manual_valuation")
+                    .order_by(Snapshot.created_at.desc(),Snapshot.id.desc()).limit(args.limit))
+                rows = [{"id":s.id,"status":s.payload["status"],"created_at":serialize_snapshot(s)["created_at"],
+                         "as_of":s.payload["input"].get("as_of"),"target_date":s.payload["input"].get("target",{}).get("date")} for s in items]
+                result = {"symbol":symbol,"mode":"HISTORY","items":rows}
+            else:
+                view = manual_valuation.read(session,security)
+                result = {"symbol":symbol,"mode":"SHOW","message":"旧档案，供历史核对","result":view}
         emit(dump(result)+"\n" if args.json else render(result,details=args.details),path)
         if result["mode"]=="HISTORY":
             return 0

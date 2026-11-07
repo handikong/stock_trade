@@ -36,18 +36,17 @@ def main(argv=None):
             if not storage_ready("securities","research_snapshots"):
                 raise LookupError("尚无行情缓存，请先执行stock-levels 股票代码获取日线")
             security = security_for(symbol)
-            logger.info("只读既有技术与手工估值，不请求行情或写库")
+            logger.info("只读既有技术与当前估值，不请求行情或写库")
         else:
             initialize()
             security = security_for(symbol,create=True)
-            logger.info("正在处理%s行情和技术区间；EPS及PE仅读手工输入",symbol)
+            logger.info("正在处理%s行情和技术区间；估值只读已有缓存",symbol)
             command.update(run_steps(security.id,args.refresh,[(10,"正在计算技术支撑压力","market",refresh_market)]))
         report = build_report(security)
-        # 导出完整技术结构与结合层，不输出K线数组、原件或整份手工提示正文。
+        # 导出完整技术结构与结合层，不输出K线数组、原件或旧研究原文。
         result = {"symbol":symbol,"profile":report["profile"],"generated_at":stamp(),"cache":report["cache"],
                   "market":report["market"],"fundamental_technical":report["fundamental_technical"],
-                  "manual_valuation":report["manual_valuation"],
-                  "manual_valuation_id":report["manual_valuation"].get("id"),"command":command}
+                  "automatic_valuation_reference":report["automatic_valuation_reference"],"command":command}
         from .research_tables import render_levels
         from .config import settings
         content = dump(result)+"\n" if args.json else render_levels(result,display_timezone=settings.research_display_timezone,details=args.details)

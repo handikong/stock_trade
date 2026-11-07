@@ -35,9 +35,8 @@ function table(headers, rows, numeric = []) {
 function stock(code, name = '', index = 0) {
   return `<div class="stock-cell"><span class="stock-avatar" style="color:${palette[index % palette.length]}">${esc(code.slice(0,2))}</span><div><a class="stock-link" href="#/research?symbol=${encodeURIComponent(code)}">${esc(code)}</a><span class="stock-name">${esc(name && name !== code ? name : '美股 · USD')}</span></div></div>`;
 }
-const template = () => ({eps_conservative:null,eps_base:null,eps_optimistic:null,pe_low:null,pe_median:null,pe_high:null,industry_pe:null});
 const state = {page:'holdings',symbol:'',report:null,workspace:null,timezone:'Asia/Shanghai',generation:0,workspaceGeneration:0,
-  positions:new Map(),editPosition:null,pendingRemoval:null,jobs:new Map(),drafts:new Map(),editorSymbol:'',booting:false,connected:false,valuationSaving:false};
+  positions:new Map(),editPosition:null,pendingRemoval:null,jobs:new Map(),valuationEdit:null,booting:false,connected:false};
 
 function notice(message = '', error = false) {
   const node = $('#notice'); node.textContent = message; node.hidden = !message; node.classList.toggle('error',error);
@@ -68,12 +67,7 @@ function updateBusy() {
   $('#scan-start').disabled = !state.workspace?.watchlist?.items?.length || active('watchlist_scan');
   $('#refresh-holdings').disabled = !state.workspace?.holdings?.items?.length || active('holdings_refresh');
   $('#research-refresh').disabled = !state.symbol || [...state.jobs.values()].some(j => j.kind === 'refresh' && j.symbol === state.symbol);
-  const preview = state.drafts.get(state.symbol)?.preview;
-  $('#valuation-draft').disabled = !preview || state.valuationSaving;
-  $('#valuation-confirm').disabled = !preview || state.valuationSaving;
-  $('#valuation-json').readOnly = state.valuationSaving;
-  $('#valuation-new').disabled = state.valuationSaving;
-  $('#valuation-preview-button').disabled = state.valuationSaving || $('#valuation-preview-button').getAttribute('aria-busy') === 'true';
+
 }
 
 function metric(label, value, note = '', valueTone = '', currency = false) {
@@ -135,40 +129,19 @@ async function loadWorkspace() {
   state.workspace = value; renderHoldings(); renderPool(); updateBusy();
 }
 
-function currentDraft() {
-  if (!state.drafts.has(state.symbol)) state.drafts.set(state.symbol,{raw:JSON.stringify(template(),null,2),preview:null});
-  return state.drafts.get(state.symbol);
-}
-function renderValuation(view, preview = false) {
-  if (!view || !view.input) return empty('尚无已确认估值',view?.draft ? '已有草稿，已载入下方编辑区；核对后预览并确认保存。' : '把大模型返回的EPS与PE粘贴到下方，预览计算后确认保存。','',true);
-  if (view.status === 'needs_review') return `<div class="notice error">${esc(view.message)}</div>`;
-  let groups = view.valuation_sets || [];
-  if (!groups.length && view.scenarios?.length) groups = [{label:view.input.target?.date ? `目标日 ${view.input.target.date} · EPS估值` : 'EPS估值参考',scenarios:view.scenarios}];
-  let html = groups.map(g => `<div class="valuation-group"><h3>${esc(g.label)}</h3><div class="scenario-grid">${g.scenarios.map((r,i) => `<div class="scenario ${i === 1 ? 'base' : ''}"><span>${esc(r.name)}</span><strong>${num(r.price)}</strong><p>EPS ${num(r.eps,4)} × PE ${num(r.pe)}</p></div>`).join('')}</div></div>`).join('');
-  if (view.dcf_result) html += `<p class="inline-note">已保存DCF资料日 ${esc(view.dcf_result.as_of)}，每股价值 ${num(view.dcf_result.price)}；详见导出JSON。</p>`;
-  if (!html) html = empty('估值数据尚未齐全','补齐EPS及对应PE后，程序会计算三档估值。','',true);
-  const gaps = view.missing_fields || [], ref = view.reference || {};
-  if (gaps.length) html += `<p class="inline-note">待补：${esc(gaps.join('、'))}</p>`;
-  if (ref.warnings?.length) html += `<p class="inline-note">${esc(ref.warnings.join('；'))}</p>`;
-  const p = view.input, e = p.eps;
-  html += `<p class="inline-note">${preview ? '仅预览，尚未保存。' : `录入日 ${esc(p.as_of || '未知')}。`}${e ? ` EPS期间 ${esc(e.period_start)}～${esc(e.period_end)}。` : ''} ${esc(p.currency || '')} · ${esc(view.message || '情景估值不代表未来价格保证。')}</p>`;
-  if (view.draft && !preview) html += '<p class="inline-note">另有未确认草稿，当前继续展示已确认版本。</p>';
-  return html;
-}
 function renderWeeklyValuation(view) {
-  const heading = '<h3>每周自动估值参考</h3>';
-  if (!view) return `<div class="valuation-group">${heading}<p class="inline-note">尚无已保存的周六刷新结果。</p></div>`;
-  const {eps, forward_pe:pe, attempt, scenarios} = view;
+  const {eps, forward_pe:pe, attempt, scenarios, corrected_at:corrected} = view;
   const grid = scenarios.length ? `<div class="scenario-grid">${scenarios.map((row,i) =>
     `<div class="scenario ${i === 1 ? 'base' : ''}"><span>${esc(row.name)}</span><strong>${num(row.price)} USD</strong><p>EPS ${num(row.eps,4)} × PE ${num(row.pe)}</p></div>`).join('')}</div>` : '';
   const note = [
-    `Stock Analysis · 最近尝试 ${attempt.date}（北京时间）${view.stale ? ' · 含一周前资料' : ''}`,
-    eps && `财年截至 ${eps.period_end} · 三档 EPS ${num(eps.low,4)} / ${num(eps.mean,4)} / ${num(eps.high,4)} ${eps.currency_per_share} · ${when(eps.fetched_at)}`,
-    pe && `历史 Forward PE ${num(pe.p25)} / ${num(pe.p50)} / ${num(pe.p75)} · ${pe.sample_count} 个季度样本 · ${when(pe.fetched_at)}`,
+    attempt && `Stock Analysis · 最近尝试 ${attempt.date}（北京时间）${view.stale ? ' · 含一周前资料' : ''}`,
+    corrected && `含网页更正 · ${when(corrected)}`,
+    eps && `财年截至 ${eps.period_end} · 三档 EPS ${num(eps.low,4)} / ${num(eps.mean,4)} / ${num(eps.high,4)} ${eps.currency_per_share}${eps.fetched_at ? ' · 源数据 ' + when(eps.fetched_at) : ''}`,
+    pe && `Forward PE ${num(pe.p25)} / ${num(pe.p50)} / ${num(pe.p75)}${pe.sample_count != null ? ' · 源表样本 ' + pe.sample_count : ''}${pe.fetched_at ? ' · 源数据 ' + when(pe.fetched_at) : ''}`,
     view.message,
-    ...attempt.issues,
+    ...(attempt?.issues || []).map(issue => '自动来源：' + issue),
   ].filter(Boolean).map(line => `<p class="inline-note">${esc(line)}</p>`).join('');
-  return `<div class="valuation-group">${heading}${grid}${note}</div>`;
+  return grid + note;
 }
 function zoneCard(z) {
   const quoted = z.quote_low != null && z.quote_high != null, low = quoted ? z.quote_low : z.low, high = quoted ? z.quote_high : z.high;
@@ -203,33 +176,15 @@ function renderResearch() {
   $('#company-symbol').textContent = r.symbol; $('#company-name').textContent = r.profile.name || r.symbol;
   $('#company-type').textContent = ({EQUITY:'股票',ETF:'ETF',MUTUALFUND:'基金'})[r.profile.type] || '类型待确认';
   $('#company-avatar').textContent = r.symbol.slice(0,2); $('#research-symbol').value = r.symbol;
+  const valuation = r.automatic_valuation_reference;
   $('#research-metrics').innerHTML = metric('最近完整日收盘',num(r.market?.last_price),`${r.market?.last_complete_session || '尚无行情'} · ${r.profile.currency || '币种待确认'}`)
     + metric('行情状态',({fresh:'有效',stale:'待更新',missing:'未获取',unknown:'待核对'})[r.cache.state] || '待核对',r.market?.fetched_at ? `取得 ${when(r.market.fetched_at)}` : '仅后台获取K线')
-    + metric('手工估值',({available:'已确认',partial:'部分待补',needs_review:'待复核',missing:'未录入'})[r.manual_valuation.status] || '待核对','EPS与PE均由本人录入');
-  const fund = ['ETF','MUTUALFUND'].includes(r.profile.type);
-  $('#valuation-content').innerHTML = fund ? '<p class="inline-note">基金不套用公司EPS×PE估值；下方继续展示技术支撑压力。</p>'
-    : renderWeeklyValuation(r.automatic_valuation_reference) + renderValuation(r.manual_valuation);
-  $('#valuation-editor').hidden = fund; $('#valuation-jump').hidden = fund;
+    + metric('估值状态',valuation ? (valuation.scenarios.length ? '可试算' : '待补齐') : '不适用',valuation?.corrected_at ? '含网页更正' : '周六自动更新');
+  $('#valuation-content').innerHTML = valuation ? renderWeeklyValuation(valuation)
+    : '<p class="inline-note">基金不套用公司EPS估值，可继续查看技术支撑压力。</p>';
+  $('#valuation-jump').hidden = !valuation;
   $('#technical-content').innerHTML = renderTechnical(r);
   $('#combined-content').innerHTML = renderCombined(r);
-  if (state.editorSymbol !== state.symbol) {
-    if (!state.drafts.has(state.symbol)) {
-      const input = r.manual_valuation.draft?.input;
-      const savedDraft = input?.schema_version === 'manual-eps-pe-v4';
-      // 继续草稿时保留固定NTM期间；不把旧确认值默认为新一年的预测。
-      state.drafts.set(state.symbol,{raw:JSON.stringify(savedDraft ? {...template(),...input.values} : template(),null,2),preview:null,sourceInput:savedDraft ? input : null});
-    }
-    state.editorSymbol = state.symbol;
-    $('#valuation-json').value = currentDraft().raw;
-    formError('#valuation-error');
-    showPreview();
-  }
-  updateBusy();
-}
-function showPreview() {
-  const preview = currentDraft().preview;
-  $('#valuation-preview-content').hidden = !preview;
-  $('#valuation-preview-content').innerHTML = preview ? renderValuation(preview,true) : '';
   updateBusy();
 }
 async function loadStock(code) {
@@ -239,7 +194,7 @@ async function loadStock(code) {
     const item = await post('/workspace/research',{symbol:code});
     const value = await api('/research/' + encodeURIComponent(item.symbol));
     if (ticket !== state.generation || state.page !== 'research') return;
-    state.symbol = item.symbol; state.report = value; state.editorSymbol = ''; renderResearch(); notice('');
+    state.symbol = item.symbol; state.report = value; renderResearch(); notice('');
     const active = (value.jobs || []).find(j => j.kind === 'refresh' && ['queued','running'].includes(j.status));
     if (active) void monitorJob(active.id,'refresh',item.symbol);
     else if (value.cache.state === 'missing') void startResearchRefresh();
@@ -376,57 +331,56 @@ $('#refresh-holdings').addEventListener('click',event => { void busy(event.curre
 $('#research-refresh').addEventListener('click',event => { void busy(event.currentTarget,startResearchRefresh); });
 $('#research-pool-add').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { await post('/watchlist',{symbol:state.symbol}); await loadWorkspace(); notice('已加入扫描名单。'); } catch (error) { notice(error.message,true); } }); });
 
-$('#valuation-json').addEventListener('input',() => {
-  const draft = currentDraft(); draft.raw = $('#valuation-json').value; draft.preview = null; showPreview(); formError('#valuation-error');
+$('#valuation-jump').addEventListener('click',() => {
+  const view = state.report?.automatic_valuation_reference;
+  if (!view || $('#valuation-save').disabled) return;
+  const form = $('#valuation-form');
+  for (const [key,value] of Object.entries(view.inputs)) form.elements.namedItem(key).value = value ?? '';
+  state.valuationEdit = {code:state.symbol, generation:state.generation, view};
+  $('#valuation-reset').hidden = !view.corrected_fields.length;
+  formError('#valuation-error');
+  $('#valuation-editor').showModal();
 });
-$('#valuation-preview-button').addEventListener('click',event => {
-  const code = state.symbol, draft = currentDraft(), raw = draft.raw;
-  void busy(event.currentTarget,async () => {
-    try {
-      let value; try { value = JSON.parse(raw); } catch { throw new Error('JSON格式不正确，请检查引号、逗号和括号。'); }
-      // 草稿中的数字可编辑，但其预测期间不随重新打开页面而滚动。
-      const simple = value && !Array.isArray(value) && typeof value === 'object' && !value.schema_version;
-      const data = draft.sourceInput?.schema_version === 'manual-eps-pe-v4' && simple ? {...draft.sourceInput,values:value} : value;
-      const preview = await post('/research/' + encodeURIComponent(code) + '/manual-valuations/preview',data);
-      if (draft.raw !== raw) return;
-      draft.preview = preview;
-      if (state.symbol === code) { showPreview(); formError('#valuation-error'); }
-    } catch (error) { if (state.symbol === code) formError('#valuation-error',error.message); }
-  });
+async function saveValuation(button, restore = false) {
+  const edit = state.valuationEdit;
+  if (!edit || edit.generation !== state.generation) {
+    formError('#valuation-error','当前股票已切换，请关闭并重新打开编辑。');
+    return;
+  }
+  const {code,generation,view} = edit, form = $('#valuation-form');
+  const changes = restore ? Object.fromEntries(view.corrected_fields.map(key => [key,null])) :
+    Object.fromEntries([...new FormData(form)].flatMap(([key,raw]) => {
+      const value = raw.trim();
+      return value === (view.inputs[key] ?? '') ? [] : [[key,value || null]];
+    }));
+  if (!Object.keys(changes).length) { $('#valuation-editor').close(); return; }
+  $('#valuation-reset').disabled = true; $('#valuation-save').disabled = true;
+  button.setAttribute('aria-busy','true');
+  formError('#valuation-error');
+  try {
+    await post('/research/' + encodeURIComponent(code) + '/valuation-correction',{expected_id:view.id,changes});
+    $('#valuation-editor').close();
+    if (generation === state.generation) {
+      notice(restore ? '已恢复自动估值数据。' : '已保存更正。');
+      try { await reloadResearch(code); }
+      catch { notice('更正已保存，刷新页面可查看最新估值。'); }
+    }
+  } catch (error) { formError('#valuation-error',error.message); }
+  finally {
+    button.removeAttribute('aria-busy');
+    $('#valuation-reset').disabled = false; $('#valuation-save').disabled = false;
+  }
+}
+$('#valuation-form').addEventListener('submit',event => {
+  event.preventDefault();
+  const button = $('#valuation-save');
+  if (!button.disabled) void saveValuation(button);
 });
-for (const [id,confirm] of [['valuation-draft',false],['valuation-confirm',true]]) $('#' + id).addEventListener('click',event => {
-  const code = state.symbol, draft = currentDraft(), preview = draft.preview, raw = draft.raw;
-  if (!preview || state.valuationSaving) return;
-  void busy(event.currentTarget,async () => {
-    state.valuationSaving = true; updateBusy();
-    try {
-      // 保存预览生成的固定输入，避免跨日保存把NTM期间重新滚动。
-      await post('/research/' + encodeURIComponent(code) + '/manual-valuations',{data:preview.input,confirm,expected_hash:preview.input_hash});
-      if (draft.raw === raw) {
-        draft.preview = null;
-        if (preview.input.schema_version === 'manual-eps-pe-v4') draft.sourceInput = preview.input;
-      }
-      if (state.symbol === code) { showPreview(); await reloadResearch(code); notice(confirm ? '已保存本人确认版本，研究结果已更新。' : '草稿已保存，尚未替换当前确认版本。'); }
-    } catch (error) { if (state.symbol === code) formError('#valuation-error',error.message); }
-    finally { state.valuationSaving = false; updateBusy(); }
-  });
-});
-$('#valuation-jump').addEventListener('click',() => { $('#valuation-editor').scrollIntoView({block:'start'}); $('#valuation-json').focus({preventScroll:true}); });
-$('#valuation-new').addEventListener('click',() => {
-  if (state.valuationSaving) return;
-  state.drafts.set(state.symbol,{raw:JSON.stringify(template(),null,2),preview:null,sourceInput:null});
-  $('#valuation-json').value = currentDraft().raw; showPreview(); formError('#valuation-error');
-  notice('已新建空白输入，预览时按本次录入日生成固定NTM期间；已保存版本保留。');
-});
+$('#valuation-reset').addEventListener('click',event => { void saveValuation(event.currentTarget,true); });
 $('#research-export').addEventListener('click',() => {
   if (!state.report) return;
   const blob = new Blob([JSON.stringify(state.report,null,2)],{type:'application/json'});
   const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `${state.symbol}-research.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
-});
-$('#copy-prompt').addEventListener('click',async () => {
-  const text = `请联网整理${state.symbol}：未来12个月（NTM）同一盈利口径的保守、基准、乐观EPS；近5年同口径历史Forward PE的25%、50%、75%分位数；可比行业Forward PE参照。不要把下一财年EPS冒充NTM，也不要把当前PE或历史均值冒充分位数。无法核实填null，不编造。只返回以下七字段JSON，数值使用十进制字符串，不附其他文字：\n\n${JSON.stringify(template(),null,2)}`;
-  try { await navigator.clipboard.writeText(text); notice('提问模板已复制。'); }
-  catch { $('#prompt-text').value = text; $('#prompt-dialog').showModal(); }
 });
 window.addEventListener('hashchange',route);
 async function boot() {

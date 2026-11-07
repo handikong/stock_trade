@@ -57,27 +57,9 @@
           <section class="company-heading"><div class="company-title"><span id="company-avatar" class="stock-avatar large"></span><div><div class="company-name-line"><h2 id="company-symbol"></h2><span id="company-type" class="badge"></span></div><p id="company-name"></p></div></div><div class="company-actions"><button class="secondary compact" id="research-pool-add"><span data-icon="plus"></span>加入扫描</button><button class="secondary compact" id="research-refresh"><span data-icon="refresh"></span>更新行情</button><button class="icon-button" id="research-export" aria-label="导出研究JSON"><span data-icon="download"></span></button></div></section>
           <section id="research-job" class="job-strip" aria-live="polite" hidden><div><strong id="research-job-label"></strong><span id="research-job-percent"></span></div><progress id="research-job-progress" max="100" value="0"></progress><p id="research-job-detail"></p></section>
           <div id="research-metrics" class="metric-strip research-metrics"></div>
-          <section class="panel"><div class="panel-heading"><div><h2>前瞻估值参考</h2><p>每周自动参考与手工确认结果分别展示</p></div><button id="valuation-jump" class="text-button">录入估值数据 <span aria-hidden="true">↙</span></button></div><div id="valuation-content" class="panel-body"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>前瞻估值参考</h2><p>每周六更新 · 可在这里更正数据</p></div><button id="valuation-jump" class="text-button">更正估值</button></div><div id="valuation-content" class="panel-body"></div></section>
           <section class="panel"><div class="panel-heading"><div><h2>支撑与压力</h2><p>保留技术区间的强弱、角色与确认依据</p></div><span class="soft-label">日线计算</span></div><div id="technical-content" class="panel-body"></div></section>
           <section class="panel"><div class="panel-heading"><div><h2>技术与估值配合</h2><p>估值参考不改变技术强弱，也不代替交易计划</p></div></div><div id="combined-content" class="panel-body"></div></section>
-          <section id="valuation-editor" class="panel">
-            <div class="panel-heading">
-              <div><h2>录入研究数据</h2><p>粘贴大模型返回的EPS＋PE JSON，先预览，再确认保存</p></div>
-              <button class="secondary compact" id="copy-prompt"><span data-icon="copy"></span>复制提问模板</button>
-            </div>
-            <div class="panel-body">
-              <label for="valuation-json">EPS 与 PE 数据</label>
-              <textarea id="valuation-json" class="json-editor" rows="12" spellcheck="false" aria-describedby="valuation-help"></textarea>
-              <p id="valuation-help" class="field-help">数值使用字符串，缺值填null；industry_pe可选。修改内容后需要重新预览。已有新版草稿会自动载入并保留预测期间；更新一年预测请先新建输入。</p>
-              <div id="valuation-error" class="form-error" role="alert" hidden></div>
-              <div class="editor-actions">
-                <div><button class="secondary" id="valuation-preview-button">预览计算</button><button class="text-button" id="valuation-new">新建输入</button></div>
-                <div><button class="text-button" id="valuation-draft" disabled>保存草稿</button><button class="primary" id="valuation-confirm" disabled>确认保存</button></div>
-              </div>
-              <div id="valuation-preview-content" class="valuation-preview" hidden></div>
-            </div>
-          </section>
-          <p class="footnote">手工输入由本人核对；估值情景不是未来一年股价的最高或最低承诺。</p>
         </div>
       </section>
       <footer><span>见微 · 持仓与研究</span><span>记录依据，保留判断。</span></footer>
@@ -87,6 +69,26 @@
   <dialog id="position-dialog" aria-labelledby="position-dialog-title"><form id="position-form"><div class="dialog-heading"><div><p class="eyebrow">MY POSITION</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">填写当前实际持有的数量及成本均价，报价币种为美元。</p><div class="form-grid"><label>股票代码<input id="position-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"></label><label>股票名称 <span class="optional">选填</span><input name="name" maxlength="100" placeholder="例如 谷歌"></label><label>持股数量<input name="quantity" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 20"></label><label>成本均价 · USD<input name="average_cost" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 180.50"></label><label class="span-2">备注 <span class="optional">选填</span><textarea name="notes" maxlength="1000" rows="3" placeholder="记录这笔持仓的背景"></textarea></label></div><div id="position-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div></form></dialog>
   <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与两套已设置策略的扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
   <dialog id="remove-dialog" aria-labelledby="remove-title"><div class="dialog-heading"><h2 id="remove-title">移除记录</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p id="remove-description" class="dialog-intro"></p><div id="remove-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button class="secondary" data-close-dialog>取消</button><button class="danger" id="remove-confirm">确认移除</button></div></dialog>
-  <dialog id="prompt-dialog" aria-labelledby="prompt-title"><div class="dialog-heading"><h2 id="prompt-title">大模型提问模板</h2><button class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><label for="prompt-text">可手动选择并复制</label><textarea id="prompt-text" rows="16" readonly></textarea><div class="dialog-footer"><button class="secondary" data-close-dialog>关闭</button></div></dialog>
+  <dialog id="valuation-editor" aria-labelledby="valuation-title">
+    <form id="valuation-form">
+      <div class="dialog-heading"><h2 id="valuation-title">更正估值</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div>
+      <p id="valuation-help" class="dialog-intro">只改有误或缺失的字段。EPS 使用每股美元。周六采集的 EPS 或 PE 一组发生变化时，该组采用新数据。</p>
+      <div class="form-grid" aria-describedby="valuation-help">
+        <label class="span-2">EPS 财年截止日<input name="period_end" type="date"></label>
+        <label>EPS · 保守<input name="eps_low" inputmode="decimal" maxlength="22"></label>
+        <label>Forward PE · 低档<input name="pe_p25" inputmode="decimal" maxlength="22"></label>
+        <label>EPS · 基准<input name="eps_mean" inputmode="decimal" maxlength="22"></label>
+        <label>Forward PE · 中档<input name="pe_p50" inputmode="decimal" maxlength="22"></label>
+        <label>EPS · 乐观<input name="eps_high" inputmode="decimal" maxlength="22"></label>
+        <label>Forward PE · 高档<input name="pe_p75" inputmode="decimal" maxlength="22"></label>
+      </div>
+      <div id="valuation-error" class="form-error" role="alert" hidden></div>
+      <div class="dialog-footer">
+        <button type="button" class="text-button" id="valuation-reset" hidden>恢复自动数据</button>
+        <button type="button" class="secondary" data-close-dialog>取消</button>
+        <button type="submit" class="primary" id="valuation-save">保存更正</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

@@ -41,7 +41,7 @@ def _model(key, label, points, basis, metadata):
             "points":points, "basis":basis, **metadata}
 
 
-def evaluate(market, cache, manual, profile, *, today=None):
+def evaluate(market, cache, manual, profile, *, today=None, weekly=None):
     """当前研究的只读派生层，输入仅是已存行情视图及确认后的手工估值。"""
     today = today or datetime.now(ZoneInfo(settings.research_display_timezone)).date()
     market = market or {}; technical = market.get("technical") or {}; manual = manual or {}
@@ -63,14 +63,20 @@ def evaluate(market, cache, manual, profile, *, today=None):
             raise ValueError
     except (ValueError, TypeError):
         issues.append("技术区间日期与最近完整日线不一致或日期无效")
-    if manual.get("status") not in ("available", "partial") or not manual.get("id") or not manual.get("confirmed_at"):
-        issues.append("缺少有效已确认手工估值，未确认/待复核数据不能参与结合")
     p = manual.get("input") or {}
     currency = profile.get("currency")
-    if not currency or p.get("currency") != currency:
-        issues.append("证券与估值币种不明确或不一致，不自动换汇比较")
     if profile.get("type") in ("ETF", "MUTUALFUND"):
         issues.append("基金不适用公司EPS/DCF综合判断")
+    elif weekly is not None:
+        if weekly.get("scenarios"):
+            issues.append("财年EPS与Forward PE分母口径待核对，当前估值只作情景参考")
+        else:
+            issues.append("当前估值资料未齐，技术区间单独显示")
+    else:
+        if manual.get("status") not in ("available", "partial") or not manual.get("id") or not manual.get("confirmed_at"):
+            issues.append("缺少有效已确认手工估值，未确认/待复核数据不能参与结合")
+        if not currency or p.get("currency") != currency:
+            issues.append("证券与估值币种不明确或不一致，不自动换汇比较")
 
     if not issues:
         manual_pe = p.get("schema_version") == "manual-eps-pe-v4"
@@ -204,8 +210,12 @@ def evaluate(market, cache, manual, profile, *, today=None):
             except (ValueError, KeyError, TypeError):
                 item["reasons"] = ["技术区间缺少有效报价尺度边界，不拿调整价猜测换算"]
         zones.append(item)
-    sources = {"market":market.get("id"), "manual_valuation":manual.get("id"), "manual_version":manual.get("version"),
-               "manual_derived_version":manual.get("derived_version")}
+    sources = {"market":market.get("id")}
+    if weekly is not None:
+        sources["weekly_valuation"] = weekly.get("id")
+    else:
+        sources.update(manual_valuation=manual.get("id"),manual_version=manual.get("version"),
+                       manual_derived_version=manual.get("derived_version"))
     result = {"algorithm":ALGORITHM, "evaluation_date":today.isoformat(), "comparison_date":today.isoformat(),
         "technical_as_of":technical.get("as_of"), "currency":currency, "policy":cfg, "sources":sources,
         "status":"unavailable" if issues or not models else "partial" if excluded else "available",

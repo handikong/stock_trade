@@ -13,9 +13,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from .valuation import calculate
-from . import manual_valuation
-from . import workspace
+from . import weekly_valuation, workspace
 
 
 worker=Worker()
@@ -248,7 +246,7 @@ def refresh(symbol: str,p: Refresh):
 
 @app.post("/api/v1/research/{symbol}/analyze")
 def analyze(symbol: str,p: AnalyzeRequest):
-    raise HTTPException(410,"原自动研究链路已停用，请手工录入研究数据")
+    raise HTTPException(410,"旧模型分析已停用，当前估值由每周任务更新")
 
 
 @app.post("/api/v1/research/{symbol}/discover")
@@ -313,7 +311,7 @@ def original(doc_id: str):
 
 @app.post("/api/v1/research/{symbol}/earnings")
 def event(symbol: str,p: Event):
-    raise HTTPException(410,"旧财报事件流程已停用，请通过手工研究输入更新资料期间")
+    raise HTTPException(410,"旧财报事件流程已停用，估值期间可在个股研究页更正")
 
 
 @app.post("/api/v1/research/{symbol}/preview/freeze")
@@ -323,43 +321,28 @@ def freeze(symbol: str):
 
 @app.post("/api/v1/research/{symbol}/guidance")
 def guidance(symbol: str,p: Guidance):
-    raise HTTPException(410,"旧原文指引确认流程已停用，请使用统一手工研究输入")
+    raise HTTPException(410,"旧原文指引确认流程已停用")
 
 
 @app.post("/api/v1/research/{symbol}/valuations")
-async def valuation(symbol: str,request: Request):
-    security=security_for(symbol)
-    p=await request.json()
-    if not isinstance(p,dict):
-        raise ValueError("估值输入必须是完整的情景对象")
-    try:
-        result=calculate(p,security.profile)
-    except (KeyError,TypeError,AttributeError):
-        raise ValueError("估值字段不完整或格式错误，请填写全部必要假设")
-    result.update({"origin":"manual_calculator","historical_only":True})
-    with Session() as session:
-        item=save_snapshot(session,security.id,"valuation",result)
-        session.commit()
-        return serialize_snapshot(item)
-
-
-class ManualValuationSave(BaseModel):
-    # 与GPT数据分离，确认来自显式调用；后续网页必须先展示预览。
-    model_config = {"extra":"forbid"}
-    data: dict
-    confirm: bool = Field(default=False, strict=True)
-    expected_hash: str = Field(min_length=64,max_length=64)
-
-
 @app.post("/api/v1/research/{symbol}/manual-valuations/preview")
-async def manual_valuation_preview(symbol: str, request: Request):
-    return manual_valuation.preview(security_for(symbol).id, await request.json())
-
-
 @app.post("/api/v1/research/{symbol}/manual-valuations")
-def manual_valuation_save(symbol: str, p: ManualValuationSave):
-    return manual_valuation.save(security_for(symbol).id, p.data,
-                                 confirm=p.confirm, expected_hash=p.expected_hash)
+def retired_valuation(symbol: str):
+    raise HTTPException(410,"旧手工估值入口已停用，请在个股研究页点击更正估值")
+
+
+class ValuationCorrection(BaseModel):
+    model_config = {"extra":"forbid"}
+    expected_id: str | None = Field(min_length=32,max_length=32)
+    changes: dict[str, StrictStr | None] = Field(max_length=7)
+
+
+@app.post("/api/v1/research/{symbol}/valuation-correction")
+def correct_valuation(symbol: str, p: ValuationCorrection):
+    try:
+        return weekly_valuation.correct(security_for(symbol),p.changes,p.expected_id)
+    except weekly_valuation.Conflict as exc:
+        raise HTTPException(409,str(exc)) from exc
 
 
 @app.post("/api/v1/research/{symbol}/reports")

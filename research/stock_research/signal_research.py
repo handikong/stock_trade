@@ -1,4 +1,4 @@
-"""当前信号读取手工研究数据和技术结构，不抓财报/电话会/预期/简析。"""
+"""当前信号读取每周估值及网页更正、技术结构。"""
 from .cli import decimal_text
 from .service import build_report, security_for
 from .notification_cards import summarize
@@ -7,50 +7,20 @@ from .notification_cards import summarize
 def prepare(symbol, cached_only=True):
     # 行情由通知扫描步骤处理；研究本身始终只读，cached_only保留调用兼容。
     report = build_report(security_for(symbol))
-    manual = report["manual_valuation"]
-    lines = ["研究来源：本人确认的手工财务输入；估值由程序计算，技术结构来自日线。",
-             "不读取旧财报/电话会议；新财报是否已发布需本人复核，未自动获知。"]
+    valuation = report.get("automatic_valuation_reference") or {}
     warnings = []
-    if manual["status"] in ("missing", "needs_review"):
-        lines.append(manual["message"])
-        warnings.append({"stage":"manual_valuation", "message":manual["message"]})
-    else:
-        p = manual["input"]; target = p.get("target") or {}
-        lines.append(f"手工资料日{p['as_of']}；币种{p['currency']}；目标日{target.get('date') or '未填写'}")
-        if p.get("schema_version") == "manual-eps-pe-v4":
-            e = p["eps"]
-            lines[-1] = f"EPS及PE均为手工输入；录入日{p['as_of']}；{p['currency']}；NTM约定{e['period_start']}～{e['period_end']}"
-            for group in manual.get("valuation_sets") or []:
-                lines.append(group["label"])
-                lines.extend(f"{r['name']}：EPS {r['eps']} × PE {r['pe']} = {decimal_text(r['price'])}" for r in group["scenarios"])
-            lines.extend((manual.get("reference") or {}).get("warnings") or [])
-        if p.get("schema_version") == "manual-eps-v3":
-            e = p["eps"]
-            lines[-1] = f"EPS录入日{p['as_of']}；币种{p['currency']}；NTM约定期间{e['period_start']}～{e['period_end']}；{e['basis']}"
-            for group in manual.get("valuation_sets") or []:
-                pe = group["pe"]
-                lines.append(group["label"] + (f"，资料月份{pe['data_month']}；{pe['mapping_note']}" if group["kind"]=="industry" else f"，{pe['metric']}，实际{pe['actual_start']}～{pe['actual_end']}，样本{pe['count']}"))
-                lines.extend(f"{r['name']}：EPS {r['eps']} × PE {r['pe']} = {decimal_text(r['price'])}" for r in group["scenarios"])
-                lines.append("PE来源：" + pe["source_url"])
-            lines.extend((manual.get("reference") or {}).get("warnings") or [])
-            lines.extend((manual.get("automatic_pe") or {}).get("warnings") or [])
-        if p.get("schema_version") == "manual-valuation-v2":
-            lines[-1] = f"手工资料日{p['as_of']}；币种{p['currency']}；前瞻估值参考，不是一年后目标价"
-            eps = p["eps"]; pe = p["historical_pe"]
-            lines.append(f"EPS期间{eps['period_start']}～{eps['period_end']}（{eps['period_type']}，{eps['basis']}）；历史PE{pe['period_start']}～{pe['period_end']}，{pe['eps_reference']}，{pe['statistic']}")
-            lines.extend((manual.get("reference") or {}).get("warnings") or [])
-        for row in ([] if p.get("schema_version") in ("manual-eps-v3","manual-eps-pe-v4") else manual["scenarios"]):
-            lines.append(f"{row['name']}：EPS {row['eps']} × PE {row['pe']} = {decimal_text(row['price'])}")
-        dcf = manual.get("dcf_result")
-        if dcf:
-            lines.append(f"DCF资料日{dcf['as_of']}价值：{decimal_text(dcf['price'])} {p['currency']}")
-            if dcf.get("target"):
-                lines.append(f"DCF目标日{dcf['target_date']}：{decimal_text(dcf['target']['price'])} {p['currency']}")
-        for key, component in manual["components"].items():
-            if component["status"] != "available":
-                lines.append(f"{key}：" + ("EPS非正，倍数估值不适用" if component["status"] == "not_applicable" else "缺少手工输入，未自动补齐"))
-        for source in (p.get("sources") or [])[:3]:
-            lines.append(f"手工来源：{source['title']}；{source['url']}")
+    lines = [valuation.get("message","基金不适用公司EPS估值")]
+    attempt = valuation.get("attempt") or {}
+    if attempt:
+        lines.append(f"Stock Analysis 最近采集尝试：{attempt['date']}（北京时间）")
+    if valuation.get("stale"):
+        lines.append("含一周前取得的估值资料")
+    if valuation.get("corrected_fields"):
+        lines.append("当前估值包含网页更正")
+    for row in valuation.get("scenarios") or []:
+        lines.append(f"{row['name']}：EPS {row['eps']} × PE {row['pe']} = {decimal_text(row['price'])} USD")
+    if valuation and not valuation["scenarios"]:
+        warnings.append({"stage":"valuation","message":valuation["message"]})
     technical = (report.get("market") or {}).get("technical") or {}
     combined = report.get("fundamental_technical") or {}
     if report["cache"].get("state") == "fresh" and not technical.get("stale"):
@@ -72,19 +42,11 @@ def prepare(symbol, cached_only=True):
         lines.append("综合判断缺项：" + issue)
     for excluded in combined.get("excluded_models") or []:
         lines.append(f"{excluded['model']}未参与结合：{excluded['message']}")
-    for model in combined.get("models") or []:
-        if model["model"]=="eps":
-            lines.append(f"EPS结合口径：{model['eps_period_type']}，{model['eps_period_start']}～{model['eps_period_end']}；" +
-                         ("历史Forward PE对应的前瞻估值参考，不是一年后目标价。" if model.get("reference_kind") in ("forward_pe_reference","automatic_pe_reference","manual_pe_reference") else "按手工要求收益率折算终点股价，不含期间分红。"))
-        elif model.get("date_proxy"):
-            lines.append("DCF时点限制：" + model["date_note"])
-    lines.append("基本面配合不改技术强弱；共振仅为研究参考，情景计数不是概率。")
     current_market = report.get("market") or {}
     return {"lines":lines, "warnings":warnings,"brief":summarize(report),
             "context":{"symbol":report["symbol"],"close":current_market.get("last_price"),
                        "data_as_of":current_market.get("last_complete_session"),
                        "currency":report["profile"].get("currency"),
                        "cache_state":report["cache"].get("state"),"cache_message":report["cache"].get("message")},
-            "versions":{"manual_valuation":manual.get("id"),"market":(report.get("market") or {}).get("id"),
-                        "manual_derived_version":manual.get("derived_version"),
+            "versions":{"weekly_valuation":valuation.get("id"),"market":current_market.get("id"),
                         "fundamental_technical":combined.get("version")}}
