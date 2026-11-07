@@ -1,6 +1,6 @@
 """本地美股工作台：手工持仓、共享扫描名单和已有研究；不产生真实成交。"""
 from contextlib import contextmanager
-from decimal import Decimal, localcontext
+from decimal import Decimal, InvalidOperation, localcontext
 import fcntl
 import re
 
@@ -47,9 +47,18 @@ def quote(session, security):
     result = {"price":None,"date":None,"currency":None,"state":state["state"],
               "message":state["message"],"snapshot_id":source.id if source else None}
     if source:
-        result.update(price=source.payload.get("last_price"),date=source.payload.get("last_complete_session"),
+        result.update(date=source.payload.get("last_complete_session"),
                       currency=(source.payload.get("profile") or {}).get("currency"),
                       fetched_at=source.payload.get("fetched_at"), expected_session=state.get("expected_session"))
+        # 行情缓存可能保留供应商浮点展开后的长小数，按有效报价读取，不套用手工输入精度。
+        try:
+            price = Decimal(str(source.payload.get("last_price")))
+        except InvalidOperation:
+            price = None
+        if price is not None and price.is_finite() and 0 < price <= Decimal("1e18"):
+            result["price"] = str(price)
+        else:
+            result.update(state="unknown",message="行情缓存的收盘价缺失或无效，请更新该股行情")
     return result
 
 
@@ -65,13 +74,12 @@ def holdings():
                     "unrealized_pnl":None,"unrealized_return":None,"weight":None}
             cost += basis
             if q["price"] is not None and q["currency"] == row.currency:
-                price = number(q["price"],"收盘价")
-                if price > 0:
-                    value = qty * price; item["reference_market_value"] = str(value)
-                    if q["state"] == "fresh":
-                        priced += 1; current_value += value
-                        item.update(market_value=str(value),unrealized_pnl=str(value-basis),
-                                    unrealized_return=str((value-basis)/basis))
+                value = qty * Decimal(q["price"])
+                item["reference_market_value"] = str(value)
+                if q["state"] == "fresh":
+                    priced += 1; current_value += value
+                    item.update(market_value=str(value),unrealized_pnl=str(value-basis),
+                                unrealized_return=str((value-basis)/basis))
             rows.append(item)
         complete = bool(rows) and priced == len(rows)
         if complete and current_value > 0:
