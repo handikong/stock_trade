@@ -18,7 +18,8 @@ from .service import security_for
 from .store import Job, Session, WatchlistEntry, digest, latest, stamp
 
 logger = logging.getLogger(__name__)
-KINDS = {"heat":"scheduled_futu_heat","market":"scheduled_market","signals":"scheduled_signals"}
+KINDS = {"heat":"scheduled_futu_heat","market":"scheduled_market","signals":"scheduled_signals",
+         "valuation":"scheduled_valuation"}
 
 
 class Policy(BaseModel):
@@ -33,6 +34,8 @@ class Policy(BaseModel):
     poll_seconds: int = Field(ge=5,le=300)
     volume_top50_enabled: bool = False
     futu_heat_enabled: bool = False
+    weekly_valuation_enabled: bool = False
+    weekly_valuation_time: str = "08:00"
 
     @model_validator(mode="after")
     def valid(self):
@@ -41,7 +44,7 @@ class Policy(BaseModel):
         ZoneInfo(self.timezone)
         if date.fromisoformat(self.start_date).isoformat()!=self.start_date:
             raise ValueError("计划开始日期需要YYYY-MM-DD格式")
-        values = (self.market_time,self.signal_time,self.catch_up_until)
+        values = (self.market_time,self.signal_time,self.catch_up_until,self.weekly_valuation_time)
         if any(not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d",v) for v in values):
             raise ValueError("计划时间需要HH:MM格式")
         if not self.market_time < self.signal_time < self.catch_up_until:
@@ -116,9 +119,7 @@ def _enqueue_heat(cfg, day):
     return jid
 
 
-def enqueue_due():
-    """只入队，不执行网络/模型/投递；同交易日同阶段确定ID永久防重复入队。"""
-    cfg = policy()
+def _enqueue_daily(cfg):
     heat_day = _heat_day(cfg)
     heat_id = _enqueue_heat(cfg,heat_day) if heat_day else None
     now,target,message = _target(cfg)
@@ -173,6 +174,54 @@ def enqueue_due():
                 continue
         result["queued"].append(jid)
         logger.info("已创建盘后%s任务；%s %s，交易日%s，股票%s只",phase,cfg.timezone,due,target,len(symbols))
+    return result
+
+
+def _valuation_day(cfg):
+    now = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
+    day = now.date().isoformat()
+    if (cfg.enabled and cfg.weekly_valuation_enabled and now.weekday()==5
+            and day>=cfg.start_date and now.strftime("%H:%M")>=cfg.weekly_valuation_time):
+        return day
+    return None
+
+
+def _enqueue_valuation(cfg, day, target):
+    jid = _job_id("valuation",day)
+    dependencies = [_job_id("heat",day)]
+    if target:
+        dependencies.extend(_job_id(phase,target) for phase in ("market","signals"))
+    with Session() as session:
+        if session.get(Job,jid) or session.scalar(select(Job.id).where(
+                Job.id.in_(dependencies), Job.status.in_(("queued","running"))).limit(1)):
+            return None
+    symbols = [row["symbol"] for row in watchlist.entries() if _supported(row["symbol"])]
+    if not symbols:
+        return None
+    anchor = security_for(symbols[0],create=True)
+    with Session() as session:
+        session.add(Job(id=jid,security_id=anchor.id,kind=KINDS["valuation"],active_key="post-close:valuation",
+            payload={"phase":"valuation","local_date":day,"target_session":day,"symbols":symbols},
+            message=f"每周估值排队中 · {len(symbols)}只"))
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            return None
+    logger.info("已创建每周估值任务 · %s（北京时间），关注股%s只",day,len(symbols))
+    return jid
+
+
+def enqueue_due():
+    """只入队。日线与策略按交易日去重，估值按北京时间周六日期去重。"""
+    cfg = policy()
+    result = _enqueue_daily(cfg)
+    day = _valuation_day(cfg)
+    if day and not result["queued"]:
+        jid = _enqueue_valuation(cfg,day,result["target_session"])
+        if jid:
+            result["queued"].append(jid)
+            result["message"] = "已入队每周关注股估值更新"
     return result
 
 
@@ -344,6 +393,9 @@ def run(job):
               "items":[],"warnings":[],"status":"running",**(job.result or {})}
     if job.kind == KINDS["heat"]:
         return _heat(job,result)
+    if job.kind == KINDS["valuation"]:
+        from . import weekly_valuation
+        return weekly_valuation.run(job,result,allowed=lambda: _valuation_day(policy()) == job.payload["local_date"])
     return _market(job,result) if job.kind==KINDS["market"] else _signals(job,result)
 
 

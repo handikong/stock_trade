@@ -1,5 +1,7 @@
 # 配置契约与设计决策
 
+每周估值沿用`POST_CLOSE_SCHEDULE_FILE`。仓库配置启用`weekly_valuation_enabled`，`weekly_valuation_time`默认`08:00`，固定北京时间周六，当天可补跑；未声明开关的旧自定义配置默认停用。估值数据独立保存，详见[每周自动估值参考](43-weekly-valuation.md)。
+
 2026-11-05新增[指数候选流动性配置](39-index-universe.md)：`US_UNIVERSE_POLICY_FILE`默认`config/us-universe-policy.json`，20个完整交易日、日均成交金额100000000 USD、价格5 USD、来源最长7日、请求间隔0.5秒均可配。`config/us-index-members.json`是有出处/实际取得日的当前来源快照，SP500使用SPY持仓代理，不视为精确官方指数授权数据。人工增删优先于同步；未取得数据不视为低流动性，新UNKNOWN不加入、旧UNKNOWN保留。仅显式导入更新关注名单，不改MG7回测默认或自动下单；详见UNIV规则与U核对。
 
 2026-11-05新增[盘后任务配置](38-post-close-schedule.md)：POST_CLOSE_SCHEDULE_FILE默认config/post-close-schedule.json，启用、Asia/Shanghai、2026-11-06起、06:00/07:00、补跑截止10:00、轮询30秒；时间顺序/时区校验，保存每个Job的名单/目标交易日及配置快照。当前开关/窗口投递前复核，不因改配置为同交易日创建第二份任务。仅自动BUY，不接账户金额；需后台常驻，不是Codex/OS定时器。

@@ -8,5 +8,7 @@
   "catch_up_until": "10:00",
   "poll_seconds": 30,
   "volume_top50_enabled": false,
-  "futu_heat_enabled": true
+  "futu_heat_enabled": true,
+  "weekly_valuation_enabled": true,
+  "weekly_valuation_time": "08:00"
 }

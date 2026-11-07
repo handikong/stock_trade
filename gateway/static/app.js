@@ -155,6 +155,21 @@ function renderValuation(view, preview = false) {
   if (view.draft && !preview) html += '<p class="inline-note">另有未确认草稿，当前继续展示已确认版本。</p>';
   return html;
 }
+function renderWeeklyValuation(view) {
+  const heading = '<h3>每周自动估值参考</h3>';
+  if (!view) return `<div class="valuation-group">${heading}<p class="inline-note">尚无已保存的周六刷新结果。</p></div>`;
+  const {eps, forward_pe:pe, attempt, scenarios} = view;
+  const grid = scenarios.length ? `<div class="scenario-grid">${scenarios.map((row,i) =>
+    `<div class="scenario ${i === 1 ? 'base' : ''}"><span>${esc(row.name)}</span><strong>${num(row.price)} USD</strong><p>EPS ${num(row.eps,4)} × PE ${num(row.pe)}</p></div>`).join('')}</div>` : '';
+  const note = [
+    `Stock Analysis · 最近尝试 ${attempt.date}（北京时间）${view.stale ? ' · 含一周前资料' : ''}`,
+    eps && `财年截至 ${eps.period_end} · 三档 EPS ${num(eps.low,4)} / ${num(eps.mean,4)} / ${num(eps.high,4)} ${eps.currency_per_share} · ${when(eps.fetched_at)}`,
+    pe && `历史 Forward PE ${num(pe.p25)} / ${num(pe.p50)} / ${num(pe.p75)} · ${pe.sample_count} 个季度样本 · ${when(pe.fetched_at)}`,
+    view.message,
+    ...attempt.issues,
+  ].filter(Boolean).map(line => `<p class="inline-note">${esc(line)}</p>`).join('');
+  return `<div class="valuation-group">${heading}${grid}${note}</div>`;
+}
 function zoneCard(z) {
   const quoted = z.quote_low != null && z.quote_high != null, low = quoted ? z.quote_low : z.low, high = quoted ? z.quote_high : z.high;
   const reasons = [...(z.strength_reasons || []),...(z.weakness_reasons || [])];
@@ -192,7 +207,8 @@ function renderResearch() {
     + metric('行情状态',({fresh:'有效',stale:'待更新',missing:'未获取',unknown:'待核对'})[r.cache.state] || '待核对',r.market?.fetched_at ? `取得 ${when(r.market.fetched_at)}` : '仅后台获取K线')
     + metric('手工估值',({available:'已确认',partial:'部分待补',needs_review:'待复核',missing:'未录入'})[r.manual_valuation.status] || '待核对','EPS与PE均由本人录入');
   const fund = ['ETF','MUTUALFUND'].includes(r.profile.type);
-  $('#valuation-content').innerHTML = fund ? '<p class="inline-note">基金不套用公司EPS×PE估值；下方继续展示技术支撑压力。</p>' : renderValuation(r.manual_valuation);
+  $('#valuation-content').innerHTML = fund ? '<p class="inline-note">基金不套用公司EPS×PE估值；下方继续展示技术支撑压力。</p>'
+    : renderWeeklyValuation(r.automatic_valuation_reference) + renderValuation(r.manual_valuation);
   $('#valuation-editor').hidden = fund; $('#valuation-jump').hidden = fund;
   $('#technical-content').innerHTML = renderTechnical(r);
   $('#combined-content').innerHTML = renderCombined(r);

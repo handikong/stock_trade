@@ -9,7 +9,7 @@ from .config import settings
 from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
-SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals")
+SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation")
 
 logger=logging.getLogger(__name__)
 

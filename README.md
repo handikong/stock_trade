@@ -1,5 +1,7 @@
 # 个人美股交易决策系统
 
+北京时间每周六08:00，后台重新抓取全部活动关注股的财年EPS与历史Forward PE，保存[每周自动估值参考](docs/43-weekly-valuation.md)。在个股研究页或`stock-research SYMBOL --cached`查看，和手工确认估值分开。
+
 当前自动股票池来源是[富途美股热榜](docs/42-futu-heat-watchlist.md)。北京时间每日06:00取前100条，只保留股票；首次成功替换旧指数池，随后只追加新上榜股票，有新增就发飞书。行情更新和策略扫描仍只在有新美股收盘时执行。
 
 Linux 服务器首次运行 `bash deploy.sh`，之后运行 `bash update.sh`。`deploy.sh` 安装依赖并初始化数据库；默认关注池由首次富途同步建立。`update.sh` 只拉取当前分支的上游代码并重启单进程后台。已有关注记录保留。见[一键部署说明](docs/41-linux-deploy.md)。

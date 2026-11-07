@@ -174,6 +174,28 @@ def _combined_table(report):
     return lines
 
 
+def _weekly_valuation_table(report, zone):
+    value = report.get("automatic_valuation_reference")
+    if not value:
+        return ["尚无已保存的每周估值参考。"]
+    attempt = value["attempt"]
+    lines = [f"Stock Analysis · 最近尝试 {attempt['date']}（北京时间）"]
+    if value["stale"]:
+        lines.append("含一周前取得的资料，留作历史参考。")
+    eps = value.get("eps")
+    if eps:
+        lines.append(f"财年截至 {eps['period_end']}；三档EPS {number(eps['low'])} / {number(eps['mean'])} / {number(eps['high'])}"
+                     f" {eps['currency_per_share']}；取得 {_timestamp(eps['fetched_at'],zone)}")
+    pe = value.get("forward_pe")
+    if pe:
+        lines.append(f"历史Forward PE P25 / P50 / P75 {number(pe['p25'])} / {number(pe['p50'])} / {number(pe['p75'])}"
+                     f"；{pe['sample_count']}个季度样本；取得 {_timestamp(pe['fetched_at'],zone)}")
+    if value["scenarios"]:
+        lines.append("情景估值（USD） " + " / ".join(f"{s['name']} {number(s['price'])}" for s in value["scenarios"]))
+    lines.extend([value["message"],*attempt["issues"]])
+    return lines
+
+
 def render_summary(report, display_timezone="Asia/Shanghai"):
     try:
         zone = ZoneInfo(display_timezone)
@@ -185,7 +207,7 @@ def render_summary(report, display_timezone="Asia/Shanghai"):
     lines = [f"{report['symbol']} · {text(profile.get('name'))} · {text(currency)}",
              f"完整日线 {text(market.get('last_complete_session'))}，收盘 {number(market.get('last_price'))}；应有最近收盘日 {text(cache.get('expected_session'))}",
              f"报告生成 {_timestamp(report.get('generated_at'), zone)}；行情取得 {_timestamp(market.get('fetched_at'), zone)}（时间均为{display_timezone}）",
-             "研究模式：财务数据由本人手工录入；估值、技术支撑压力由程序计算。", "", "【数据概览与缺口】"]
+             "已确认估值来自手工输入；每周自动估值单独展示。", "", "【数据概览与缺口】"]
     state = {"missing":"未录入/未确认","needs_review":"待复核","available":"已确认，EPS可计算","partial":"已确认，部分模型有缺项"}.get(manual.get('status'),'缺失')
     lines.append(table(["项目","状态","说明"], [
         ["行情/技术",{"fresh":"有效","stale":"待更新","unknown":"待核对"}.get(cache.get('state'),'缺失'),text(cache.get('message'))],
@@ -198,6 +220,7 @@ def render_summary(report, display_timezone="Asia/Shanghai"):
     for warning in dict.fromkeys(warnings):
         lines.append(wrapped("注意：" + warning))
     for title, contents in (("技术支撑压力",_technical_table(report)), ("手工输入与程序估值",_valuation_table(report)),
+                            ("每周自动估值参考",_weekly_valuation_table(report,zone)),
                             ("技术与基本面综合判断",_combined_table(report))):
         lines.extend(["",f"【{title}】",*contents])
     lines.extend(["", "--details 展开手工来源、假设和技术依据；--json导出当前结构化结果。",

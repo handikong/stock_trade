@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from . import fundamental_technical, manual_valuation, market, technical
+from . import fundamental_technical, manual_valuation, market, technical, weekly_valuation
 from .financial_reports import run_steps
 from .documents import document_summary
 from .store import Document, Job, Security, Session, Snapshot, latest, serialize_snapshot
@@ -53,6 +53,8 @@ def build_report(security: Security, *, include_history=False) -> dict:
         security = session.get(Security, security.id)
         market_snapshot = latest(session, security.id, "market")
         manual = manual_valuation.read(session, security)
+        automatic = (None if security.profile.get("type") in ("ETF","MUTUALFUND")
+                     else weekly_valuation.read(session,security.id))
         market_view = None if market_snapshot is None else {
             k:v for k,v in serialize_snapshot(market_snapshot).items() if k not in ("bars", "raw_file")}
         if market_view and market_view.get("technical"):
@@ -90,11 +92,12 @@ def build_report(security: Security, *, include_history=False) -> dict:
             "research_policy":RESEARCH_POLICY, "analysis_policy":"manual-input-no-llm-v1",
             "cache":cache, "market":market_view, **payload,
             "fundamental_technical":combined,
-            "manual_valuation":manual, "valuation_draft_history":history.get("valuation_draft"),
+            "manual_valuation":manual, "automatic_valuation_reference":automatic,
+            "valuation_draft_history":history.get("valuation_draft"),
             "legacy_history":history, "valuations":valuations, "documents":[document_summary(d) for d in docs],
             "jobs":[job_json(j) for j in jobs], "data_status":data_status,
             "coverage":{"calls":0,"call_periods":[],"missing_call_periods":[],
                         "archived_documents":len(docs),"calls_required":False,"frozen_preview":False,
                         "official_financials":False,"legacy_history_included":include_history},
             "research_scope":{"mode":"manual_financials", "report_periods":[p["latest_report_period_end"]] if p.get("latest_report_period_end") else [],
-                "selected_document_ids":[], "message":"EPS及PE由本人手工录入；不获取PE或读取旧财报/自动PE补齐，缺失明确提示"}}
+                "selected_document_ids":[], "message":"已确认估值读取手工EPS及PE；每周自动估值参考单独展示，查询只读其缓存"}}
