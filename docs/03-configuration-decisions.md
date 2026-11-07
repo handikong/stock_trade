@@ -1,5 +1,7 @@
 # 配置契约与设计决策
 
+[仓位管理](45-position-planning.md)的风险初值位于`config/portfolio-policy.json`（`PORTFOLIO_POLICY_FILE`）；现金、可用现金、参考本金、净入金和本金亏损比例在网页按账户输入。仓位数与股数按账户、大盘和组合风险动态计算。
+
 [大盘简报](44-market-brief.md)沿用`POST_CLOSE_SCHEDULE_FILE`，默认北京时间周一至周六07:00、12:00补跑截止，飞书独立开关。`MARKET_BRIEF_SLOPE_SESSIONS`、`MARKET_BRIEF_VOLUME_HIGH`、`MARKET_BRIEF_VOLUME_LOW`、`MARKET_BRIEF_LEVEL_BUFFER_ATR`可配置，报告记录所用参数。
 
 每周估值沿用`POST_CLOSE_SCHEDULE_FILE`。仓库配置启用`weekly_valuation_enabled`，`weekly_valuation_time`默认`08:00`，固定北京时间周六，当天可补跑；未声明开关的旧自定义配置默认停用。估值数据独立保存，详见[每周自动估值参考](43-weekly-valuation.md)。

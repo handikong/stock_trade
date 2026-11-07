@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     market_brief_volume_high: float = Field(1.25, gt=1, le=5)
     market_brief_volume_low: float = Field(0.80, gt=0, lt=1)
     market_brief_level_buffer_atr: float = Field(0.15, gt=0, le=1)
+    portfolio_policy_file: Path = ROOT / "config" / "portfolio-policy.json"
     us_universe_policy_file: Path = ROOT / "config" / "us-universe-policy.json"
     technical_strength_file: Path = ROOT / "config" / "technical-strength.json"
     fundamental_technical_policy_file: Path = ROOT / "config" / "fundamental-technical-policy.json"

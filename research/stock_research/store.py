@@ -124,6 +124,32 @@ class ManualPosition(Base):
     updated_at: Mapped[str] = mapped_column(String(60), default=stamp)
 
 
+class PortfolioAccount(Base):
+    __tablename__ = "portfolio_accounts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    version: Mapped[str] = mapped_column(String(32), default=uid)
+    updated_at: Mapped[str] = mapped_column(String(60), default=stamp)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class PositionPlan(Base):
+    __tablename__ = "portfolio_position_plans"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    security_id: Mapped[str] = mapped_column(ForeignKey("securities.id"), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True, default="active")
+    version: Mapped[str] = mapped_column(String(32), default=uid)
+    created_at: Mapped[str] = mapped_column(String(60), default=stamp)
+    expires_at: Mapped[str] = mapped_column(String(60), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class PositionProtection(Base):
+    __tablename__ = "portfolio_position_protection"
+    position_id: Mapped[str] = mapped_column(ForeignKey("manual_positions.id"), primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
 class WatchlistScan(Base):
     __tablename__ = "watchlist_scans"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)

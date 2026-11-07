@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
+from datetime import date
 from typing import Literal
 from urllib.parse import urlparse
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StrictStr
+from pydantic import BaseModel, Field, StrictBool, StrictStr
 from sqlalchemy import select
 from .config import ROOT, settings
 from .documents import archive
@@ -13,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import weekly_valuation, workspace
+from . import portfolio, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -76,6 +77,50 @@ class PositionInput(BaseModel):
     average_cost: StrictStr = Field(min_length=1,max_length=60)
     notes: str = Field(default="",max_length=1000)
     expected_version: str | None = Field(default=None,min_length=32,max_length=32)
+    tactical: StrictBool | None = None
+
+
+class PortfolioAccountInput(BaseModel):
+    model_config = {"extra":"forbid"}
+    principal: StrictStr = Field(min_length=1,max_length=35)
+    total_cash: StrictStr = Field(min_length=1,max_length=35)
+    available_cash: StrictStr = Field(min_length=1,max_length=35)
+    net_flows: StrictStr = Field(default="0",max_length=35)
+    loss_percent: StrictStr = Field(default="5",max_length=20)
+    expected_version: str | None = Field(default=None,min_length=32,max_length=32)
+
+
+class ManualPlanInput(BaseModel):
+    model_config = {"extra":"forbid"}
+    quantity: int = Field(ge=1,le=1_000_000,strict=True)
+    price: StrictStr = Field(min_length=1,max_length=35)
+    stop: StrictStr = Field(min_length=1,max_length=35)
+    reason: StrictStr = Field(min_length=1,max_length=240)
+    tactical: bool = Field(default=False,strict=True)
+
+
+class PortfolioEvaluation(Query):
+    model_config = {"extra":"forbid"}
+    manual: ManualPlanInput | None = None
+
+
+class PortfolioPlanInput(PortfolioEvaluation):
+    expected_version: str = Field(min_length=64,max_length=64)
+
+
+class PlanVersion(BaseModel):
+    model_config = {"extra":"forbid"}
+    expected_version: str = Field(min_length=32,max_length=32)
+
+
+class PortfolioFillInput(PlanVersion):
+    stage: Literal["entry","left","right","manual"]
+    quantity: int = Field(ge=1,le=1_000_000,strict=True)
+    price: StrictStr = Field(min_length=1,max_length=35)
+    fee: StrictStr = Field(default="0",max_length=35)
+    execution_session: date
+    cash_already_recorded: bool = Field(default=False,strict=True)
+    reason: StrictStr = Field(default="",max_length=240)
 
 
 class PoolScan(BaseModel):
@@ -93,6 +138,50 @@ def workspace_overview():
     return {"market":"US","markets":[{"id":"US","name":"美股","currency":"USD","enabled":True},
             {"id":"CN","name":"A股","currency":"CNY","enabled":False}],
             "holdings":workspace.holdings(),"watchlist":workspace.pool()}
+
+
+@app.get("/api/v1/portfolio")
+def portfolio_overview():
+    return portfolio.overview()
+
+
+@app.put("/api/v1/portfolio/account")
+def portfolio_account(p: PortfolioAccountInput):
+    return portfolio.save_account(p.model_dump())
+
+
+@app.post("/api/v1/portfolio/evaluate")
+def portfolio_evaluate(p: PortfolioEvaluation):
+    return portfolio.evaluate(p.symbol,p.manual.model_dump() if p.manual else None)
+
+
+@app.post("/api/v1/portfolio/plans")
+def portfolio_plan(p: PortfolioPlanInput):
+    return portfolio.create_plan(p.symbol,p.expected_version,p.manual.model_dump() if p.manual else None)
+
+
+@app.get("/api/v1/portfolio/plans/{plan_id}/check")
+def portfolio_plan_check(plan_id: str,stage: Literal["entry","left","right","manual"]):
+    try:
+        return portfolio.check_plan(plan_id,stage)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
+
+
+@app.post("/api/v1/portfolio/plans/{plan_id}/cancel")
+def portfolio_plan_cancel(plan_id: str,p: PlanVersion):
+    try:
+        return portfolio.cancel_plan(plan_id,p.expected_version)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
+
+
+@app.post("/api/v1/portfolio/plans/{plan_id}/fills")
+def portfolio_plan_fill(plan_id: str,p: PortfolioFillInput):
+    try:
+        return portfolio.record_fill(plan_id,p.model_dump())
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
 
 
 @app.post("/api/v1/workspace/research")

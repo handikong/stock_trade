@@ -1,3 +1,5 @@
+import {connectPortfolio} from './portfolio.js?v=20261107-position';
+
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const validNumber = v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
@@ -127,6 +129,7 @@ async function loadWorkspace() {
   const value = await api('/workspace');
   if (ticket !== state.workspaceGeneration) return;
   state.workspace = value; renderHoldings(); renderPool(); updateBusy();
+  window.dispatchEvent(new Event("portfolio:workspace"));
 }
 
 function renderWeeklyValuation(view) {
@@ -186,6 +189,7 @@ function renderResearch() {
   $('#technical-content').innerHTML = renderTechnical(r);
   $('#combined-content').innerHTML = renderCombined(r);
   updateBusy();
+  window.dispatchEvent(new Event('portfolio:research'));
 }
 async function loadStock(code) {
   const ticket = ++state.generation;
@@ -247,7 +251,7 @@ function openPosition(id = null) {
   const form = $('#position-form'); form.reset(); formError('#position-error');
   const p = state.editPosition;
   for (const key of ['symbol','name','quantity','average_cost','notes']) form.elements.namedItem(key).value = p?.[key] || '';
-  $('#position-symbol').disabled = Boolean(p); $('#position-dialog-title').textContent = p ? `编辑 ${p.symbol} 持仓` : '添加持仓';
+  $('#position-symbol').disabled = Boolean(p); $('#position-dialog-title').textContent = p ? `编辑 ${p.symbol} 持仓` : '导入已有持仓';
   $('#position-dialog').showModal();
 }
 function openPool() { $('#pool-form').reset(); formError('#pool-error'); $('#pool-dialog').showModal(); }
@@ -283,6 +287,8 @@ $('#position-form').addEventListener('submit', event => {
       const data = Object.fromEntries(['symbol','name','quantity','average_cost','notes'].map(k => [k,form.elements.namedItem(k).value.trim()]));
       const p = state.editPosition;
       if (p) data.expected_version = p.version;
+      const bucket = form.elements.namedItem("tactical").value;
+      if (bucket) data.tactical = bucket === "tactical";
       await api(p ? '/holdings/' + p.id : '/holdings',{method:p ? 'PUT' : 'POST',body:JSON.stringify(data)});
       $('#position-dialog').close(); await loadWorkspace(); notice(p ? '持仓已更新。' : '持仓已添加，可点击“更新行情”计算市值。');
     } catch (error) { formError('#position-error',error.message); }
@@ -401,4 +407,5 @@ async function boot() {
     $('#positions-content').innerHTML = empty('暂时无法读取持仓','请确认后台正在运行，然后刷新页面重试。');
   } finally { state.booting = false; }
 }
+connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
 icons(); route(); void boot();

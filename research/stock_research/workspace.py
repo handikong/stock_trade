@@ -9,7 +9,7 @@ from sqlalchemy import select
 from . import band_strategies, futu_macd, market, watchlist
 from .config import settings
 from .service import security_for
-from .store import (ManualPosition, Security, Session, Snapshot, WatchlistEntry, WatchlistScan, latest,
+from .store import (ManualPosition, PositionProtection, Security, Session, Snapshot, WatchlistEntry, WatchlistScan, latest,
                     save_snapshot, stamp, uid)
 from .valuation import number
 
@@ -111,6 +111,18 @@ def save_position(data, position_id=None):
         row.name=data.get("name","").strip(); row.quantity=format(qty,"f"); row.average_cost=format(avg,"f")
         row.notes=data.get("notes","").strip(); row.currency="USD"; row.active=True; row.version=uid(); row.updated_at=stamp()
         session.flush()
+        protection = session.get(PositionProtection,row.id)
+        if protection or data.get("tactical") is True:
+            if protection is None:
+                protection = PositionProtection(position_id=row.id,payload={})
+                session.add(protection)
+            prior = protection.payload
+            preserve = bool(position_id and previous and Decimal(previous["quantity"])==qty)
+            tactical = data.get("tactical")
+            assigned = (qty if tactical is True else Decimal(0) if tactical is False else
+                        min(qty,Decimal(prior.get("tactical_qty","0"))) if position_id else Decimal(0))
+            protection.payload = {"lots":prior.get("lots",[]) if preserve else [],"tactical_qty":str(assigned),
+                                  "reconciled":bool(prior.get("lots")) and not preserve}
         result = _position(row)
         save_snapshot(session,security.id,"manual_position_change",{"action":"EDIT" if position_id else "ADD",
             "previous":previous,"position":result,"source":"用户维护持仓快照，不是成交"})
@@ -126,6 +138,9 @@ def remove_position(position_id, version):
         if row.version != version:
             raise Conflict("持仓已变化，请重新读取后移除")
         previous = _position(row); row.active=False; row.version=uid(); row.updated_at=stamp()
+        protection = session.get(PositionProtection,row.id)
+        if protection:
+            session.delete(protection)
         save_snapshot(session,row.security_id,"manual_position_change",{"action":"REMOVE","previous":previous,
             "position":_position(row),"source":"仅移除持仓快照，不记录卖出成交"})
         session.commit()

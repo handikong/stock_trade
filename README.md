@@ -1,5 +1,7 @@
 # 个人美股交易决策系统
 
+「我的持仓」可填写现金和本金，点击「评估买入」按技术、估值、同向风险、大盘与 VIX 计算首仓和加仓额度。导入已有持仓独立登记；建议计划或人工方案在确认实际成交后更新现金及持仓。见[仓位管理](docs/45-position-planning.md)。
+
 北京时间周一至周六07:00生成[独立大盘简报](docs/44-market-brief.md)，周一开盘计划、周二至周五日报、周六周报。技术面结合SPY、QQQ、RSP与VIX，DeepSeek解读结构化证据及官方宏观消息。`.venv/bin/python -m stock_research.schedule_cli market-brief`查看。
 
 北京时间每周六08:00，后台重新抓取全部活动关注股的财年EPS与历史Forward PE。个股研究页「更正估值」可补缺项或改错值，网页、CLI和飞书共用更正后的[当前估值](docs/43-weekly-valuation.md)。旧手工档案可用`stock-input SYMBOL --history`查看。

@@ -1,0 +1,33 @@
+{
+  "version": "portfolio-risk-v1",
+  "cash_max_hours": 96,
+  "cash_reserve_fraction": "0.08",
+  "tactical_fraction": "0.10",
+  "trade_risk_fraction": "0.006",
+  "single_fraction": "0.18",
+  "similar_fraction": "0.35",
+  "aggressive_fraction": "0.45",
+  "risk_multiplier_cautious": "0.60",
+  "risk_multiplier_weak": "0.35",
+  "gap_fraction": "0.01",
+  "fee_fraction": "0.001",
+  "stop_buffer_atr": "0.25",
+  "entry_buffer_atr": "0.35",
+  "stress_atr": "2.5",
+  "fallback_stress": "0.12",
+  "aggressive_atr_fraction": "0.04",
+  "aggressive_beta": "1.30",
+  "similar_correlation": "0.65",
+  "similar_downside": "0.70",
+  "history_sessions": 60,
+  "min_common_sessions": 40,
+  "min_price": "5",
+  "min_dollar_volume": "20000000",
+  "plan_sessions": 5,
+  "stage_fractions": {"entry": "0.50", "left": "0.20", "right": "0.30"},
+  "sector_tags": {
+    "Semiconductors": ["NVDA", "AMD", "AVGO", "INTC", "TSM", "ASML", "MU", "QCOM", "ARM", "SMH", "SOXX"],
+    "Software": ["MSFT", "ORCL", "PLTR", "CRM", "ADBE", "NOW", "CRWD", "PANW"],
+    "Internet": ["GOOG", "GOOGL", "META", "AMZN", "NFLX"]
+  }
+}
