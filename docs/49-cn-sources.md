@@ -6,6 +6,8 @@
 
 默认每日北京时间 16:30 起运行，19:00 结束当天补跑窗口，包含休市日。同日成功只入池一次。开关为 `config/post-close-schedule.json` 的 `cn_heat_enabled`，时间可调。工作台顶部「A 股」展示该名单、最近上榜时间及人民币总市值排序。市值取该股票最近一次上榜时的报价快照，缺值放最后。美股扫描仍从原美股名单读取。
 
+东方财富批量报价可能返回 302，跳到同一接口的 `push2delay.eastmoney.com`。程序只识别这一路 HTTPS 跳转，保留原报价参数继续请求一次。其他跳转或响应异常时，错误会区分人气榜与批量报价，名单仍沿用最近成功记录。 [公开请求链记录](https://urlscan.io/result/019d3edc-174c-736e-9b5b-47a09563d2cb)
+
 ```bash
 # 查看上游当下榜单
 .venv/bin/python -m stock_research.cn_cli preview

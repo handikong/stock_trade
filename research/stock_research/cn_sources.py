@@ -2,6 +2,7 @@
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from json import JSONDecodeError
+import logging
 import re
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -12,10 +13,12 @@ from .stockanalysis_mg7 import ORIGIN, USER_AGENT, Reader, StopFetch, _forecast,
 from .store import Session, WatchlistState, stamp
 from .watchlist import write_lock
 
+logger = logging.getLogger(__name__)
 BEIJING = ZoneInfo("Asia/Shanghai")
 RANK_PAGE = "https://guba.eastmoney.com/rank/"
 RANK_API = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
 QUOTE_API = "https://push2.eastmoney.com/api/qt/ulist.np/get"
+DELAY_QUOTE_API = "https://push2delay.eastmoney.com/api/qt/ulist.np/get"
 COUNT = 100
 POOL_ID = "cn-eastmoney-hot-pool"
 BOARDS = {"SH":r"(?:60[0135]|688)[0-9]{3}", "SZ":r"(?:00[0-3]|30[01])[0-9]{3}"}
@@ -57,8 +60,19 @@ def _rank_rows(payload):
     return sorted(ranks.items())
 
 
+def _delay_quote_redirect(response):
+    request = response.next_request
+    if request is None or request.method != "GET" or response.status_code not in (301,302,307,308):
+        return False
+    target = request.url
+    expected = httpx.URL(DELAY_QUOTE_API)
+    return (target.scheme == "https" and target.host == expected.host and target.path == expected.path
+            and target.port in (None,443) and not target.userinfo)
+
+
 def fetch_hot_list():
     headers = {"Accept":"application/json", "Referer":RANK_PAGE, "User-Agent":"StockTradeResearch/0.1"}
+    operation = "人气榜"
     try:
         with httpx.Client(timeout=15,follow_redirects=False,headers=headers) as client:
             response = client.post(RANK_API,json={"appId":"appId01","globalId":str(uuid4()),
@@ -76,16 +90,25 @@ def fetch_hot_list():
                 candidates.append((rank,raw,code,market))
             if not candidates:
                 raise ValueError("人气榜没有可确认的沪深股票，A 股关注池保留")
-            response = client.get(QUOTE_API,params={"secids":",".join(f"{venue}.{code[:6]}" for _,_,code,venue in candidates),
-                                                      "fields":"f12,f13,f14,f20","fltt":2,"invt":2})
+            operation = "批量报价"
+            params = {"secids":",".join(f"{venue}.{code[:6]}" for _,_,code,venue in candidates),
+                      "fields":"f12,f13,f14,f20","fltt":2,"invt":2}
+            response = client.get(QUOTE_API,params=params)
+            if _delay_quote_redirect(response):
+                logger.info("东方财富批量报价 HTTP %s，继续读取同一接口的延时行情",response.status_code)
+                response = client.get(DELAY_QUOTE_API,params=params)
             response.raise_for_status()
             quote = response.json()
     except httpx.HTTPStatusError as exc:
-        raise ValueError(f"东方财富返回 HTTP {exc.response.status_code}，A 股关注池保留") from None
+        response = exc.response
+        destination = response.next_request
+        note = (f"，跳转目标 {destination.url.host} {destination.url.path[:100]!r}" if destination else
+                "，未提供可用的跳转目标" if response.is_redirect else "")
+        raise ValueError(f"东方财富{operation}返回 HTTP {response.status_code}{note}，A 股关注池保留") from None
     except httpx.HTTPError:
-        raise ValueError("东方财富网络请求失败，A 股关注池保留") from None
+        raise ValueError(f"东方财富{operation}网络请求失败，A 股关注池保留") from None
     except JSONDecodeError:
-        raise ValueError("东方财富未返回有效 JSON，A 股关注池保留") from None
+        raise ValueError(f"东方财富{operation}未返回有效 JSON，A 股关注池保留") from None
     data = quote.get("data") if isinstance(quote,dict) else None
     quotes = data.get("diff") if isinstance(data,dict) else None
     if isinstance(quotes,dict):
@@ -110,7 +133,8 @@ def fetch_hot_list():
     if not stocks:
         raise ValueError("人气榜无合格沪深股票，A 股关注池保留")
     return {"source":"东方财富 A 股人气榜","url":RANK_PAGE,"fetched_at":stamp(),
-            "candidate_count":COUNT,"stocks":stocks,"excluded":sorted(excluded,key=lambda row:row["rank"])}
+            "quote_host":response.url.host,"candidate_count":COUNT,"stocks":stocks,
+            "excluded":sorted(excluded,key=lambda row:row["rank"])}
 
 
 def pool(session):
