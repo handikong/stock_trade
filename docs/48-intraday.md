@@ -2,7 +2,7 @@
 
 ## 部署
 
-服务器安装 Go 1.23 或更新版本。在项目根目录的 `.env` 加入下列配置，Key ID 和 Secret 只填在服务器。飞书沿用已有群机器人配置。
+在项目根目录的 `.env` 加入下列配置，Key ID 和 Secret 只填在服务器。飞书沿用已有群机器人配置。
 
 ```dotenv
 INTRADAY_ENABLED=true
@@ -11,7 +11,7 @@ APCA_API_KEY_ID=在服务器填写
 APCA_API_SECRET_KEY=在服务器填写
 ```
 
-拉取新代码后执行 `bash deploy.sh`。启用时构建 `data/deploy/stock-intraday`，使用同一后台生命周期管理行情进程。已启用并构建后，普通 Python 或页面更新继续用 `bash update.sh`。Go 行情代码变更后重新执行 `bash deploy.sh` 构建。若先只看持仓行情，可设置 `INTRADAY_FEISHU_ENABLED=false`。
+首次部署使用 `bash deploy.sh`，已经部署的服务器启用盘中监控或更新代码时使用 `bash update.sh`。两条命令都会按服务器架构选择 Go 官方安装包，核对 SHA-256 后安装到项目的 `data/deploy/go-toolchains/`，再构建 `data/deploy/stock-intraday`。当前版本固定为 Go 1.27.3，相同版本复用本地工具链。Git 更新包含新版 Go 配置时自动安装新版本。下载及编译完成后才重启后台。若先只看持仓行情，可设置 `INTRADAY_FEISHU_ENABLED=false`。 [Go 官方下载](https://go.dev/dl/)
 
 打开「我的持仓」查看 IEX 最新有效成交、市值、浮盈亏、VWAP、日线 EMA20 和有足够样本时的量比。收盘参考独立保留。实时数据和推送状态不覆盖日线缓存、持仓成本、成交或账户现金。运行日志沿用 `data/deploy/worker.log`。
 
@@ -45,3 +45,4 @@ APCA_API_SECRET_KEY=在服务器填写
 - ID03 核对保护位触及、普通预警和确认破位的时机，确认同一价位不会持续重复推送。
 - ID04 有加仓计划时检查价带、剩余股数和保护位。大盘走弱、账户资料不足或价格超出价带时暂停加仓提醒。
 - ID05 北京时间 02:00 前后核对飞书与投递档案，持仓价格继续更新至收盘。
+- ID06 在 Linux x86_64 或 ARM64 上启用盘中监控后运行部署或更新，核对下载包架构、项目内的 Go 版本和构建产物。再次更新时复用工具链。下载、校验或构建失败时旧后台继续运行。

@@ -6,6 +6,10 @@ port=8000
 command -v nohup >/dev/null || fail "缺少 nohup"
 [[ -x "$venv_python" ]] || fail "尚未部署，请先运行 bash deploy.sh"
 
+# 保持下载和编译在停服务之前。旧版 update.sh 拉取后也会加载这一步。
+source "$root/scripts/prepare-intraday.sh"
+prepare_intraday
+
 running() {
     local first
     kill -0 "$1" 2>/dev/null && IFS= read -r -d '' first 2>/dev/null < "/proc/$1/cmdline"

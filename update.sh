@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 日常更新：只拉取代码并重启现有后台。
+# 日常更新：拉取代码，按盘中配置更新 Go 和行情程序，再重启后台。
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$root/scripts/deploy-lock.sh"
@@ -11,5 +11,5 @@ command -v git >/dev/null || fail "缺少 git"
 printf '拉取当前分支的上游代码…\n'
 git pull --ff-only
 
-# 在拉取后读取重启脚本，确保本次用新版启动配置。
+# 使用拉取后的 Go 版本及构建规则，构建成功才重启。
 source "$root/scripts/restart-worker.sh"
