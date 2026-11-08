@@ -11,10 +11,10 @@ from sqlalchemy import select
 from .config import ROOT, settings
 from .documents import archive
 from .earnings import freeze_preview, record_event, record_guidance
-from .jobs import Worker, queue
+from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import intraday, portfolio, push_history, weekly_valuation, workspace
+from . import intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -258,8 +258,17 @@ def pool_scan(p: PoolScan):
 @app.get("/api/v1/workspace/jobs")
 def workspace_jobs():
     with Session() as session:
-        return [{k:v for k,v in job_json(j).items() if k!="result"} for j in session.scalars(select(Job).where(Job.kind.in_(("watchlist_scan","holdings_refresh")))
+        return [{k:v for k,v in job_json(j).items() if k!="result"} for j in session.scalars(select(Job).where(Job.kind.in_(WORKSPACE_KINDS))
             .order_by(Job.created_at.desc()).limit(5))]
+
+
+@app.post("/api/v1/watchlist/market-caps/refresh")
+def pool_refresh_market_caps():
+    members=watchlist.entries()
+    if not members:
+        raise ValueError("扫描名单为空，请先添加股票")
+    anchor=security_for(members[0]["symbol"],create=True)
+    return {"job_id":queue(anchor.id,market_caps.JOB_KIND,{})}
 
 
 @app.get("/api/v1/schedule")

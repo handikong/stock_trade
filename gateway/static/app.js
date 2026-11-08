@@ -70,6 +70,7 @@ async function busy(button, fn) {
 function updateBusy() {
   const active = kind => [...state.jobs.values()].some(j => j.kind === kind);
   $('#scan-start').disabled = !state.workspace?.watchlist?.items?.length || active('watchlist_scan');
+  $('#pool-refresh-caps').disabled = !state.workspace?.watchlist?.items?.length || active('watchlist_market_caps');
   $('#refresh-holdings').disabled = !state.workspace?.holdings?.items?.length || active('holdings_refresh');
   $('#research-refresh').disabled = !state.symbol || [...state.jobs.values()].some(j => j.kind === 'refresh' && j.symbol === state.symbol);
 
@@ -148,8 +149,20 @@ async function loadIntraday() {
   finally { intradayPending = false; }
   renderIntraday();
 }
+function displayCap(value) {
+  if (!validNumber(value) || Number(value) <= 0) return '—';
+  if (value >= 1e12) return num(value / 1e12) + ' 万亿';
+  if (value >= 1e8) return num(value / 1e8) + ' 亿';
+  if (value >= 1e4) return num(value / 1e4) + ' 万';
+  return num(value);
+}
 function renderPool() {
   const data = state.workspace.watchlist, run = data.last_scan;
+  const capSource = data.market_caps;
+  const count = data.items.filter(row => Number(row.market_cap_usd) > 0).length;
+  $('#pool-cap-source').textContent = capSource?.fetched_at
+    ? `市值参考 · ${capSource.source} · ${when(capSource.fetched_at)} 更新 · ${count}/${data.items.length} 只`
+    : '暂无市值缓存，点击「更新市值」补齐。';
   $('#pool-count').textContent = data.summary.count; $('#pool-total').textContent = `${data.summary.count} 只`;
   $('#scan-summary-title').textContent = `关注 ${data.summary.count} 只股票`;
   $('#scan-summary-detail').textContent = data.configuration_error || `当前有效信号涉及 ${data.summary.signal_stocks} 只股票；扫描不会改变持仓或发送通知。`;
@@ -158,15 +171,22 @@ function renderPool() {
     $('#pool-content').innerHTML = empty('把值得关注的股票放进来','这里与命令行共用扫描名单，你可以添加、移除，再手动开始扫描。',`<button class="secondary" data-add-pool>${icon('plus')}添加股票</button>`);
     return;
   }
-  $('#pool-content').innerHTML = table(['股票','收盘参考','行情状态','最近策略结果','扫描截至','操作'],data.items.map((r,i) => {
+  const order = $('#pool-sort').value;
+  const rows = [...data.items];
+  if (order !== 'symbol') rows.sort((a,b) => {
+    const x = Number(a.market_cap_usd) || 0, y = Number(b.market_cap_usd) || 0;
+    if (!x || !y) return Number(Boolean(y)) - Number(Boolean(x));
+    return order === 'cap-asc' ? x - y : y - x;
+  });
+  $('#pool-content').innerHTML = table(['股票','总市值 · USD','收盘参考','行情状态','最近策略结果','扫描截至','操作'],rows.map((r,i) => {
     const signals = r.current_signals || [], old = r.scan;
     const signal = !old ? badge('尚未扫描') : !r.scan_is_current ? badge(old.status === 'ERROR' ? '扫描未完成' : '历史记录 · 需重扫','caution') : signals.length ? signals.map(s => badge(s.event_kind === 'EXIT' ? '退出提示' : '买入提示',s.event_kind === 'EXIT' ? 'caution' : 'positive')).join(' ') : badge('暂无当前信号');
     const alerts = r.scan_is_current ? old.current_exit_alerts || [] : [];
     const alertDetails = alerts.length ? `<details class="inline-note"><summary>退出状态变化 · ${alerts.length} 项</summary>${alerts.map(a => `<p>${esc(a.strategy_id)} · 原买点 ${esc(a.entry_signal_date)}：${esc(a.status_label)}</p>`).join('')}</details>` : '';
     const info = old?.error?.message || (signals.length ? signals.map(s => s.name || s.strategy_name || s.strategy_id).join(' / ') : old?.warnings?.[0]?.message || '');
     const strategyDetails = old?.strategies?.length ? `<details class="inline-note"><summary>策略判断${r.scan_is_current ? '' : '（历史）'}</summary>${old.strategies.map(s => `<p>${esc(s.name)}：${esc(s.status_label)}${s.unmet?.length ? ` · ${esc(s.unmet.join('；'))}` : ''}</p>`).join('')}</details>` : '';
-    return [stock(r.symbol,r.name,i),num(r.quote.currency === 'USD' ? r.quote.price : null),badge(({fresh:'有效',stale:'待更新',missing:'未获取',unknown:'待核对'})[r.quote.state] || '待核对',r.quote.state === 'fresh' ? 'positive' : 'caution'),`${signal}${info ? `<span class="subline">${esc(info)}</span>` : ''}${alertDetails}${strategyDetails}`,esc(old?.data_as_of || '—'),`<div class="row-actions"><a class="text-link" href="#/research?symbol=${encodeURIComponent(r.symbol)}">研究</a><button class="text-button remove" data-remove-pool="${esc(r.symbol)}">移出</button></div>`];
-  }),[1]);
+    return [stock(r.symbol,r.name,i),displayCap(r.market_cap_usd),num(r.quote.currency === 'USD' ? r.quote.price : null),badge(({fresh:'有效',stale:'待更新',missing:'未获取',unknown:'待核对'})[r.quote.state] || '待核对',r.quote.state === 'fresh' ? 'positive' : 'caution'),`${signal}${info ? `<span class="subline">${esc(info)}</span>` : ''}${alertDetails}${strategyDetails}`,esc(old?.data_as_of || '—'),`<div class="row-actions"><a class="text-link" href="#/research?symbol=${encodeURIComponent(r.symbol)}">研究</a><button class="text-button remove" data-remove-pool="${esc(r.symbol)}">移出</button></div>`];
+  }),[1,2]);
 }
 async function loadWorkspace() {
   const ticket = ++state.workspaceGeneration;
@@ -444,6 +464,15 @@ for (const id of ['global-search','research-search']) $('#' + id).addEventListen
   if (location.hash === expected) void loadStock(code); else researchHash(code);
 });
 $('#pool-add-open').addEventListener('click',openPool);
+$('#pool-sort').addEventListener('change',() => { if (state.workspace) renderPool(); });
+$('#pool-refresh-caps').addEventListener('click',event => {
+  void busy(event.currentTarget,async () => {
+    try {
+      const job = await post('/watchlist/market-caps/refresh');
+      await monitorJob(job.job_id,'watchlist_market_caps');
+    } catch (error) { notice(error.message,true); }
+  });
+});
 $('#reload-pool').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { await loadWorkspace(); notice('已读取最新记录。'); } catch (error) { notice(error.message,true); } }); });
 $('#scan-start').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { const job = await post('/watchlist/scan',{refresh:$('#scan-refresh').checked}); await monitorJob(job.job_id,'watchlist_scan'); } catch (error) { notice(error.message,true); } }); });
 $('#refresh-holdings').addEventListener('click',event => { void busy(event.currentTarget,async () => { try { const job = await post('/holdings/refresh'); await monitorJob(job.job_id,'holdings_refresh'); } catch (error) { notice(error.message,true); } }); });

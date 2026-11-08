@@ -85,3 +85,21 @@
 @media(max-width:440px) {
   .sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.pool-sort-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.pool-sort-tools select {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.pool-sort-tools button { min-height: 44px; }
+.pool-sort-tools p { margin: 0; flex-basis: 100%; }

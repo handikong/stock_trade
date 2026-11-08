@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261107-push-history">
-  <script type="module" src="/app.js?v=20261107-intraday"></script>
+  <link rel="stylesheet" href="/style.css?v=20261108-market-cap">
+  <script type="module" src="/app.js?v=20261108-market-cap"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -57,7 +57,18 @@
       <section id="page-watchlist" class="page" hidden>
         <div class="page-heading"><div><p class="eyebrow">WATCHLIST & SIGNALS</p><h1>扫描股票池</h1><p class="subtitle">关注值得研究的机会，保留每次扫描的依据。</p></div><button class="primary" id="pool-add-open"><span data-icon="plus"></span>添加股票</button></div>
         <div class="scan-toolbar panel"><div class="scan-summary"><span class="scan-symbol" data-icon="radar"></span><div><strong id="scan-summary-title">读取扫描名单</strong><p id="scan-summary-detail">只扫描名单中的股票，不会自动买卖或发送通知。</p></div></div><div class="scan-controls"><label class="check-label"><input id="scan-refresh" type="checkbox">扫描前更新行情</label><button class="secondary" id="scan-start"><span data-icon="play"></span>开始扫描</button></div></div>
-        <section class="panel"><div class="panel-heading"><div><h2>我的扫描名单 <span id="pool-total" class="count-label"></span></h2><p id="last-scan-label">尚无扫描记录</p></div><button class="text-button" id="reload-pool">重新读取</button></div><div id="pool-content" class="loading-state">正在读取扫描名单…</div></section>
+        <section class="panel">
+          <div class="panel-heading"><div><h2>我的扫描名单 <span id="pool-total" class="count-label"></span></h2><p id="last-scan-label">尚无扫描记录</p></div><button class="text-button" id="reload-pool">重新读取</button></div>
+          <div class="panel-body pool-sort-tools">
+            <label for="pool-sort">排序</label>
+            <select id="pool-sort">
+              <option value="cap-desc">市值从大到小</option><option value="cap-asc">市值从小到大</option><option value="symbol">股票代码</option>
+            </select>
+            <button class="secondary compact" id="pool-refresh-caps" type="button" disabled>更新市值</button>
+            <p id="pool-cap-source" class="subline" role="status"></p>
+          </div>
+          <div id="pool-content" class="loading-state">正在读取扫描名单…</div>
+        </section>
         <p class="footnote">扫描信号属于技术跟踪，不代表已持仓；移出名单会保留历史记录。</p>
       </section>
 

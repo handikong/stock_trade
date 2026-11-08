@@ -4,13 +4,14 @@ import fcntl
 import time
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from . import analysis
+from . import analysis, market_caps
 from .config import settings
 from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
                    "scheduled_market_brief","scheduled_holdings_brief")
+WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh",market_caps.JOB_KIND)
 
 logger=logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def queue(security_id: str, kind: str, payload: dict):
         raise ValueError("旧研究搜索和URL原件下载已停用，请手工录入研究数据")
     if kind=="analysis":
         raise ValueError(analysis.DISABLED_MESSAGE)
-    active_key=f"workspace:{kind}" if kind in ("watchlist_scan","holdings_refresh") else f"{security_id}:{kind}"
+    active_key=f"workspace:{kind}" if kind in WORKSPACE_KINDS else f"{security_id}:{kind}"
     with Session() as session:
         active=session.scalar(select(Job).where(Job.active_key==active_key))
         if active:
@@ -68,6 +69,8 @@ def run(job: Job):
         from . import watchlist
         progress(job.id,5,"正在扫描自选股票；不会获取财报或发送通知")
         return watchlist.scan(offline=False,refresh=job.payload.get("refresh",False))
+    if job.kind==market_caps.JOB_KIND:
+        return market_caps.refresh(lambda percent,message:progress(job.id,percent,message))
     if job.kind=="refresh":
         result=refresh_sources(sid,job.payload.get("force",False),lambda p,m:progress(job.id,p,m))
         if not result["steps"]:

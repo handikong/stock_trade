@@ -6,7 +6,7 @@ import re
 
 from sqlalchemy import select
 
-from . import band_strategies, futu_macd, market, watchlist
+from . import band_strategies, futu_macd, market, market_caps, watchlist
 from .config import settings
 from .service import security_for
 from .store import (ManualPosition, PositionProtection, Security, Session, Snapshot, WatchlistEntry, WatchlistScan, latest,
@@ -170,6 +170,8 @@ def pool():
         configuration_error = "策略配置暂不可用，旧扫描只作历史参考"
     with Session() as session:
         members = list(session.scalars(select(WatchlistEntry).where(WatchlistEntry.active.is_(True)).order_by(WatchlistEntry.symbol)))
+        caps = market_caps.cached(session)
+        cap_values = caps.get("values",{})
         # 单股CLI扫描不能抹掉其他成员的展示；每只股票取最近一次参与的扫描。
         scan_rows = {}; remaining = {m.symbol for m in members}
         if remaining:
@@ -195,10 +197,11 @@ def pool():
                 and configuration_current)
             scan_view = {k:row[k] for k in ("status","data_as_of","strategies","warnings","error","current_exit_alerts") if k in row} if row else None
             result.append({"symbol":member.symbol,"name":security.profile.get("name") if security else None,
-                "quote":q,"created_at":member.created_at,"scan":scan_view,"scan_is_current":current,
+                "quote":q,"market_cap_usd":cap_values.get(member.symbol),"created_at":member.created_at,"scan":scan_view,"scan_is_current":current,
                 "current_signals":row.get("current_signals",[]) if current else []})
     run_view = {k:run[k] for k in ("scan_id","created_at","finished_at","status","scope") if k in run} if run else None
     return {"market":"US","items":result,"last_scan":run_view,"configuration_error":configuration_error,
+            "market_caps":{key:caps[key] for key in ("source","fetched_at") if key in caps},
             "summary":{"count":len(result),"signal_stocks":sum(bool(r["current_signals"]) for r in result)}}
 
 
