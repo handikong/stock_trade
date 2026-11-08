@@ -17,7 +17,6 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
       return;
     }
     const metrics = [
-      metric('账户估算净值',num(s.equity),`收盘标记 ${view.as_of}`,'',true),
       metric('券商可用现金',num(a.available_cash),`总现金 ${money(a.total_cash)}`,'',true),
       metric('本金亏损',num(s.principal_loss),s.principal_loss_rate == null ? '等待完整账户估值' : `占本金 ${pct(s.principal_loss_rate)} · 上限 ${num(a.loss_percent)}%`,
         Number(s.principal_loss) > 0 ? 'loss' : '',true),
@@ -156,6 +155,7 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
       try {
         const data = {...plain('#portfolio-account-form'),expected_version:form.dataset.version || null};
         await api('/portfolio/account',{method:'PUT',body:JSON.stringify(data)});
+        window.dispatchEvent(new Event('equity:cash-us'));
         $('#portfolio-account').close(); await loadPortfolio(); notice('账户和现金已更新。');
       } catch (error) { formError('#portfolio-account-error',error.message); }
     });

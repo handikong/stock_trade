@@ -4,15 +4,16 @@ import fcntl
 import time
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from . import analysis, cn_post_close, market_caps
+from . import account_equity, analysis, cn_post_close, market_caps
 from .config import settings
 from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
-                   "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat",*cn_post_close.KINDS.values())
+                   "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat",
+                   *cn_post_close.KINDS.values(),account_equity.SCHEDULED_KIND)
 WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh","cn_holdings_refresh","cn_watchlist_scan",
-                   market_caps.JOB_KIND,market_caps.CN_JOB_KIND)
+                   market_caps.JOB_KIND,market_caps.CN_JOB_KIND,*account_equity.MANUAL_KINDS.values())
 
 logger=logging.getLogger(__name__)
 
@@ -22,7 +23,10 @@ def queue(security_id: str, kind: str, payload: dict):
         raise ValueError("旧研究搜索和URL原件下载已停用，请手工录入研究数据")
     if kind=="analysis":
         raise ValueError(analysis.DISABLED_MESSAGE)
-    active_key=f"workspace:{kind}" if kind in WORKSPACE_KINDS else f"{security_id}:{kind}"
+    if kind in account_equity.MANUAL_KINDS.values():
+        active_key = f"account-equity:{payload['market']}"
+    else:
+        active_key=f"workspace:{kind}" if kind in WORKSPACE_KINDS else f"{security_id}:{kind}"
     with Session() as session:
         active=session.scalar(select(Job).where(Job.active_key==active_key))
         if active:
@@ -52,6 +56,8 @@ def run(job: Job):
     if job.kind in SCHEDULED_KINDS:
         from . import post_close
         return post_close.run(job)
+    if job.kind in account_equity.MANUAL_KINDS.values():
+        return account_equity.capture(job,lambda percent,message:progress(job.id,percent,message))
     if job.kind in ("holdings_refresh","cn_holdings_refresh"):
         from . import cn_holdings, market, workspace
         from .providers import failure_detail

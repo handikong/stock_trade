@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import cn_holdings, cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
+from . import account_equity, cn_holdings, cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -94,6 +94,13 @@ class PortfolioAccountInput(BaseModel):
     available_cash: StrictStr = Field(min_length=1,max_length=35)
     net_flows: StrictStr = Field(default="0",max_length=35)
     loss_percent: StrictStr = Field(default="5",max_length=20)
+    expected_version: str | None = Field(default=None,min_length=32,max_length=32)
+
+
+class EquityCashInput(BaseModel):
+    model_config = {"extra":"forbid"}
+    total_cash: StrictStr = Field(min_length=1,max_length=35)
+    net_flows: StrictStr = Field(default="0",max_length=35)
     expected_version: str | None = Field(default=None,min_length=32,max_length=32)
 
 
@@ -235,6 +242,27 @@ def cn_position_remove(position_id: str,version: str):
 @app.get("/api/v1/portfolio")
 def portfolio_overview():
     return portfolio.overview()
+
+
+@app.get("/api/v1/account-equity/{region}")
+def account_equity_overview(region: Literal["US","CN"]):
+    return account_equity.overview(region)
+
+
+@app.get("/api/v1/account-equity/{region}/history")
+def account_equity_history(region: Literal["US","CN"],period: Literal["week","month","year"]="month"):
+    return account_equity.history(region,period)
+
+
+@app.post("/api/v1/account-equity/{region}/capture")
+def account_equity_capture(region: Literal["US","CN"]):
+    payload = account_equity.manual_payload(region)
+    return {"job_id":queue(account_equity.anchor(region).id,account_equity.MANUAL_KINDS[region],payload)}
+
+
+@app.put("/api/v1/account-equity/CN/cash")
+def account_equity_cn_cash(p: EquityCashInput):
+    return account_equity.save_cn_cash(p.model_dump())
 
 
 @app.get("/api/v1/intraday")

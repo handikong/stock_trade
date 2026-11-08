@@ -154,6 +154,15 @@ class PortfolioAccount(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
+class AccountEquity(Base):
+    """按市场及真实交易日保存人民币或美元收盘净值。"""
+    __tablename__ = "account_daily_equity"
+    market: Mapped[str] = mapped_column(String(2), primary_key=True)
+    session_date: Mapped[str] = mapped_column(String(10), primary_key=True)
+    updated_at: Mapped[str] = mapped_column(String(60), default=stamp)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
 class PositionPlan(Base):
     __tablename__ = "portfolio_position_plans"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from . import cn_post_close, market, watchlist
+from . import account_equity, cn_post_close, market, watchlist
 from .config import settings
 from .cli_helpers import storage_ready
 from .providers import failure_detail
@@ -302,6 +302,14 @@ def _enqueue_us(cfg):
     return result
 
 
+def _equity_window(cfg,region):
+    if region=="US":
+        local,target,_ = _target(cfg)
+        return local.date().isoformat(),target
+    day,target,phases = cn_post_close.current_window(cfg)
+    return day,target if "market" in phases else None
+
+
 def enqueue_due():
     """只入队；各市场按自己的交易日、窗口及已存任务独立判断。"""
     cfg = policy()
@@ -318,6 +326,15 @@ def enqueue_due():
     result["queued"].extend(cn["queued"])
     if cn["queued"]:
         result["message"] += " · 已入队 A 股任务"
+    for region in ("US","CN"):
+        try:
+            day,target = _equity_window(cfg,region)
+            job_id = account_equity.enqueue(region,target,day) if target else None
+            if job_id:
+                result["queued"].append(job_id)
+                result["message"] += f" · 已入队{account_equity.MARKET_LABELS[region]}净值"
+        except (ValueError,OSError) as exc:
+            result.setdefault("equity_warnings",{})[region] = str(exc)
     return result
 
 
@@ -483,6 +500,11 @@ def _heat(job, result):
 
 
 def run(job):
+    if job.kind==account_equity.SCHEDULED_KIND:
+        region = job.payload["market"]
+        expected = (job.payload["local_date"],job.payload["target_session"])
+        return account_equity.capture(job,lambda percent,message:_checkpoint(job.id,{},percent,message),
+                                      allowed=lambda: _equity_window(policy(),region)==expected)
     if job.kind in cn_post_close.KINDS.values():
         return cn_post_close.run(job,policy=policy,checkpoint=_checkpoint)
     if job.kind not in KINDS.values() or KINDS.get(job.payload.get("phase"))!=job.kind:
@@ -519,7 +541,7 @@ def status():
                      "target_session":j.payload.get("target_session"),"local_date":j.payload.get("local_date"),
                      "result_status":j.result.get("status"),"warnings":j.result.get("warnings",[]),
                      "updated_at":j.updated_at} for j in session.scalars(select(Job).where(
-                         Job.kind.in_((*KINDS.values(),*cn_post_close.KINDS.values())))
+                         Job.kind.in_((*KINDS.values(),*cn_post_close.KINDS.values(),account_equity.SCHEDULED_KIND)))
                         .order_by(Job.created_at.desc()).limit(20))]
     try:
         cn_day,cn_target,cn_phases = cn_post_close.current_window(cfg)

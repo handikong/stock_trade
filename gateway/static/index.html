@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261108-cn-close">
-  <script type="module" src="/app.js?v=20261108-cn-market-cap"></script>
+  <link rel="stylesheet" href="/style.css?v=20261109-account-equity">
+  <script type="module" src="/app.js?v=20261109-account-equity"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -40,6 +40,9 @@
       <section id="page-holdings" class="page">
         <div class="page-heading"><div><p class="eyebrow">PORTFOLIO OVERVIEW</p><h1>我的持仓</h1><p class="subtitle">先看仓位，再做判断。</p></div><div class="portfolio-actions"><button class="secondary" data-add-position>导入已有持仓</button><button class="primary" id="portfolio-request-open"><span data-icon="plus"></span>评估买入</button></div></div>
         <div id="portfolio-metrics" class="metric-strip" aria-label="持仓汇总"><div class="metric"><span>正在读取持仓</span><strong>—</strong></div></div>
+        <section class="panel portfolio-section" aria-label="美股收盘净值与当日盈亏">
+          <div id="us-equity-content" class="equity-overview" aria-live="polite">正在读取账户净值…</div>
+        </section>
         <section class="panel portfolio-section">
           <div class="panel-heading"><div><h2>账户与风险额度</h2><p>按券商现金、持仓和大盘计算 · USD</p></div><button type="button" class="secondary compact" id="portfolio-account-open">填写账户</button></div>
           <div id="portfolio-account-content" class="panel-body" aria-live="polite">正在读取账户…</div>
@@ -87,6 +90,13 @@
           <div class="metric"><span>浮动盈亏</span><strong>—</strong></div>
           <div class="metric"><span>持有标的</span><strong>—</strong></div>
         </div>
+        <section class="panel portfolio-section" aria-label="A 股收盘净值与当日盈亏">
+          <div id="cn-equity-content" class="equity-overview" aria-live="polite">正在读取账户净值…</div>
+          <div class="equity-cash-row">
+            <p id="cn-equity-cash-note" class="inline-note">正在读取人民币现金记录…</p>
+            <button class="secondary compact" type="button" id="cn-equity-cash-open" disabled>填写人民币现金</button>
+          </div>
+        </section>
         <section class="panel portfolio-section">
           <div class="panel-heading"><div><h2>持仓明细</h2><p>按有效收盘和录入成本计算 · CNY</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-holdings">重新读取</button><button type="button" class="secondary compact" id="refresh-cn-holdings" disabled><span data-icon="refresh"></span>更新行情</button></div></div>
           <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
@@ -151,6 +161,40 @@
     </main>
   </div>
 
+  <dialog id="equity-history" aria-labelledby="equity-history-title">
+    <div class="dialog-heading">
+      <h2 id="equity-history-title">账户净值走势</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button>
+    </div>
+    <div class="equity-range" role="group" aria-label="趋势图时间范围">
+      <button type="button" class="secondary compact" data-equity-range="week" aria-pressed="false">近一周</button>
+      <button type="button" class="secondary compact" data-equity-range="month" aria-pressed="true">近一月</button>
+      <button type="button" class="secondary compact" data-equity-range="year" aria-pressed="false">近一年</button>
+    </div>
+    <div id="equity-history-chart" class="equity-chart" role="status"></div>
+    <input id="equity-history-slider" type="range" min="0" max="0" value="0" aria-label="查看某个交易日的净值" hidden>
+    <p id="equity-history-selection" class="inline-note" aria-live="polite"></p>
+    <details id="equity-history-table" hidden><summary>查看逐日记录</summary><div id="equity-history-rows"></div></details>
+    <div class="equity-cash-row">
+      <p id="equity-capture-status" class="inline-note" role="status"></p>
+      <button type="button" class="secondary compact" id="equity-capture">保存最近收盘</button>
+    </div>
+  </dialog>
+  <dialog id="cn-equity-cash" aria-labelledby="cn-equity-cash-title">
+    <form id="cn-equity-cash-form">
+      <div class="dialog-heading">
+        <h2 id="cn-equity-cash-title">填写 A 股账户现金</h2>
+        <button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button>
+      </div>
+      <p class="dialog-intro">按券商余额填写人民币总现金。累计净入金始终用同一个起点，转入增加累计额，转出扣减累计额。成交和分红反映在持仓或总现金里。</p>
+      <div class="form-grid">
+        <label>总现金 · CNY<input name="total_cash" inputmode="decimal" maxlength="35" required></label>
+        <label>累计净入金 · CNY<input name="net_flows" inputmode="decimal" maxlength="35" value="0" required></label>
+      </div>
+      <div id="cn-equity-cash-error" class="form-error" role="alert" hidden></div>
+      <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">保存人民币现金</button></div>
+    </form>
+  </dialog>
   <dialog id="position-dialog" aria-labelledby="position-dialog-title">
     <form id="position-form">
       <div class="dialog-heading"><div><p class="eyebrow" id="position-market">美股 · USD</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div>

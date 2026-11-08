@@ -1,4 +1,5 @@
-import {connectPortfolio} from './portfolio.js?v=20261107-principal-loss';
+import {connectPortfolio} from './portfolio.js?v=20261109-account-equity';
+import {connectEquity} from './equity.js?v=20261109';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -199,6 +200,7 @@ async function loadWorkspace() {
   if (ticket !== state.workspaceGeneration) return;
   state.workspace = value; renderHoldings(); renderPool(); updateBusy();
   window.dispatchEvent(new Event("portfolio:workspace"));
+  if (state.page === 'holdings') void equity.load('US');
 }
 
 function renderWeeklyValuation(view) {
@@ -302,7 +304,9 @@ function monitorJob(id, kind, code = '') {
         const job = await api('/jobs/' + encodeURIComponent(id)); jobView(job,kind,code);
         if (['completed','failed'].includes(job.status)) {
           if (kind === 'refresh' && code === state.symbol && state.page === 'research') await reloadResearch(code);
-          if (kind === 'cn_holdings_refresh') {
+          if (kind === 'account_equity_capture' || kind === 'cn_account_equity_capture') {
+            await equity.load(kind.startsWith('cn_') ? 'CN' : 'US');
+          } else if (kind === 'cn_holdings_refresh') {
             if (state.page === 'cn-holdings') await loadCnHoldings();
           } else if (kind === 'cn_watchlist_scan' || kind === 'cn_watchlist_market_caps') {
             if (state.page === 'cn') await loadCnPool();
@@ -417,6 +421,7 @@ const isCnPage = page => page === 'cn' || page === 'cn-holdings';
 let cnPositions = new Map();
 let cnHoldingsReadVersion = 0;
 async function loadCnHoldings() {
+  if (state.page === 'cn-holdings') void equity.load('CN');
   const generation = state.generation, version = ++cnHoldingsReadVersion;
   const current = () => generation === state.generation && version === cnHoldingsReadVersion;
   const content = $('#cn-holdings-content');
@@ -548,7 +553,10 @@ function route() {
     else if (state.report) renderResearch();
   }
   if (next === 'push-history' && state.connected) void loadPushHistory();
-  if (next === 'holdings') void loadIntraday();
+  if (next === 'holdings') {
+    void loadIntraday();
+    if (state.connected && state.workspace) void equity.load('US');
+  }
 }
 function researchHash(code) { location.hash = '/research?symbol=' + encodeURIComponent(code.trim().toUpperCase()); }
 
@@ -776,6 +784,8 @@ async function boot() {
   } finally { state.booting = false; }
 }
 connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
+const equity = connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob});
+window.addEventListener('equity:cash-us',() => { void equity.load('US'); });
 icons(); route(); void boot();
 window.setInterval(() => { void loadIntraday(); },5000);
 document.addEventListener('visibilitychange', () => { void loadIntraday(); });

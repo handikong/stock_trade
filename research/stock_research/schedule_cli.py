@@ -120,7 +120,7 @@ def main(argv=None):
                 labels={"queued":"排队中","running":"执行中","completed":"已结束","failed":"失败/停止"}
                 stages={"scheduled_futu_heat":"富途热榜","scheduled_market":"更新日线","scheduled_signals":"买点与推送",
                         "scheduled_valuation":"每周估值","scheduled_market_brief":"大盘报告","scheduled_holdings_brief":"持仓复盘",
-                        "scheduled_cn_heat":"旧 A 股人气榜"}
+                        "scheduled_cn_heat":"旧 A 股人气榜","scheduled_account_equity":"收盘账户净值"}
                 stages.update({kind:"A 股"+post_close.cn_post_close.LABELS[phase]
                                for phase,kind in post_close.cn_post_close.KINDS.items()})
                 print(table(["交易日","阶段","状态","进度","说明"],[[j["target_session"],
