@@ -15,6 +15,11 @@ from .watchlist import write_lock
 STATE_ID = "cn-income-watchlist"
 ETF_CATALOG = ROOT / "config" / "cn-income-etfs.json"
 DIVIDEND_FILE = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000922cons.xls"
+DIVIDEND_EXCHANGES = {
+    "上海证券交易所":"SH", "shanghai stock exchange":"SH",
+    "深圳证券交易所":"SZ", "shenzhen stock exchange":"SZ",
+    "北京证券交易所":"BJ", "beijing stock exchange":"BJ",
+}
 RISK_NAME = re.compile(r"^(?:S?\*?ST|退市)|退$", re.IGNORECASE)
 
 
@@ -141,22 +146,31 @@ def _dividend_rows(content):
     except Exception:
         raise ValueError("中证红利成分文件无法读取，原名单保留") from None
     headers = [re.sub(r"\s+","",str(column)).replace("成份","成分") for column in frame.columns]
-    expected = {0:"日期",1:"指数代码",4:"成分券代码",5:"成分券名称",7:"交易所"}
+    expected = {0:"日期",1:"指数代码",4:"成分券代码",5:"成分券名称",7:"交易所",8:"交易所英文名称"}
     if (len(frame) != 100 or len(headers) != 9
             or any(not headers[i].startswith(label) for i,label in expected.items())):
         raise ValueError("中证红利成分文件不是完整 100 条的预期格式，原名单保留")
     dates, seen, candidates = set(), set(), {}
+    skipped_beijing = 0
     for row in frame.itertuples(index=False,name=None):
-        day, index, _, _, number, name, _, venue, _ = row
+        day, index, _, _, number, name, _, venue, venue_en = row
         dates.add(_index_date(day))
         code = _excel_digits(number,6)
         name = name.strip()
         if _excel_digits(index,6) != "000922" or not code or code in seen or not name:
             raise ValueError("中证红利指数或成分代码校验失败，原名单保留")
         seen.add(code)
-        exchange = "SH" if "上海" in venue else "SZ" if "深圳" in venue else None
+        exchange = DIVIDEND_EXCHANGES.get(venue.strip())
+        exchange_en = DIVIDEND_EXCHANGES.get(venue_en.strip().casefold())
+        if exchange and exchange_en and exchange != exchange_en:
+            raise ValueError(f"中证红利成分 {code} 的中英文交易所不一致，原名单保留")
+        exchange = exchange or exchange_en
         if exchange is None:
-            raise ValueError("中证红利成分交易所无法核对，原名单保留")
+            raise ValueError(f"中证红利成分 {code} 的交易所无法核对，原名单保留")
+        if exchange == "BJ":
+            # 北交所参与成分表完整性校验，当前关注池只收录沪深股票。
+            skipped_beijing += 1
+            continue
         try:
             key = cn_sources.symbol(f"{code}.{exchange}")
         except ValueError:
@@ -167,7 +181,7 @@ def _dividend_rows(content):
     today = datetime.now(cn_sources.BEIJING).date().isoformat()
     if len(dates) != 1 or max(dates) > today or not candidates:
         raise ValueError("中证红利成分日期或沪深候选异常，原名单保留")
-    return candidates,dates.pop()
+    return candidates,dates.pop(),skipped_beijing
 
 
 def refresh_dividends():
@@ -179,7 +193,7 @@ def refresh_dividends():
         raise ValueError(f"中证红利成分下载返回 HTTP {exc.response.status_code}，原名单保留") from None
     except httpx.HTTPError:
         raise ValueError("中证红利成分下载失败，原名单保留") from None
-    candidates, as_of = _dividend_rows(response.content)
+    candidates, as_of, skipped_beijing = _dividend_rows(response.content)
     with write_lock(), Session() as session:
         payload = _payload(session)
         previous = payload.get("dividend_source") or {}
@@ -188,10 +202,12 @@ def refresh_dividends():
         before = _members(payload,catalog)
         updated = stamp()
         changed = {**payload,"dividend_candidates":candidates,"updated_at":updated,
-                   "dividend_source":{"name":"中证红利（000922）","as_of":as_of,"url":DIVIDEND_FILE}}
+                   "dividend_source":{"name":"中证红利（000922）","as_of":as_of,"url":DIVIDEND_FILE,
+                                      "skipped_beijing":skipped_beijing}}
         after = _members(changed,catalog)
         _save(session,changed)
         session.commit()
     added = len(after.keys() - before.keys())
+    skipped = f" · 跳过北交所 {skipped_beijing} 只" if skipped_beijing else ""
     return {**_view(changed,catalog),
-            "message":f"中证红利候选已更新 · {len(candidates)} 只符合池范围 · 新增关注 {added} 只"}
+            "message":f"中证红利候选已更新 · {len(candidates)} 只符合池范围 · 新增关注 {added} 只{skipped}"}
