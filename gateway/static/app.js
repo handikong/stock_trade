@@ -72,6 +72,8 @@ function updateBusy() {
   $('#scan-start').disabled = !state.workspace?.watchlist?.items?.length || active('watchlist_scan');
   $('#pool-refresh-caps').disabled = !state.workspace?.watchlist?.items?.length || active('watchlist_market_caps');
   $('#refresh-holdings').disabled = !state.workspace?.holdings?.items?.length || active('holdings_refresh');
+  $('#refresh-cn-holdings').disabled = !cnPositions.size || active('cn_holdings_refresh');
+  $('#cn-scan').disabled = !cnPool?.members?.length || active('cn_watchlist_scan');
   $('#research-refresh').disabled = !state.symbol || [...state.jobs.values()].some(j => j.kind === 'refresh' && j.symbol === state.symbol);
 
 }
@@ -285,6 +287,7 @@ async function startResearchRefresh() {
 function jobView(job, kind, code) {
   const research = kind === 'refresh';
   if (research && (code !== state.symbol || state.page !== 'research')) return;
+  if (!research && kind.startsWith('cn_') !== isCnPage(state.page)) return;
   const prefix = research ? '#research-job' : '#workspace-job';
   $(prefix).hidden = false; $(prefix + '-label').textContent = job.message;
   $(prefix + '-percent').textContent = `${job.progress}%`; $(prefix + '-progress').value = job.progress;
@@ -298,8 +301,14 @@ function monitorJob(id, kind, code = '') {
         const job = await api('/jobs/' + encodeURIComponent(id)); jobView(job,kind,code);
         if (['completed','failed'].includes(job.status)) {
           if (kind === 'refresh' && code === state.symbol && state.page === 'research') await reloadResearch(code);
-          await loadWorkspace();
-          notice(job.result?.status === 'partial' ? '扫描已完成，部分股票资料待更新，请查看名单中的状态。' : job.message,job.status === 'failed');
+          if (kind === 'cn_holdings_refresh') {
+            if (state.page === 'cn-holdings') await loadCnHoldings();
+          } else if (kind === 'cn_watchlist_scan') {
+            if (state.page === 'cn') await loadCnPool();
+          } else await loadWorkspace();
+          if (kind.startsWith('cn_') === isCnPage(state.page)) {
+            notice(job.result?.status === 'partial' ? '扫描已完成，部分股票资料待更新，请查看名单中的状态。' : job.message,job.status === 'failed');
+          }
           return job;
         }
         await new Promise(resolve => setTimeout(resolve,1500));
@@ -417,15 +426,21 @@ async function loadCnHoldings() {
     cnPositions = new Map(items.map(row => [row.id,row]));
     $('#cn-holding-count').textContent = summary.count;
     $('#cn-holdings-metrics').innerHTML =
-      metric('持仓成本',summary.count ? `¥${num(summary.cost_value)}` : '—','数量 × 人民币成本均价')
+      metric('持仓市值',summary.complete ? `¥${num(summary.market_value)}` : '—',
+        summary.count ? `有效报价 ${summary.priced_count} / ${summary.count} 只` : '添加持仓后计算')
+      + metric('持仓成本',summary.count ? `¥${num(summary.cost_value)}` : '—','数量 × 人民币成本均价')
+      + metric('浮动盈亏',signed(summary.unrealized_pnl),summary.complete ? `相对成本 ${pct(summary.unrealized_return)} · CNY` : '等待完整有效报价',tone(summary.unrealized_pnl))
       + metric('持有标的',String(summary.count),'沪深股票与 ETF');
     content.innerHTML = items.length
-      ? table(['证券','数量（股或份）','成本均价 · CNY','持仓成本 · CNY','操作'],items.map(row => [
+      ? table(['证券','数量（股或份）','成本均价 · CNY','收盘参考 · CNY','参考市值 · CNY','浮动盈亏 · CNY','操作'],items.map(row => [
           `<strong class="mono">${esc(row.symbol)}</strong>${row.name ? `<span class="subline">${esc(row.name)}</span>` : ''}`,
-          esc(row.quantity),esc(row.average_cost),num(row.cost_value),
+          esc(row.quantity),esc(row.average_cost),cnQuote(row.quote),
+          num(row.reference_market_value),
+          `<span class="${tone(row.unrealized_pnl)}">${signed(row.unrealized_pnl)}</span><span class="subline">${pct(row.unrealized_return)}</span>`,
           `<div class="row-actions"><button type="button" class="text-button" data-edit-cn-position="${esc(row.id)}" aria-label="编辑 ${esc(row.symbol)} 持仓">编辑</button><button type="button" class="text-button remove" data-remove-cn-position="${esc(row.id)}" aria-label="移除 ${esc(row.symbol)} 持仓">移除</button></div>`
-        ]),[1,2,3])
+        ]),[1,2,3,4,5])
       : empty('还没有 A 股持仓','可以登记已经持有的沪深股票或 ETF。');
+    updateBusy();
   } catch (error) {
     if (!current()) return;
     if (!cnPositions.size) content.innerHTML = empty('暂时无法读取 A 股持仓','请确认后台可用后重新读取。','',true);
@@ -434,10 +449,15 @@ async function loadCnHoldings() {
     if (current()) content.setAttribute('aria-busy','false');
   }
 }
+function cnQuote(q) {
+  if (q?.currency !== 'CNY' || !validNumber(q.price)) return '<span class="muted">待更新</span>';
+  return `${num(q.price,3)}<span class="subline">${esc(q.date || '日期待核对')}${q.state !== 'fresh' ? ' · 历史参考' : ''}</span>`;
+}
 let cnPool = null;
 let cnReadVersion = 0;
 function renderCnPool() {
   const source = cnPool.dividend_source;
+  $('#cn-last-scan').textContent = cnPool.last_scan ? `最近扫描 ${when(cnPool.last_scan)} · 人民币` : '高息股候选与大盘宽基 ETF · 人民币';
   $('#cn-pool-date').textContent = source ? `中证红利成分表 · ${source.as_of}` : '尚未导入中证红利成分';
   for (const [group,kind,column,description] of [
     ['etf','broad_etf','跟踪指数','可从宽基目录添加关注。'],
@@ -446,13 +466,15 @@ function renderCnPool() {
     const rows = cnPool.members.filter(row => row.kind === kind);
     $(`#cn-${group}-count`).textContent = `${rows.length} 只`;
     $(`#cn-${group}-content`).innerHTML = rows.length
-      ? table(['代码','名称',column,'操作'],rows.map(row => [
+      ? table(['代码','名称',column,'收盘参考 · CNY','策略买点','操作'],rows.map(row => [
           `<span class="mono">${esc(row.symbol)}</span>`,esc(row.name),esc(row.benchmark || row.basis),
+          cnQuote(row.quote),row.buy_signals?.length ? row.buy_signals.map(name => badge(name,'positive')).join(' ') : '—',
           `<button type="button" class="text-button" data-remove-cn="${esc(row.symbol)}" aria-label="移除 ${esc(row.symbol)}">移除</button>`
-        ]))
+        ]),[3])
       : empty('暂无关注',description,'',true);
   }
   $('#cn-add').disabled = false;
+  updateBusy();
 }
 async function loadCnPool() {
   const generation = state.generation;
@@ -488,6 +510,7 @@ function route() {
     'cn-holdings':'A 股持仓',cn:'A 股收息关注池'};
   const next = Object.hasOwn(pages,page) ? page : 'holdings';
   const cn = isCnPage(next);
+  if (cn !== isCnPage(state.page)) $('#workspace-job').hidden = true;
   ++state.generation;
   state.page = next;
   for (const p of Object.keys(pages)) {
@@ -520,7 +543,15 @@ function researchHash(code) { location.hash = '/research?symbol=' + encodeURICom
 $('#market-us').addEventListener('click',() => { if (isCnPage(state.page)) location.hash = '/holdings'; });
 $('#market-cn').addEventListener('click',() => { if (!isCnPage(state.page)) location.hash = '/cn-holdings'; });
 $('#reload-cn-holdings').addEventListener('click',event => { void busy(event.currentTarget,loadCnHoldings); });
+$('#refresh-cn-holdings').addEventListener('click',event => { void busy(event.currentTarget,async () => {
+  try { const job = await post('/cn/holdings/refresh'); await monitorJob(job.job_id,'cn_holdings_refresh'); }
+  catch (error) { notice(error.message,true); }
+}); });
 $('#reload-cn-pool').addEventListener('click',event => { void busy(event.currentTarget,loadCnPool); });
+$('#cn-scan').addEventListener('click',event => { void busy(event.currentTarget,async () => {
+  try { const job = await post('/cn/watchlist/scan'); await monitorJob(job.job_id,'cn_watchlist_scan'); }
+  catch (error) { notice(error.message,true); }
+}); });
 $('#cn-add').addEventListener('click',() => {
   $('#cn-income-etf').replaceChildren(new Option('请选择宽基 ETF',''),...cnPool.etf_catalog.map(
     row => new Option(`${row.symbol} · ${row.name} · ${row.benchmark}`,row.symbol)));
@@ -581,7 +612,7 @@ $('#position-form').addEventListener('submit', event => {
       if (!cn && bucket) data.tactical = bucket === "tactical";
       await api(p ? path + '/' + encodeURIComponent(p.id) : path,{method:p ? 'PUT' : 'POST',body:JSON.stringify(data)});
       $('#position-dialog').close();
-      notice(p ? '持仓已更新。' : cn ? 'A 股持仓已添加。' : '持仓已添加，可点击“更新行情”计算市值。');
+      notice(p ? '持仓已更新。' : '持仓已添加，可点击“更新行情”计算市值。');
       if (cn) await loadCnHoldings(); else await loadWorkspace();
     } catch (error) { formError('#position-error',error.message); }
   });

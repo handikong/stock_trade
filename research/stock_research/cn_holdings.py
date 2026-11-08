@@ -1,12 +1,10 @@
 """手工维护沪深股票与 ETF 的人民币持仓快照。"""
-from decimal import Decimal, localcontext
-
 from sqlalchemy import select
 
 from . import cn_sources
-from .store import CNManualPosition, CNPositionChange, Session, stamp, uid
+from .store import CNManualPosition, CNPositionChange, Security, Session, stamp, uid
 from .valuation import number
-from .workspace import Conflict, position_lock
+from .workspace import Conflict, position_lock, quote, summarize_holdings
 
 
 def _view(row):
@@ -15,19 +13,22 @@ def _view(row):
             "active":row.active,"updated_at":row.updated_at}
 
 
+def positions(session):
+    return list(session.scalars(select(CNManualPosition).where(CNManualPosition.active.is_(True))
+                                .order_by(CNManualPosition.symbol)))
+
+
 def holdings():
-    with Session() as session, localcontext() as ctx:
-        ctx.prec = 48
-        rows = session.scalars(select(CNManualPosition).where(CNManualPosition.active.is_(True))
-                               .order_by(CNManualPosition.symbol))
+    with Session() as session:
+        rows = positions(session)
+        securities = {s.symbol:s for s in session.scalars(select(Security).where(
+            Security.symbol.in_([row.symbol for row in rows])))} if rows else {}
         items = []
-        total = Decimal(0)
         for row in rows:
-            cost = Decimal(row.quantity) * Decimal(row.average_cost)
-            total += cost
-            items.append({**_view(row),"cost_value":format(cost,"f")})
-        return {"market":"CN","currency":"CNY","items":items,
-                "summary":{"count":len(items),"cost_value":format(total,"f")}}
+            security = securities.get(row.symbol)
+            items.append({**_view(row),"name":row.name or (security.profile.get("name") if security else "") or row.symbol,
+                          "quote":quote(session,security,"CN")})
+        return summarize_holdings(items,"CN","CNY")
 
 
 def _active_position(session, position_id, version):

@@ -11,6 +11,11 @@ from .technical import structures, is_current as technical_is_current
 from .providers import yahoo_call
 
 logger=logging.getLogger(__name__)
+CN_SNAPSHOT_KIND = "cn_market"
+
+
+def snapshot_kind(region):
+    return CN_SNAPSHOT_KIND if region == "CN" else "market"
 
 
 def clean(value):
@@ -33,53 +38,75 @@ def clean(value):
         return str(value)
 
 
-def calendar_context():
+def calendar_context(region="US"):
     current=pd.Timestamp.now(tz="UTC")
-    cal=xcals.get_calendar("XNYS",start=str(current.date()-timedelta(days=settings.history_years*366+30)),
-        end=str(current.date()+timedelta(days=14)))
-    session=cal.date_to_session(str(current.date()),direction="previous")
+    if region == "CN":
+        today = current.tz_convert("Asia/Shanghai").date()
+        # 沪深股票常规收盘及休市使用上交所日历。超出已公布年份时不按工作日猜测。
+        cal = xcals.get_calendar("XSHG")
+        if today > cal.bound_max().date():
+            raise ValueError("沪深交易日历未覆盖今日，请更新 exchange-calendars")
+    else:
+        today = current.date()
+        cal=xcals.get_calendar("XNYS",start=str(today-timedelta(days=settings.history_years*366+30)),
+            end=str(today+timedelta(days=14)))
+    session=(cal.last_session if region == "CN" and today >= cal.last_session.date()
+             else cal.date_to_session(str(today),direction="previous"))
     if cal.session_close(session)+pd.Timedelta(minutes=settings.post_close_delay_minutes)>current:
         session=cal.previous_session(session)
     return cal,session.date().isoformat()
 
 
-def cache_state(item):
+def cache_state(item, region="US"):
     if not item:
         return {"state":"missing","message":"尚无行情缓存"}
     payload=item.payload
     try:
-        _,expected=calendar_context()
+        _,expected=calendar_context(region)
     except Exception:
         return {"state":"unknown","message":"交易日历暂不可用，不能确认缓存新鲜度"}
-    acquired=datetime.fromisoformat(payload["fetched_at"])
-    ttl_ok=(datetime.now(timezone.utc)-acquired).total_seconds()<settings.market_cache_hours*3600
-    ready=payload.get("last_complete_session","")>=expected and payload.get("coverage_ok",False) and ttl_ok
+    last=payload.get("last_complete_session","")
+    if region == "CN":
+        # 当日收盘行情要跨夜用于下个交易日 09:00，休市期间也不重复拉相同的日线。
+        ready=last==expected and payload.get("coverage_ok",False) and payload.get("calendar")=="XSHG"
+    else:
+        acquired=datetime.fromisoformat(payload["fetched_at"])
+        ttl_ok=(datetime.now(timezone.utc)-acquired).total_seconds()<settings.market_cache_hours*3600
+        ready=last>=expected and payload.get("coverage_ok",False) and ttl_ok
     return {"state":"fresh" if ready else "stale","expected_session":expected,
         "last_complete_session":payload.get("last_complete_session"),"fetched_at":payload["fetched_at"],
         "message":"命中完整有效缓存" if ready else "缓存需补齐或复核；旧资料仅供研究参考"}
 
 
-def refresh_market(security_id: str, force=False):
+def refresh_market(security_id: str, force=False, *, region="US"):
+    kind = snapshot_kind(region)
+    cn = region == "CN"
+    timezone_name = "Asia/Shanghai" if cn else "America/New_York"
     with Session() as session:
-        old=latest(session,security_id,"market")
+        old=latest(session,security_id,kind)
         security=session.get(Security,security_id)
         symbol=security.symbol
         old_payload=old.payload if old else None
-        if not force and cache_state(old)["state"]=="fresh":
+        if not force and cache_state(old,region)["state"]=="fresh":
             if not technical_is_current(old_payload.get("technical",{})):
                 updated={**old_payload,"technical":technical_view(old_payload["bars"]),"technical_calculated_at":stamp()}
-                save_snapshot(session,security_id,"market",updated)
+                save_snapshot(session,security_id,kind,updated)
                 session.commit()
                 return {"cached":True,"technical_recomputed":True,"sessions":len(old_payload["bars"])}
             return {"cached":True}
+    if cn:
+        from .cn_sources import symbol as cn_symbol
+        symbol = cn_symbol(symbol,allow_etf=True)
+        if symbol.endswith(".SH"):
+            symbol = symbol[:-3]+".SS"
     ticker=yf.Ticker(symbol)
-    # 本模块已限定美股；给SDK提供交易时区，避免其时区探测失败后偷偷回退到info查询。
-    # 这不是证券身份判断，后面仍校验日线响应自带的实际时区。
+    # 提供交易时区，避免 SDK 探测失败后回退到 info 查询；稍后核对日线响应。
     if not hasattr(ticker,"_tz"):
         raise ValueError("当前yfinance版本不兼容无身份查询适配器，请使用项目约束的0.2.x版本")
-    ticker._tz="America/New_York"
-    cal,last_complete=calendar_context()
-    target_start=date.today()-timedelta(days=settings.history_years*366)
+    ticker._tz=timezone_name
+    cal,last_complete=calendar_context(region)
+    today = pd.Timestamp.now(tz=timezone_name).date() if cn else date.today()
+    target_start=today-timedelta(days=settings.history_years*366)
     # 正常补齐近期缺口；遇企业行动则重新取完整窗口，防止新旧调整口径拼接。
     start=target_start
     if old_payload and old_payload.get("bars") and not force:
@@ -101,14 +128,16 @@ def refresh_market(security_id: str, force=False):
     # 用户取消独立身份查询。只读取本次日线响应已包含的元数据，不调用get_info。
     # 0.2.x公开get_history_metadata会追加分时请求，故在适配层读取已载入对象，缺失时明确报错。
     info=dict(getattr(getattr(ticker,"_price_history",None),"_history_metadata",None) or {})
-    if info.get("exchangeTimezoneName")!="America/New_York":
-        raise ValueError("日线响应缺少有效美股时区，已保留原缓存；没有追加身份查询")
+    if info.get("exchangeTimezoneName")!=timezone_name:
+        raise ValueError(f"日线响应缺少有效{'沪深' if cn else '美股'}时区，已保留原缓存；没有追加身份查询")
     profile={"name":info.get("longName") or info.get("shortName") or security.profile.get("sec_name") or symbol,
         "type":info.get("instrumentType") or "UNKNOWN","currency":info.get("currency"),
         "exchange":info.get("fullExchangeName") or info.get("exchangeName"),
         "market_metadata_source":"日线响应附带字段","market_metadata_at":stamp()}
     if not profile["currency"]:
-        raise ValueError("日线响应缺少币种，不能假设为USD；已保留原缓存，没有追加身份查询")
+        raise ValueError(f"日线响应缺少币种，不能假设为{'CNY' if cn else 'USD'}；已保留原缓存，没有追加身份查询")
+    if cn and profile["currency"]!="CNY":
+        raise ValueError("沪深日线币种与人民币不一致，已保留原缓存")
     # 增量缺失不能删除旧窗口中的有效记录；完整重取时则不混入旧调整价。
     merged={b["date"]:b for b in (old_payload or {}).get("bars",[])} if start>target_start else {}
     for idx,row in frame.iterrows():
@@ -125,6 +154,8 @@ def refresh_market(security_id: str, force=False):
         if volume is None or float(volume)<0:
             raise ValueError("供应商成交量无效，未覆盖原缓存")
         session_date=idx.date().isoformat()
+        if cn and (idx.date() > cal.last_session.date() or not cal.is_session(session_date)):
+            continue
         merged[session_date]={"date":session_date,"open":clean(row["Open"]),"high":clean(row["High"]),
             "low":clean(row["Low"]),"close":close,"adjusted_close":adjusted,
             "adjusted_open":str(float(row["Open"])*factor),"adjusted_high":str(float(row["High"])*factor),
@@ -135,6 +166,8 @@ def refresh_market(security_id: str, force=False):
     complete=[b for b in bars if b["complete"]]
     if not complete:
         raise ValueError("没有可确认的完整交易日行情，已保留原缓存")
+    if cn and old_payload and complete[-1]["date"]<old_payload.get("last_complete_session",""):
+        raise ValueError("本次沪深日线早于已缓存收盘，已保留原缓存")
     expected={s.date().isoformat() for s in cal.sessions_in_range(complete[0]["date"],last_complete)}
     available={b["date"] for b in complete}
     missing=sorted(expected-available)
@@ -142,7 +175,7 @@ def refresh_market(security_id: str, force=False):
     payload={"bars":bars,"fetched_at":stamp(),"source":"yfinance","interval":"1d",
         "adjustment":"OHLC为供应商auto_adjust=False字段；技术使用Adj Close等比调整，不宣称逐笔原始成交价",
         "last_complete_session":complete[-1]["date"],"coverage_ok":not missing,"missing_sessions":missing,
-        "requested_start":str(target_start),"actual_start":complete[0]["date"],"calendar":"XNYS",
+        "requested_start":str(target_start),"actual_start":complete[0]["date"],"calendar":cal.name,
         "technical":technical,"profile":profile,"last_price":complete[-1]["close"]}
     # 原始响应作为独立文件保存，派生区间留在版本快照，不暴露全部日K到前端。
     raw=frame.to_json(orient="table",date_format="iso").encode()
@@ -153,7 +186,7 @@ def refresh_market(security_id: str, force=False):
     with Session() as session:
         security=session.get(Security,security_id)
         security.profile={**security.profile,**profile}
-        save_snapshot(session,security_id,"market",payload)
+        save_snapshot(session,security_id,kind,payload)
         session.commit()
     return {"cached":False,"sessions":len(bars),"missing_sessions":missing}
 

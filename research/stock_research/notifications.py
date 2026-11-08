@@ -29,8 +29,8 @@ def notification_lock():
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def _events(scan, *, symbol=None):
-    _, expected = market.calendar_context()
+def _events(scan, *, symbol=None, region="US"):
+    _, expected = market.calendar_context(region)
     if scan.get("historical_mode") or scan.get("expected_session") != expected:
         return [], ["历史回放或非当前交易日的扫描只供研究，不生成群通知"]
     if scan.get("status") not in ("complete", "partial"):
@@ -61,9 +61,9 @@ def _events(scan, *, symbol=None):
     return sorted(result, key=priority), rejected
 
 
-def _still_current(item):
+def _still_current(item, region="US"):
     """投递前重新校验交易日/行情及计算窗口；研究不能替换已触发信号的价格证据。"""
-    _, expected = market.calendar_context()
+    _, expected = market.calendar_context(region)
     if item["as_of"] != expected:
         return False
     evaluation = item["evaluation"]
@@ -75,14 +75,19 @@ def _still_current(item):
     with Session() as session:
         # 单股是用户本次显式选择，无需先加入池；批量仍校验成员，旧扫描不能恢复移出的关注。
         if item.get("execution_scope", "WATCHLIST") != "SINGLE":
-            entry = session.get(WatchlistEntry, item["symbol"])
-            if entry is None or not entry.active:
-                return False
+            if region == "CN":
+                from . import cn_income
+                if not any(row["symbol"] == item["symbol"] for row in cn_income.read(session)["members"]):
+                    return False
+            else:
+                entry = session.get(WatchlistEntry, item["symbol"])
+                if entry is None or not entry.active:
+                    return False
         security = session.scalar(select(Security).where(Security.symbol == item["symbol"]))
-        source = latest(session, security.id, "market") if security else None
+        source = latest(session, security.id, market.snapshot_kind(region)) if security else None
         old = session.get(Snapshot, item["market_id"])
         trend = session.get(Snapshot, evaluation["source_trend_id"])
-        if source is None or old is None or market.cache_state(source)["state"] != "fresh":
+        if source is None or old is None or market.cache_state(source,region)["state"] != "fresh":
             return False
         if trend is None or trend.payload.get("algorithm") != futu_macd.ALGORITHM:
             return False
@@ -133,7 +138,7 @@ def _allowed(row, retry_failed, retry_unknown):
 
 
 def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research=False, retry_failed=False, retry_unknown=False,
-        buy_only=False, delivery_guard=None):
+        buy_only=False, delivery_guard=None, region="US"):
     if type(buy_only) is not bool or (delivery_guard is not None and not callable(delivery_guard)):
         raise ValueError("买点筛选或计划任务投递检查参数无效")
     symbol = watchlist.normalize_symbol(symbol) if symbol is not None else None
@@ -155,12 +160,13 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
                         attempts[-1] = {**attempts[-1], "status": "UNKNOWN", "error": row.last_error}
                         row.payload = {**row.payload, "attempt_history": attempts}
                 session.commit()
-        scan = watchlist.scan_record(scan_id) if scan_id else watchlist.scan(symbol=symbol, offline=not refresh, refresh=refresh)
+        scan = (watchlist.scan_record(scan_id,region=region) if scan_id
+                else watchlist.scan(symbol=symbol,offline=not refresh,refresh=refresh,region=region))
         if symbol is None and scan.get("scope") == "SINGLE":
             symbol = watchlist.normalize_symbol(scan["requested_symbol"])
         if symbol is not None and not any(row["symbol"] == symbol for row in scan["results"]):
             raise ValueError(f"扫描记录中没有{symbol}，请去掉--scan-id为该股票重新扫描")
-        events, warnings = _events(scan, symbol=symbol)
+        events, warnings = _events(scan,symbol=symbol,region=region)
         if buy_only:
             events = [item for item in events if item["kind"]=="BUY"]
         handled = 0
@@ -180,7 +186,7 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
             if handled >= settings.feishu_max_messages_per_run:
                 results.append({"symbol": item["symbol"], "kind": item["kind"], "status": "DEFERRED_LIMIT"})
                 continue
-            if not _still_current(item):
+            if not _still_current(item,region):
                 results.append({"symbol": item["symbol"], "kind": item["kind"], "status": "SKIPPED_STALE",
                                 "error": "行情、策略配置或股票池状态已变化，请重新扫描"})
                 continue
@@ -188,7 +194,11 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
             if item["kind"] == "BUY":
                 if item["symbol"] not in research_cache:
                     try:
-                        research_cache[item["symbol"]] = signal_research.prepare(item["symbol"], cached_only=not send or cached_research)
+                        if region == "CN":
+                            from . import cn_research
+                            research_cache[item["symbol"]] = cn_research.prepare(item["symbol"])
+                        else:
+                            research_cache[item["symbol"]] = signal_research.prepare(item["symbol"], cached_only=not send or cached_research)
                     except Exception:
                         logger.warning("%s研究未完成，保留技术信号并标注资料缺口", item["symbol"])
                         research_cache[item["symbol"]] = {"lines": ["本次研究未完成；资料待补齐，不得据此判为基本面通过。"], "versions": {}}
@@ -202,7 +212,7 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
             delay = next_send_at - time.monotonic()
             if delay > 0:
                 time.sleep(delay)
-            if not _still_current(item):
+            if not _still_current(item,region):
                 results.append({"symbol": item["symbol"], "kind": item["kind"], "status": "SKIPPED_STALE_AFTER_RESEARCH",
                                 "error": "研究期间行情、策略配置或股票池状态已变化，取消本条发送"})
                 continue
@@ -225,8 +235,13 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
                 session.commit()
             try:
                 next_send_at = time.monotonic() + 0.65
-                feishu.send(card)
-                status = "SENT"; error = ""
+                if region == "CN":
+                    accepted = feishu.send(card,allowed=delivery_guard)
+                    status, error = (("SENT","") if accepted else
+                                     ("SKIPPED_SCHEDULE_WINDOW","投递前处理窗口已结束"))
+                else:
+                    feishu.send(card)
+                    status, error = "SENT", ""
             except feishu.DeliveryFailure as exc:
                 status = exc.status; error = str(exc)
             with Session() as session:

@@ -146,13 +146,15 @@ def _calendar(start,end):
         end=(end+timedelta(days=14)).isoformat())
 
 
-def completed_weeks(bars):
+def completed_weeks(bars, calendar=None):
     """按交易所计划交易日聚合，排除开头残缺周和当前尚未完成的周。"""
     if not bars:
         return []
     first=date.fromisoformat(bars[0]["date"]);last=date.fromisoformat(bars[-1]["date"])
     start=first-timedelta(days=first.weekday());end=last+timedelta(days=6-last.weekday())
-    cal=_calendar(start,end)
+    cal=calendar or _calendar(start,end)
+    if calendar is not None:
+        start=max(start,cal.first_session.date());end=min(end,cal.last_session.date())
     schedule={}
     for session in cal.sessions_in_range(start.isoformat(),end.isoformat()):
         d=session.date();week=d-timedelta(days=d.weekday())

@@ -102,6 +102,13 @@ def main(argv=None):
                 cfg=value["policy"]
                 print(f"盘后计划 · {'已启用' if cfg['enabled'] else '已停用'} · {cfg['timezone']}")
                 print(f"开始日期{cfg['start_date']}；行情{cfg['market_time']}；买点/飞书{cfg['signal_time']}；补跑截止{cfg['catch_up_until']}")
+                if cfg["cn_enabled"]:
+                    cn = value["cn"]
+                    print(f"A 股 · 北京时间交易日 {cfg['cn_market_time']} 更新日线，"
+                          f"{cfg['cn_scan_time']} 扫描上个交易日，{cfg['cn_push_time']} 开始推送，"
+                          f"{cfg['cn_push_until']} 停止补发")
+                    if cn.get("message"):
+                        print(cn["message"])
                 if cfg["weekly_valuation_enabled"]:
                     print(f"估值：北京时间每周六 {cfg['weekly_valuation_time']} 更新全部关注股，当天可补跑")
                 if cfg["market_brief_enabled"]:
@@ -112,9 +119,12 @@ def main(argv=None):
                 print(value["message"])
                 labels={"queued":"排队中","running":"执行中","completed":"已结束","failed":"失败/停止"}
                 stages={"scheduled_futu_heat":"富途热榜","scheduled_market":"更新日线","scheduled_signals":"买点与推送",
-                        "scheduled_valuation":"每周估值","scheduled_market_brief":"大盘报告","scheduled_holdings_brief":"持仓复盘"}
+                        "scheduled_valuation":"每周估值","scheduled_market_brief":"大盘报告","scheduled_holdings_brief":"持仓复盘",
+                        "scheduled_cn_heat":"旧 A 股人气榜"}
+                stages.update({kind:"A 股"+post_close.cn_post_close.LABELS[phase]
+                               for phase,kind in post_close.cn_post_close.KINDS.items()})
                 print(table(["交易日","阶段","状态","进度","说明"],[[j["target_session"],
-                    stages[j["kind"]],
+                    stages.get(j["kind"],j["kind"]),
                     "部分待处理" if j["result_status"]=="partial" else labels.get(j["status"],j["status"]),
                     str(j["progress"])+"%",j["message"]] for j in value["jobs"]]))
                 for job in value["jobs"]:

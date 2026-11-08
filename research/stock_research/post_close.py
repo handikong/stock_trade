@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from . import market, watchlist
+from . import cn_post_close, market, watchlist
 from .config import settings
 from .cli_helpers import storage_ready
 from .providers import failure_detail
@@ -39,6 +39,12 @@ class Policy(BaseModel):
     cn_heat_enabled: bool = False
     cn_heat_time: str = "16:30"
     cn_heat_until: str = "19:00"
+    cn_enabled: bool = True
+    cn_market_time: str = "15:35"
+    cn_market_until: str = "21:00"
+    cn_scan_time: str = "08:00"
+    cn_push_time: str = "09:00"
+    cn_push_until: str = "09:30"
     weekly_valuation_enabled: bool = False
     weekly_valuation_time: str = "08:00"
     market_brief_enabled: bool = False
@@ -58,7 +64,8 @@ class Policy(BaseModel):
         if date.fromisoformat(self.start_date).isoformat()!=self.start_date:
             raise ValueError("计划开始日期需要YYYY-MM-DD格式")
         values = (self.market_time,self.signal_time,self.catch_up_until,self.weekly_valuation_time,
-                  self.market_brief_time,self.market_brief_until,self.holdings_brief_time,self.holdings_brief_until)
+                  self.market_brief_time,self.market_brief_until,self.holdings_brief_time,self.holdings_brief_until,
+                  self.cn_market_time,self.cn_market_until,self.cn_scan_time,self.cn_push_time,self.cn_push_until)
         if any(not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d",v) for v in values):
             raise ValueError("计划时间需要HH:MM格式")
         if not self.market_time < self.signal_time < self.catch_up_until:
@@ -67,6 +74,10 @@ class Policy(BaseModel):
             raise ValueError("大盘报告生成时间需早于补跑截止")
         if not self.holdings_brief_time<self.holdings_brief_until:
             raise ValueError("持仓复盘生成时间需早于补跑截止")
+        if not self.cn_scan_time<=self.cn_push_time<self.cn_push_until<="09:30":
+            raise ValueError("A 股需要满足扫描时间≤推送时间＜补跑截止≤09:30")
+        if not "15:00"<=self.cn_market_time<self.cn_market_until:
+            raise ValueError("A 股收盘行情任务需在15:00后开始且早于截止时间")
         if self.futu_heat_enabled and self.volume_top50_enabled:
             raise ValueError("富途热榜与旧 Yahoo 成交量榜不能同时扩充关注池")
         return self
@@ -106,7 +117,7 @@ def _job_id(phase, target):
 
 
 def _supported(symbol):
-    return bool(re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}",symbol)) and not symbol.endswith((".SS",".SZ",".BJ"))
+    return bool(re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}",symbol)) and not symbol.endswith((".SH",".SS",".SZ",".BJ"))
 
 
 def _heat_day(cfg):
@@ -271,9 +282,7 @@ def _enqueue_report(phase, day, *, report_type=None):
     return jid
 
 
-def enqueue_due():
-    """只入队；大盘报告按北京时间日期去重，独立于关注列表及个股信号。"""
-    cfg = policy()
+def _enqueue_us(cfg):
     brief = _brief_day(cfg)
     brief_id = _enqueue_report("market_brief",brief[0],report_type=brief[1]) if brief else None
     result = _enqueue_daily(cfg)
@@ -290,6 +299,25 @@ def enqueue_due():
         if jid:
             result["queued"].append(jid)
             result["message"] = "已入队每周关注股估值更新"
+    return result
+
+
+def enqueue_due():
+    """只入队；各市场按自己的交易日、窗口及已存任务独立判断。"""
+    cfg = policy()
+    try:
+        result = _enqueue_us(cfg)
+    except (ValueError,OSError) as exc:
+        result = {"queued":[],"local_date":_local(cfg).date().isoformat(),"target_session":None,
+                  "message":f"美股任务暂不可用 · {exc}"}
+    try:
+        cn = cn_post_close.enqueue_due(cfg)
+    except (ValueError,OSError) as exc:
+        cn = {"queued":[],"message":str(exc)}
+    result["cn"] = cn
+    result["queued"].extend(cn["queued"])
+    if cn["queued"]:
+        result["message"] += " · 已入队 A 股任务"
     return result
 
 
@@ -455,6 +483,8 @@ def _heat(job, result):
 
 
 def run(job):
+    if job.kind in cn_post_close.KINDS.values():
+        return cn_post_close.run(job,policy=policy,checkpoint=_checkpoint)
     if job.kind not in KINDS.values() or KINDS.get(job.payload.get("phase"))!=job.kind:
         raise ValueError("盘后任务阶段无效")
     result = {"phase":job.payload["phase"],"target_session":job.payload["target_session"],
@@ -488,8 +518,14 @@ def status():
             jobs = [{"id":j.id,"kind":j.kind,"status":j.status,"progress":j.progress,"message":j.message,
                      "target_session":j.payload.get("target_session"),"local_date":j.payload.get("local_date"),
                      "result_status":j.result.get("status"),"warnings":j.result.get("warnings",[]),
-                     "updated_at":j.updated_at} for j in session.scalars(select(Job).where(Job.kind.in_(tuple(KINDS.values())))
+                     "updated_at":j.updated_at} for j in session.scalars(select(Job).where(
+                         Job.kind.in_((*KINDS.values(),*cn_post_close.KINDS.values())))
                         .order_by(Job.created_at.desc()).limit(20))]
-    return {"policy":cfg.model_dump(),"local_time":now.isoformat(),"target_session":target,"message":message,"jobs":jobs,
+    try:
+        cn_day,cn_target,cn_phases = cn_post_close.current_window(cfg)
+        cn = {"local_date":cn_day,"target_session":cn_target,"phases":cn_phases}
+    except ValueError as exc:
+        cn = {"message":str(exc),"phases":[]}
+    return {"policy":cfg.model_dump(),"local_time":now.isoformat(),"target_session":target,"message":message,"jobs":jobs,"cn":cn,
             "storage_initialized":ready,
             "execution":"后台Worker存活时轮询到点入队；未在运行的服务不会被此接口唤醒"}

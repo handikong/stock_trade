@@ -54,8 +54,12 @@ def _annual_pe(page):
     raise ValueError("未找到公开年度 PE 表")
 
 
-def research(value):
+def research(value, *, reader=None):
     code = symbol(value)
+    if reader is None:
+        with httpx.Client(timeout=18,follow_redirects=False,headers={
+                "User-Agent":USER_AGENT,"Accept":"text/html, text/plain"}) as client:
+            return research(code,reader=Reader(client))
     ticker, venue = code.split(".")
     base = f"{ORIGIN}/quote/{EXCHANGES[venue]}/{ticker}"
     as_of = datetime.now(BEIJING).date()
@@ -63,22 +67,20 @@ def research(value):
             "quarterly_forward_pe":base+"/financials/ratios/?p=quarterly"}
     result = {"symbol":code,"currency":"CNY","as_of":as_of.isoformat(),"source":"Stock Analysis",
               "urls":urls,"warnings":[],"scenarios":[]}
-    with httpx.Client(timeout=18,follow_redirects=False,headers={
-            "User-Agent":USER_AGENT,"Accept":"text/html, text/plain"}) as client:
-        reader = Reader(client)
-        for key, parse in (("eps",_forecast),("annual_pe",_annual_pe),
-                           ("quarterly_forward_pe",lambda page:_ratios(page,as_of))):
-            try:
-                parsed = parse(reader.page(urls[key]))
-                if key == "eps" and (parsed["currency_per_share"] != "CNY"
-                                     or parsed["currency_source"] != "financial_currency_label"):
-                    raise ValueError("预测 EPS 未明确标为人民币")
-                result[key] = parsed
-            except StopFetch as exc:
-                result["warnings"].append(str(exc))
-                break
-            except ValueError as exc:
-                result["warnings"].append(f"{key} · {exc}")
+    for key, parse in (("eps",_forecast),("annual_pe",_annual_pe),
+                       ("quarterly_forward_pe",lambda page:_ratios(page,as_of))):
+        try:
+            parsed = parse(reader.page(urls[key]))
+            if key == "eps" and (parsed["currency_per_share"] != "CNY"
+                                 or parsed["currency_source"] != "financial_currency_label"):
+                raise ValueError("预测 EPS 未明确标为人民币")
+            result[key] = parsed
+        except StopFetch as exc:
+            result["warnings"].append(str(exc))
+            result["halted"] = str(exc)
+            break
+        except ValueError as exc:
+            result["warnings"].append(f"{key} · {exc}")
     eps, pe = result.get("eps") or {}, result.get("quarterly_forward_pe") or {}
     pairs = [(eps.get(e),pe.get(p)) for e,p in (("low","p25"),("mean","p50"),("high","p75"))]
     if (eps.get("period_end") or "") >= as_of.isoformat() and all(e and p and Decimal(e)>0 for e,p in pairs):

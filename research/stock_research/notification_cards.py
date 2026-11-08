@@ -53,7 +53,8 @@ def summarize(report):
     scenarios = current_valuation.get("scenarios") or []
     close = _decimal(market.get("last_price"))
     if scenarios:
-        valuation = " · ".join(f"{row['name']} **{_price(row['price'])}**" for row in scenarios) + " USD"
+        currency = "CNY" if profile.get("currency") == "CNY" else "USD"
+        valuation = " · ".join(f"{row['name']} **{_price(row['price'])}**" for row in scenarios) + f" {currency}"
         if current_valuation.get("corrected_fields"):
             valuation += " · 含网页更正"
         if current_valuation.get("stale"):
@@ -127,6 +128,7 @@ def buy_card(symbol, research, *, item=None):
             elements.append({"tag":"hr"})
         elements.append({"tag":"markdown","content":content})
     elements.append({"tag":"markdown","content":_text(brief.get("quote") or (f"信号日 {item['as_of']}" if item else "行情待补"))+" · 人工决策"})
+    label = "A 股" if symbol.endswith((".SH",".SZ")) else "股票"
     return {"schema":"2.0","header":{"template":"blue" if snapshot else "green",
-        "title":{"tag":"plain_text","content":f"股票研究 · {symbol}" if snapshot else f"股票买点 · {symbol}"}},
+        "title":{"tag":"plain_text","content":f"{label}研究 · {symbol}" if snapshot else f"{label}买点 · {symbol}"}},
         "body":{"elements":elements}}

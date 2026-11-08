@@ -143,7 +143,7 @@ def _watch(events, support, resistance):
     return "等待关键区间及收盘信号进一步确认"
 
 
-def benchmark(bars, *, weekly, shortened):
+def benchmark(bars, *, weekly, shortened, calendar=None):
     """先用当时已经确认的区间识别越线，再从此后的完整日线判断确认或失效。"""
     if len(bars)<60:
         raise ValueError("有效日线不足60根")
@@ -155,7 +155,7 @@ def benchmark(bars, *, weekly, shortened):
         raise ValueError("ATR 无效")
     direction, averages = _trend(closes)
     previous, _ = _trend(closes[:-1])
-    week_bars = completed_weeks(bars)
+    week_bars = completed_weeks(bars,calendar)
     week_direction = "待补"
     if len(week_bars)>=20:
         weekly_closes = [float(b["adjusted_close"]) for b in week_bars]
@@ -215,11 +215,11 @@ def volatility(rows, sessions):
             "elevated":change>=10 or values[-1]>=baseline*1.2}
 
 
-def assessment(benchmarks, participation, vix, events):
-    if set(benchmarks)!={"SPY","QQQ"}:
+def assessment(benchmarks, participation, vix, events, symbols=("SPY","QQQ")):
+    if set(benchmarks)!=set(symbols):
         return {"state":"资料待补","plan":"等待两只指数代理的完整日线后再确认下一交易日计划"}
-    spy, qqq = (benchmarks[k]["trend"] for k in ("SPY","QQQ"))
-    state = spy if spy==qqq and spy!="过渡" else "分化或过渡"
+    first, second = (benchmarks[k]["trend"] for k in symbols)
+    state = first if first==second and first!="过渡" else "分化或过渡"
     cautious = (vix and vix["elevated"]) or (participation and participation["state"]=="等权落后")
     plan = ("等关键支撑企稳或收回后再评估，谨慎看待左侧机会" if state=="偏弱" else
             "观察突破位的回踩和收盘确认，远离计划位时等待" if cautious or state!="偏强" else

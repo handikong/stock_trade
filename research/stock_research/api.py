@@ -155,8 +155,7 @@ def workspace_overview():
 
 @app.get("/api/v1/cn/watchlist")
 def cn_watchlist():
-    with Session() as session:
-        return cn_income.read(session)
+    return workspace.cn_pool()
 
 
 @app.post("/api/v1/cn/watchlist")
@@ -177,6 +176,16 @@ def cn_watchlist_refresh():
     return cn_income.refresh_dividends()
 
 
+@app.post("/api/v1/cn/watchlist/scan")
+def cn_watchlist_scan(p: PoolScan):
+    with Session() as session:
+        members = cn_income.read(session)["members"]
+    if not members:
+        raise ValueError("A 股关注池为空，请先添加关注")
+    anchor = security_for(members[0]["symbol"],create=True)
+    return {"job_id":queue(anchor.id,"cn_watchlist_scan",p.model_dump())}
+
+
 @app.get("/api/v1/cn/holdings")
 def cn_holdings_read():
     return cn_holdings.holdings()
@@ -185,6 +194,16 @@ def cn_holdings_read():
 @app.post("/api/v1/cn/holdings")
 def cn_position_add(p: ManualHoldingInput):
     return cn_holdings.save(p.model_dump())
+
+
+@app.post("/api/v1/cn/holdings/refresh")
+def cn_positions_refresh():
+    with Session() as session:
+        positions = cn_holdings.positions(session)
+    if not positions:
+        raise ValueError("尚无 A 股持仓，请先添加股票或 ETF")
+    anchor = security_for(positions[0].symbol,create=True)
+    return {"job_id":queue(anchor.id,"cn_holdings_refresh",{})}
 
 
 @app.put("/api/v1/cn/holdings/{position_id}")

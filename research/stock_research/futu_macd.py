@@ -135,7 +135,7 @@ def _intervals(rows,start):
     return result
 
 
-def evaluate_timeline(security_id, *, history_start, start, end=None, cached_only=False, policy_file=None):
+def evaluate_timeline(security_id, *, history_start, start, end=None, cached_only=False, policy_file=None, region="US"):
     """独立指标快照；主趋势与原色带分开保存，震荡明确保持未评估。"""
     try:
         seed=date.fromisoformat(history_start);begin=date.fromisoformat(start)
@@ -146,8 +146,9 @@ def evaluate_timeline(security_id, *, history_start, start, end=None, cached_onl
         raise ValueError("需要满足历史起点≤展示起点≤展示终点")
     history_start=seed.isoformat();start=begin.isoformat();end=until.isoformat() if until else None
     params=policy(policy_file)
+    from . import market
     with _calculation_lock(security_id,cached_only), Session() as session:
-        source=latest(session,security_id,"market")
+        source=latest(session,security_id,market.snapshot_kind(region))
         if not source:
             raise ValueError("尚无行情档案，请先获取日线")
         chosen=[b for b in source.payload.get("bars",[]) if b.get("complete") is True
@@ -155,18 +156,27 @@ def evaluate_timeline(security_id, *, history_start, start, end=None, cached_onl
         bars=_bars({"bars":chosen})
         if not bars or bars[-1]["date"]<start:
             raise ValueError("展示窗口内没有完整日线，请核对起止日期")
-        key=digest({"algorithm":ALGORITHM,"parameters":params,"history_start":history_start,"start":start,"end":end,
-            "bars":bars,"calendar_version":xcals.__version__,"adjustment":source.payload.get("adjustment")})
+        inputs={"algorithm":ALGORITHM,"parameters":params,"history_start":history_start,"start":start,"end":end,
+            "bars":bars,"calendar_version":xcals.__version__,"adjustment":source.payload.get("adjustment")}
+        if region == "CN":
+            inputs["calendar"] = "XSHG"
+        key=digest(inputs)
         saved=session.scalar(select(Snapshot).where(Snapshot.security_id==security_id,
             Snapshot.kind=="indicator_futu_macd",Snapshot.fingerprint==key).order_by(Snapshot.created_at.desc()).limit(1))
         if saved:
             return {**serialize_snapshot(saved),"cached":True}
         if cached_only:
             raise ValueError("该窗口/参数没有已保存的富途指标，请去掉--cached先计算；本次未联网或重算")
-        completed_weeks(bars)  # 复用交易日完整性校验；本方法不输出周线趋势。
+        if region == "CN":
+            cal,_ = market.calendar_context(region)
+            expected = [s.date().isoformat() for s in cal.sessions_in_range(bars[0]["date"],bars[-1]["date"])]
+            if [bar["date"] for bar in bars] != expected:
+                raise ValueError("沪深行情存在交易日缺口，不能确认指标")
+        else:
+            completed_weeks(bars)
+            cal=_calendar(seed,until or date.fromisoformat(bars[-1]["date"]))
         rows=calculate(bars,params);visible=[r for r in rows if r["as_of"]>=start]
         warnings=[]
-        cal=_calendar(seed,until or date.fromisoformat(bars[-1]["date"]))
         if seed<begin:
             expected={s.date().isoformat() for s in cal.sessions_in_range(history_start,(begin-timedelta(days=1)).isoformat())}
             if expected-{b["date"] for b in bars if b["date"]<start}:

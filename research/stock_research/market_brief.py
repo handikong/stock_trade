@@ -34,10 +34,12 @@ class Narrative(BaseModel):
     source_ids: list[StrictStr] = Field(max_length=5)
 
 
-def _read_bars(security_id, target):
+def _read_bars(security_id, target, region="US"):
     with Session() as session:
-        row = latest(session,security_id,"market")
+        row = latest(session,security_id,market.snapshot_kind(region))
         if row is None or not row.payload.get("coverage_ok"):
+            return None
+        if region == "CN" and market.cache_state(row,region)["state"]!="fresh":
             return None
         bars = [b for b in row.payload.get("bars",[]) if b.get("complete") and b["date"]<=target]
         if not bars or bars[-1]["date"]!=target:
@@ -113,12 +115,15 @@ def _model(report):
         return {"status":"unconfigured","message":"缺少 DEEPSEEK_API_KEY，显示程序研判"}
     evidence = {k:report[k] for k in ("report_type","as_of_session","next_session","reused_session","rules",
                                      "benchmarks","assessment","participation","vix","news","events","warnings")}
+    cn = report.get("market")=="CN"
+    if cn:
+        evidence["market"] = "A 股（沪深）"
     with httpx.Client(timeout=45,trust_env=False,follow_redirects=False) as client:
         response = client.post(settings.deepseek_base_url.rstrip("/")+"/chat/completions",
                                headers={"Authorization":"Bearer "+key},
                                json={"model":settings.deepseek_model,"thinking":{"type":"disabled"},
                                      "response_format":{"type":"json_object"},"max_tokens":1100,
-                                     "messages":[{"role":"system","content":SYSTEM},
+                                     "messages":[{"role":"system","content":SYSTEM.replace("美股","A 股") if cn else SYSTEM},
                                                  {"role":"user","content":json.dumps(evidence,ensure_ascii=False,separators=(",",":"))}]})
         if response.status_code!=200:
             return {"status":"failed","message":f"DeepSeek 返回 HTTP {response.status_code}，显示程序研判"}
@@ -162,7 +167,8 @@ def preview():
 def render(report):
     assessment = report["assessment"]
     header = f"{LABELS[report['report_type']]} · {report['local_date']} 北京时间" + (" · 即时预览" if report.get("preview") else "")
-    data_day = f"美股日线截至 {report['as_of_session']} · 下一交易日 {report['next_session']}"
+    market_label = "A 股" if report.get("market")=="CN" else "美股"
+    data_day = f"{market_label}日线截至 {report['as_of_session']} · 下一交易日 {report['next_session'] or '待确认'}"
     lines = [header,data_day + (" · 沿用最近收盘" if report["reused_session"] else ""),
              f"强弱 {assessment['state']} · {assessment['plan']}"]
     for symbol, row in report["benchmarks"].items():
@@ -209,7 +215,8 @@ def render(report):
 def _card(report):
     from .notification_cards import _text
     body = "\n".join(_text(line,400) for line in render(report).splitlines()[1:])
-    return {"schema":"2.0","header":{"template":"blue","title":{"tag":"plain_text","content":LABELS[report["report_type"]]}},
+    label = ("A 股" if report.get("market")=="CN" else "") + LABELS[report["report_type"]]
+    return {"schema":"2.0","header":{"template":"blue","title":{"tag":"plain_text","content":label}},
             "body":{"elements":[{"tag":"markdown","content":body}]}}
 
 

@@ -41,9 +41,13 @@ def _position(row):
             "version":row.version,"created_at":row.created_at,"updated_at":row.updated_at}
 
 
-def quote(session, security):
-    source = latest(session, security.id, "market") if security else None
-    state = market.cache_state(source)
+def quote(session, security, region="US"):
+    source = latest(session, security.id, market.snapshot_kind(region)) if security else None
+    state = market.cache_state(source,region)
+    if (source and region=="CN" and state["state"]=="stale" and state.get("last_complete_session")
+            and state.get("last_complete_session")==state.get("expected_session") and source.payload.get("calendar")=="XSHG"):
+        # 有历史停牌缺口时可展示目标日收盘；策略仍通过完整行情缓存单独校验。
+        state = {**state,"state":"fresh","message":"当前收盘价可用，历史日线待补"}
     result = {"price":None,"date":None,"currency":None,"state":state["state"],
               "message":state["message"],"snapshot_id":source.id if source else None}
     if source:
@@ -62,18 +66,17 @@ def quote(session, security):
     return result
 
 
-def holdings():
-    with Session() as session, localcontext() as ctx:
+def summarize_holdings(items, region, currency):
+    with localcontext() as ctx:
         ctx.prec = 48
         rows = []; cost = Decimal(0); current_value = Decimal(0); priced = 0
-        for row in session.scalars(select(ManualPosition).where(ManualPosition.active.is_(True)).order_by(ManualPosition.created_at, ManualPosition.id)):
-            security = session.get(Security, row.security_id); q = quote(session, security)
-            qty = number(row.quantity,"持股数量"); basis = qty * number(row.average_cost,"成本均价")
-            item = {**_position(row),"name":row.name or security.profile.get("name") or row.symbol,
-                    "quote":q,"cost_value":str(basis),"market_value":None,"reference_market_value":None,
+        for record in items:
+            q = record["quote"]
+            qty = number(record["quantity"],"持股数量"); basis = qty * number(record["average_cost"],"成本均价")
+            item = {**record,"cost_value":str(basis),"market_value":None,"reference_market_value":None,
                     "unrealized_pnl":None,"unrealized_return":None,"weight":None}
             cost += basis
-            if q["price"] is not None and q["currency"] == row.currency:
+            if q["price"] is not None and q["currency"] == currency:
                 value = qty * Decimal(q["price"])
                 item["reference_market_value"] = str(value)
                 if q["state"] == "fresh":
@@ -85,12 +88,57 @@ def holdings():
         if complete and current_value > 0:
             for item in rows:
                 item["weight"] = str(Decimal(item["market_value"]) / current_value)
-        return {"market":"US","currency":"USD","items":rows,"summary":{
+        return {"market":region,"currency":currency,"items":rows,"summary":{
             "count":len(rows),"priced_count":priced,"complete":complete,"cost_value":str(cost),
             "market_value":str(current_value) if complete else None,
             "unrealized_pnl":str(current_value-cost) if complete else None,
             "unrealized_return":str((current_value-cost)/cost) if complete and cost else None},
             "message":"用户录入的持仓快照；浮盈亏按录入均价及有效收盘计算，不含费用、分红和现金，不代表账户总资产"}
+
+
+def holdings():
+    with Session() as session:
+        items = []
+        for row in session.scalars(select(ManualPosition).where(ManualPosition.active.is_(True)).order_by(ManualPosition.created_at, ManualPosition.id)):
+            security = session.get(Security,row.security_id)
+            items.append({**_position(row),"name":row.name or security.profile.get("name") or row.symbol,
+                          "quote":quote(session,security)})
+        return summarize_holdings(items,"US","USD")
+
+
+def cn_pool():
+    from . import cn_income
+    try:
+        scan = watchlist.scan_record(region="CN")
+    except ValueError:
+        scan = None
+    try:
+        strategy = band_strategies.policy().model_dump()
+        indicator = futu_macd.policy()
+    except (ValueError,OSError):
+        strategy = indicator = None
+    results = ({row["symbol"]:row for row in scan["results"]}
+               if scan and scan["status"] in ("complete","partial") else {})
+    with Session() as session:
+        pool = cn_income.read(session)
+        symbols = [row["symbol"] for row in pool["members"]]
+        securities = {row.symbol:row for row in session.scalars(select(Security).where(Security.symbol.in_(symbols)))}
+        members = []
+        for row in pool["members"]:
+            code = row["symbol"]
+            q = quote(session,securities.get(code),"CN")
+            latest_scan = results.get(code) or {}
+            evaluation = latest_scan.get("evaluation") or {}
+            current = (q["state"]=="fresh" and latest_scan.get("status")=="OK"
+                       and q["date"]==latest_scan.get("data_as_of")
+                       and q["snapshot_id"]==latest_scan.get("freshness_source_market_id")
+                       and strategy is not None and evaluation.get("strategy_algorithm")==band_strategies.ALGORITHM
+                       and evaluation.get("strategy_configuration")==strategy
+                       and evaluation.get("indicator_parameters")==indicator)
+            names = [item["name"] for item in latest_scan.get("current_signals",[])
+                     if item.get("event_kind","BUY")=="BUY" and item.get("name")] if current else []
+            members.append({**row,"quote":q,"buy_signals":names})
+    return {**pool,"members":members,"last_scan":(scan or {}).get("finished_at")}
 
 
 def save_position(data, position_id=None):
@@ -175,7 +223,8 @@ def pool():
         # 单股CLI扫描不能抹掉其他成员的展示；每只股票取最近一次参与的扫描。
         scan_rows = {}; remaining = {m.symbol for m in members}
         if remaining:
-            for record in session.scalars(select(WatchlistScan).order_by(WatchlistScan.created_at.desc(),WatchlistScan.id.desc())):
+            for record in session.scalars(select(WatchlistScan).where(watchlist.scan_market("US"))
+                                          .order_by(WatchlistScan.created_at.desc(),WatchlistScan.id.desc())):
                 for item in record.payload.get("results",[]):
                     if item["symbol"] in remaining:
                         scan_rows[item["symbol"]] = item

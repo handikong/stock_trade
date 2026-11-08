@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261108-cn-holdings">
-  <script type="module" src="/app.js?v=20261108-cn-holdings"></script>
+  <link rel="stylesheet" href="/style.css?v=20261108-cn-close">
+  <script type="module" src="/app.js?v=20261108-cn-close"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -82,18 +82,20 @@
           <button type="button" class="primary" data-add-position="CN"><span data-icon="plus"></span>添加持仓</button>
         </div>
         <div id="cn-holdings-metrics" class="metric-strip" aria-label="A 股持仓汇总">
+          <div class="metric"><span>持仓市值</span><strong>—</strong></div>
           <div class="metric"><span>持仓成本</span><strong>—</strong></div>
+          <div class="metric"><span>浮动盈亏</span><strong>—</strong></div>
           <div class="metric"><span>持有标的</span><strong>—</strong></div>
         </div>
         <section class="panel portfolio-section">
-          <div class="panel-heading"><div><h2>持仓明细</h2><p>按录入数量和成本均价计算 · CNY</p></div><button type="button" class="secondary compact" id="reload-cn-holdings">重新读取</button></div>
+          <div class="panel-heading"><div><h2>持仓明细</h2><p>按有效收盘和录入成本计算 · CNY</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-holdings">重新读取</button><button type="button" class="secondary compact" id="refresh-cn-holdings" disabled><span data-icon="refresh"></span>更新行情</button></div></div>
           <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
         </section>
-        <p class="footnote">当前展示登记的成本。接入 A 股行情后可计算市值和浮动盈亏。</p>
+        <p class="footnote">使用沪深完整交易日的收盘参考价。持仓行情齐全时汇总市值和浮动盈亏。</p>
       </section>
 
       <section id="page-cn" class="page" hidden>
-        <div class="page-heading"><div><p class="eyebrow">CHINA INCOME WATCHLIST</p><h1>A 股收息关注池</h1><p class="subtitle">高息股候选与大盘宽基 ETF · 人民币</p></div><div class="portfolio-actions"><button type="button" class="secondary" id="reload-cn-pool">重新读取</button><button type="button" class="primary" id="cn-add" disabled><span data-icon="plus"></span>添加关注</button></div></div>
+        <div class="page-heading"><div><p class="eyebrow">CHINA INCOME WATCHLIST</p><h1>A 股收息关注池</h1><p class="subtitle" id="cn-last-scan">高息股候选与大盘宽基 ETF · 人民币</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-pool">重新读取</button><button type="button" class="secondary" id="cn-scan" disabled>扫描策略</button><button type="button" class="primary" id="cn-add" disabled><span data-icon="plus"></span>添加关注</button></div></div>
         <section class="panel portfolio-section">
           <div class="panel-heading"><div><h2>大盘宽基 ETF <span id="cn-etf-count" class="count-label"></span></h2><p>按基金跟踪的指数分类</p></div></div>
           <div id="cn-etf-content"><p class="loading-state">正在读取宽基 ETF…</p></div>

@@ -151,7 +151,7 @@ def _persist_symbol(scan_id, summary, signals, provenance):
 
 
 def _one_symbol(symbol, *, start, history_start, end, expected_session, historical,
-                offline, refresh, policy_file, strategy_cfg):
+                offline, refresh, policy_file, strategy_cfg, region="US"):
     from . import band_strategies, futu_macd, market
     from .providers import failure_detail
     from .service import security_for
@@ -159,31 +159,34 @@ def _one_symbol(symbol, *, start, history_start, end, expected_session, historic
     security = security_for(symbol, create=True)
     warnings = []
     with Session() as session:
-        source = latest(session, security.id, "market")
+        source = latest(session, security.id, market.snapshot_kind(region))
     # 普通扫描已有缓存就用；仅缺行情或明确--refresh时请求yf。
     if not offline and (source is None or refresh):
         try:
-            market.refresh_market(security.id, force=refresh)
+            market.refresh_market(security.id, force=refresh,region=region)
         except Exception as exc:
             warning = failure_detail(exc)
             warnings.append(warning)
             logger.warning("%s 行情获取失败：%s；尝试保留缓存", symbol, warning["message"])
     with Session() as session:
-        source = latest(session, security.id, "market")
+        source = latest(session, security.id, market.snapshot_kind(region))
         if source is None:
             raise ValueError("尚无行情缓存；离线模式请先获取日线" if offline else "未取得行情，后续股票继续扫描")
-        eligible_dates = [b["date"] for b in source.payload.get("bars", [])
-                          if b.get("complete") is True and b["date"] <= end]
-        if not eligible_dates:
+        eligible = [b for b in source.payload.get("bars", [])
+                    if b.get("complete") is True and b["date"] <= end]
+        if not eligible:
             raise ValueError("截止日期之前没有完整日线")
-        available_end = max(eligible_dates)
-        market_state = market.cache_state(source)
+        last_bar = max(eligible,key=lambda b:b["date"])
+        available_end = last_bar["date"]
+        if region=="CN" and not last_bar.get("volume"):
+            warnings.append({"message":"目标日无成交量，未确认可推送买点"})
+        market_state = market.cache_state(source,region)
     display_start = start or available_end
     seed = history_start or f"{display_start[:4]}-01-01"
     if seed > display_start or display_start > end:
         raise ValueError("需要满足预热起点≤展示起点≤截止日期")
     report = futu_macd.evaluate_timeline(security.id, history_start=seed, start=display_start,
-                                        end=end, policy_file=policy_file)
+                                        end=end, policy_file=policy_file,region=region)
     warnings.extend(report.get("warnings", []))
     result = band_strategies.evaluate_report(report, strategy_cfg)
     # 指标按输入内容缓存：刷新取得相同日线时允许复用旧指标，但须逐项比对计算窗口。
@@ -232,16 +235,21 @@ def _one_symbol(symbol, *, start, history_start, end, expected_session, historic
 
 
 def scan(*, start=None, history_start=None, end=None, offline=False, refresh=False,
-         policy_file=None, strategy_policy=None, symbol=None, symbols=None):
+         policy_file=None, strategy_policy=None, symbol=None, symbols=None, region="US"):
     from . import band_strategies, futu_macd, market
     from .providers import failure_detail
     from .trend import _calendar
 
     # 显式指定仅扫描这一只，不添加/恢复自选池成员；仍复用同一计算和历史归档流程。
-    selected_symbol = normalize_symbol(symbol) if symbol is not None else None
+    normalize = normalize_symbol
+    if region == "CN":
+        from . import cn_sources
+        def normalize(value):
+            return cn_sources.symbol(value,allow_etf=True)
+    selected_symbol = normalize(symbol) if symbol is not None else None
     if symbols is not None and selected_symbol is not None:
         raise ValueError("单股与股票池子集不能同时指定")
-    selected_symbols = list(dict.fromkeys(normalize_symbol(s) for s in symbols)) if symbols is not None else None
+    selected_symbols = list(dict.fromkeys(normalize(s) for s in symbols)) if symbols is not None else None
     if offline and refresh:
         raise ValueError("离线模式不能同时刷新行情")
     for value in (start, history_start, end):
@@ -252,17 +260,23 @@ def scan(*, start=None, history_start=None, end=None, offline=False, refresh=Fal
     policy_file = policy_file or futu_macd.POLICY_FILE
     futu_macd.policy(policy_file)
     strategy_cfg = band_strategies.policy(strategy_policy)
-    _, expected = market.calendar_context()
+    cal, expected = market.calendar_context(region)
     historical = end is not None
     requested_end = end or expected
     if requested_end > expected or (start and start > requested_end):
         raise ValueError("展示日期不能晚于最近已收盘交易日，起点不能晚于终点")
-    cal = _calendar(date.fromisoformat(requested_end), date.fromisoformat(requested_end))
+    if region == "US":
+        cal = _calendar(date.fromisoformat(requested_end), date.fromisoformat(requested_end))
     target = cal.date_to_session(requested_end, direction="previous").date().isoformat()
     if start and start > target:
         raise ValueError("展示范围没有已完成交易日")
     with write_lock():
-        active_symbols = [r["symbol"] for r in entries()]
+        if region == "CN":
+            from . import cn_income
+            with Session() as session:
+                active_symbols = [r["symbol"] for r in cn_income.read(session)["members"]]
+        else:
+            active_symbols = [r["symbol"] for r in entries()]
         excluded_symbols = [s for s in selected_symbols if s not in active_symbols] if selected_symbols is not None else []
         symbols = ([selected_symbol] if selected_symbol else [s for s in selected_symbols if s in active_symbols]
                    if selected_symbols is not None else active_symbols)
@@ -273,7 +287,7 @@ def scan(*, start=None, history_start=None, end=None, offline=False, refresh=Fal
             "requested_symbols":selected_symbols,
             "excluded_symbols":excluded_symbols,
             "historical_mode": historical, "start": start, "history_start": history_start,
-            "offline": offline, "refresh": refresh, "results": []}
+            "offline": offline, "refresh": refresh, "results": [], "market":region}
         with Session() as session:
             run = WatchlistScan(payload=payload)
             session.add(run); session.commit()
@@ -286,7 +300,7 @@ def scan(*, start=None, history_start=None, end=None, offline=False, refresh=Fal
                     summary, signals, provenance = _one_symbol(symbol, start=start,
                         history_start=history_start, end=target, expected_session=expected,
                         historical=historical, offline=offline, refresh=refresh,
-                        policy_file=policy_file, strategy_cfg=strategy_cfg)
+                        policy_file=policy_file, strategy_cfg=strategy_cfg,region=region)
                 except Exception as exc:
                     detail = failure_detail(exc)
                     summary = {"symbol": symbol, "status": "ERROR", "error": detail,
@@ -307,14 +321,19 @@ def scan(*, start=None, history_start=None, end=None, offline=False, refresh=Fal
                     final_status = "partial"
                 run.status = final_status; run.finished_at = stamp()
                 session.commit()
-        return scan_record(scan_id)
+        return scan_record(scan_id,region=region)
 
 
-def scan_record(scan_id=None):
+def scan_market(region):
+    return func.coalesce(WatchlistScan.payload["market"].as_string(),"US")==region
+
+
+def scan_record(scan_id=None, *, region="US"):
     with Session() as session:
         row = session.get(WatchlistScan, scan_id) if scan_id else session.scalar(
-            select(WatchlistScan).order_by(WatchlistScan.created_at.desc(), WatchlistScan.id.desc()).limit(1))
-        if row is None:
+            select(WatchlistScan).where(scan_market(region))
+            .order_by(WatchlistScan.created_at.desc(), WatchlistScan.id.desc()).limit(1))
+        if row is None or row.payload.get("market","US") != region:
             raise ValueError("尚无扫描记录或指定扫描不存在")
         return {"scan_id": row.id, "created_at": row.created_at, "finished_at": row.finished_at,
                 "status": row.status, **row.payload}
@@ -328,7 +347,7 @@ def history(*, symbol=None, strategy_id=None, start=None, end=None, limit=100, e
     if event_kind not in (None, "BUY", "EXIT"):
         raise ValueError("信号类型只能为BUY或EXIT")
     with Session() as session:
-        query = select(WatchlistSignal)
+        query = select(WatchlistSignal).where(~WatchlistSignal.symbol.like("%.SH"),~WatchlistSignal.symbol.like("%.SZ"))
         if event_kind:
             query = query.join(WatchlistSignalRevision,
                 WatchlistSignalRevision.id == WatchlistSignal.latest_revision_id).where(

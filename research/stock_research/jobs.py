@@ -4,14 +4,14 @@ import fcntl
 import time
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from . import analysis, market_caps
+from . import analysis, cn_post_close, market_caps
 from .config import settings
 from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
-                   "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat")
-WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh",market_caps.JOB_KIND)
+                   "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat",*cn_post_close.KINDS.values())
+WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh","cn_holdings_refresh","cn_watchlist_scan",market_caps.JOB_KIND)
 
 logger=logging.getLogger(__name__)
 
@@ -51,24 +51,26 @@ def run(job: Job):
     if job.kind in SCHEDULED_KINDS:
         from . import post_close
         return post_close.run(job)
-    if job.kind=="holdings_refresh":
-        from . import market, workspace
+    if job.kind in ("holdings_refresh","cn_holdings_refresh"):
+        from . import cn_holdings, market, workspace
         from .providers import failure_detail
         from .service import security_for
-        positions=workspace.holdings()["items"]; results=[]; warnings=[]
+        region = "CN" if job.kind=="cn_holdings_refresh" else "US"
+        positions=(cn_holdings if region=="CN" else workspace).holdings()["items"]; results=[]; warnings=[]
         for index,item in enumerate(positions,1):
             progress(job.id,int(90*index/max(len(positions),1)),f"正在更新持仓行情：{item['symbol']}")
             logger.info("[%s/%s] 更新持仓行情：%s",index,len(positions),item["symbol"])
             try:
-                value=market.refresh_market(security_for(item["symbol"]).id)
+                value=market.refresh_market(security_for(item["symbol"],create=region=="CN").id,region=region)
                 results.append({"symbol":item["symbol"],"result":value})
             except Exception as exc:
                 warnings.append({"symbol":item["symbol"],**failure_detail(exc)})
         return {"results":results,"warnings":warnings}
-    if job.kind=="watchlist_scan":
+    if job.kind in ("watchlist_scan","cn_watchlist_scan"):
         from . import watchlist
-        progress(job.id,5,"正在扫描自选股票；不会获取财报或发送通知")
-        return watchlist.scan(offline=False,refresh=job.payload.get("refresh",False))
+        region = "CN" if job.kind=="cn_watchlist_scan" else "US"
+        progress(job.id,5,f"正在扫描{'A 股' if region=='CN' else '美股'}；不会获取财报或发送通知")
+        return watchlist.scan(offline=False,refresh=job.payload.get("refresh",False),region=region)
     if job.kind==market_caps.JOB_KIND:
         return market_caps.refresh(lambda percent,message:progress(job.id,percent,message))
     if job.kind=="refresh":

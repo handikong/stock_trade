@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
-from . import futu_heat, holdings_brief, market_brief
+from . import cn_post_close, futu_heat, holdings_brief, market_brief
 from .config import settings
 from .notification_cards import card_text
 from .store import Job, Session, SignalDelivery, WatchlistState, now
@@ -100,6 +100,13 @@ def _database_records(lower, category):
             jobs = select(Job).where(Job.kind.in_(kinds), Job.updated_at >= lower)
             for job in session.scalars(jobs):
                 yield from _scheduled(job)
+        if category in (None,"market","holdings"):
+            jobs = select(Job).where(Job.kind==cn_post_close.KINDS["morning"],Job.updated_at>=lower)
+            for job in session.scalars(jobs):
+                for key, delivery in job.result.get("deliveries",{}).items():
+                    name = delivery["category"]
+                    if category in (None,name):
+                        yield _record(name,f"job:{job.id}:{key}","A 股盘前报告",delivery,fallback=job.updated_at)
         if category in (None, "watchlist"):
             for row in session.scalars(select(WatchlistState).where(WatchlistState.id.like("futu-heat:%"))):
                 report = row.seed

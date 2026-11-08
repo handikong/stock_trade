@@ -148,25 +148,31 @@ def _add(session,ctx,code,technical_view):
     return None
 
 
+def technical_action(price, average_cost, view):
+    if view is None:
+        return "unknown","目标日完整行情或技术历史不足，等待补齐后再评估。"
+    profitable = price>Decimal(average_cost)
+    if view["exit_confirmed"]:
+        action = "profit" if profitable else "stop"
+        return action,"红带、短期均线偏空及 MACD 死叉状态共同确认，复核是否退出。"
+    if view["broken"]:
+        support = view["prior_support"]
+        return "reduce",f"收盘跌破此前确认支撑 {_price(support['low'])}，复核降风险；收回区间后再评估。"
+    pressure = view["prior_resistance"]
+    if profitable and view["rejected"] and ((view["exit_level"] or 0)>=2 or view["volume_high"]):
+        return "profit",f"持仓仍有浮盈，反抽确认压力 {_price(pressure['low'])}–{_price(pressure['high'])} 后走弱，可复核分批锁利。"
+    return None
+
+
 def _recommend(session,ctx,row,position,view):
     alerts = [a for a in row["alerts"] if a["state"]=="保护位已触及"]
     if alerts:
         levels = "、".join(dict.fromkeys(_price(a["stop"]) for a in alerts))
         return "stop",f"已触及记录的保护位 {levels}，请核对券商成交与剩余仓位。",None
-    if view is None:
-        return "unknown","目标日完整行情或技术历史不足，等待补齐后再评估。",None
-    price = ctx["assets"][row["symbol"]]["price"]
-    profitable = price>Decimal(position.average_cost)
-    if view["exit_confirmed"]:
-        action = "profit" if profitable else "stop"
-        return action,"红带、短期均线偏空及 MACD 死叉状态共同确认，复核是否退出。",None
+    price = (ctx["assets"][row["symbol"]]["price"] if view is not None else None)
+    if action:=technical_action(price,position.average_cost,view):
+        return (*action,None)
     env = ctx["environment"]
-    if view["broken"]:
-        support = view["prior_support"]
-        return "reduce",f"收盘跌破此前确认支撑 {_price(support['low'])}，复核降风险；收回区间后再评估。",None
-    pressure = view["prior_resistance"]
-    if profitable and view["rejected"] and ((view["exit_level"] or 0)>=2 or view["volume_high"]):
-        return "profit",f"持仓仍有浮盈，反抽确认压力 {_price(pressure['low'])}–{_price(pressure['high'])} 后走弱，可复核分批锁利。",None
     if ctx["equity"] is not None:
         actual = {**ctx,"reservations":[]}
         _,similar,single,aggressive,_ = portfolio._concentration(actual,ctx["assets"][row["symbol"]])
