@@ -312,18 +312,36 @@ function monitorJob(id, kind, code = '') {
   return task;
 }
 
-function openPosition(id = null) {
-  state.editPosition = id ? state.positions.get(id) : null;
+function openPosition(id = null, market = 'US') {
+  const cn = market === 'CN';
+  const positions = cn ? cnPositions : state.positions;
+  if (id && !positions.has(id)) return;
+  state.editPosition = id ? positions.get(id) : null;
   const form = $('#position-form'); form.reset(); formError('#position-error');
+  form.dataset.market = market;
   const p = state.editPosition;
   for (const key of ['symbol','name','quantity','average_cost','notes']) form.elements.namedItem(key).value = p?.[key] || '';
-  $('#position-symbol').disabled = Boolean(p); $('#position-dialog-title').textContent = p ? `编辑 ${p.symbol} 持仓` : '导入已有持仓';
+  const quantity = form.elements.namedItem('quantity');
+  quantity.inputMode = cn ? 'numeric' : 'decimal';
+  quantity.pattern = cn ? '[0-9]+' : String.raw`[0-9]+(\.[0-9]{1,12})?`;
+  quantity.placeholder = cn ? '例如 100' : '例如 20';
+  $('#position-symbol').disabled = Boolean(p);
+  $('#position-symbol').placeholder = cn ? '例如 600000.SH 或 510300' : '例如 GOOG';
+  $('#position-market').textContent = cn ? 'A 股 · CNY' : '美股 · USD';
+  $('#position-intro').textContent = cn ? '按券商记录填写实际持有的股数或 ETF 份数，以及人民币成本均价。' : '填写当前实际持有的数量及成本均价，报价币种为美元。';
+  $('#position-symbol-label').textContent = cn ? '证券代码' : '股票代码';
+  $('#position-name-label').textContent = cn ? '证券名称' : '股票名称';
+  $('#position-quantity-label').textContent = cn ? '持有数量（股或份）' : '持股数量';
+  $('#position-cost-label').textContent = cn ? '成本均价 · CNY' : '成本均价 · USD';
+  $('#position-tactical-field').hidden = cn;
+  form.elements.namedItem('tactical').disabled = cn;
+  $('#position-dialog-title').textContent = p ? `编辑 ${p.symbol} 持仓` : cn ? '添加 A 股持仓' : '导入已有持仓';
   $('#position-dialog').showModal();
 }
 function openPool() { $('#pool-form').reset(); formError('#pool-error'); $('#pool-dialog').showModal(); }
-function removeRecord(title, description, action) {
+function removeRecord(title, description, action, reload = loadWorkspace) {
   $('#remove-title').textContent = title; $('#remove-description').textContent = description;
-  state.pendingRemoval = action; formError('#remove-error'); $('#remove-dialog').showModal();
+  state.pendingRemoval = {action,reload}; formError('#remove-error'); $('#remove-dialog').showModal();
 }
 function pushItem(item, expanded) {
   const tones = {SENT:'positive',FAILED:'negative',UNKNOWN:'caution'};
@@ -385,6 +403,37 @@ async function loadPushHistory(more = false) {
     if (generation === pushHistory.generation) button.disabled = false;
   }
 }
+const isCnPage = page => page === 'cn' || page === 'cn-holdings';
+let cnPositions = new Map();
+let cnHoldingsReadVersion = 0;
+async function loadCnHoldings() {
+  const generation = state.generation, version = ++cnHoldingsReadVersion;
+  const current = () => generation === state.generation && version === cnHoldingsReadVersion;
+  const content = $('#cn-holdings-content');
+  content.setAttribute('aria-busy','true');
+  try {
+    const {items,summary} = await api('/cn/holdings');
+    if (!current()) return;
+    cnPositions = new Map(items.map(row => [row.id,row]));
+    $('#cn-holding-count').textContent = summary.count;
+    $('#cn-holdings-metrics').innerHTML =
+      metric('持仓成本',summary.count ? `¥${num(summary.cost_value)}` : '—','数量 × 人民币成本均价')
+      + metric('持有标的',String(summary.count),'沪深股票与 ETF');
+    content.innerHTML = items.length
+      ? table(['证券','数量（股或份）','成本均价 · CNY','持仓成本 · CNY','操作'],items.map(row => [
+          `<strong class="mono">${esc(row.symbol)}</strong>${row.name ? `<span class="subline">${esc(row.name)}</span>` : ''}`,
+          esc(row.quantity),esc(row.average_cost),num(row.cost_value),
+          `<div class="row-actions"><button type="button" class="text-button" data-edit-cn-position="${esc(row.id)}" aria-label="编辑 ${esc(row.symbol)} 持仓">编辑</button><button type="button" class="text-button remove" data-remove-cn-position="${esc(row.id)}" aria-label="移除 ${esc(row.symbol)} 持仓">移除</button></div>`
+        ]),[1,2,3])
+      : empty('还没有 A 股持仓','可以登记已经持有的沪深股票或 ETF。');
+  } catch (error) {
+    if (!current()) return;
+    if (!cnPositions.size) content.innerHTML = empty('暂时无法读取 A 股持仓','请确认后台可用后重新读取。','',true);
+    notice(error.message,true);
+  } finally {
+    if (current()) content.setAttribute('aria-busy','false');
+  }
+}
 let cnPool = null;
 let cnReadVersion = 0;
 function renderCnPool() {
@@ -435,8 +484,10 @@ function route() {
   // 页内锚点与页面路由分开，跳到主要内容不会切回持仓页。
   if (location.hash && !location.hash.startsWith('#/')) return;
   const [page, query = ''] = location.hash.replace(/^#\/?/,'').split('?');
-  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',cn:'A 股收息关注池'};
+  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',
+    'cn-holdings':'A 股持仓',cn:'A 股收息关注池'};
   const next = Object.hasOwn(pages,page) ? page : 'holdings';
+  const cn = isCnPage(next);
   ++state.generation;
   state.page = next;
   for (const p of Object.keys(pages)) {
@@ -445,12 +496,16 @@ function route() {
     if (!nav) continue;
     if (p === next) nav.setAttribute('aria-current','page'); else nav.removeAttribute('aria-current');
   }
-  for (const [selector, active] of [['#market-us',next !== 'cn'],['#market-cn',next === 'cn']]) {
+  for (const [selector, active] of [['#market-us',!cn],['#market-cn',cn]]) {
     $(selector).setAttribute('aria-pressed',String(active));
     $(selector).classList.toggle('market-active',active);
   }
-  $('#global-search').hidden = next === 'cn';
+  $('#nav-us').hidden = cn;
+  $('#nav-cn').hidden = !cn;
+  $('#workspace-home').href = cn ? '#/cn-holdings' : '#/holdings';
+  $('#global-search').hidden = cn;
   document.title = `${pages[next]} · 见微`;
+  if (next === 'cn-holdings' && state.connected) void loadCnHoldings();
   if (next === 'cn' && state.connected) void loadCnPool();
   if (next === 'research') {
     const code = new URLSearchParams(query).get('symbol');
@@ -462,8 +517,9 @@ function route() {
 }
 function researchHash(code) { location.hash = '/research?symbol=' + encodeURIComponent(code.trim().toUpperCase()); }
 
-$('#market-us').addEventListener('click',() => { if (state.page === 'cn') location.hash = '/watchlist'; });
-$('#market-cn').addEventListener('click',() => { location.hash = '/cn'; });
+$('#market-us').addEventListener('click',() => { if (isCnPage(state.page)) location.hash = '/holdings'; });
+$('#market-cn').addEventListener('click',() => { if (!isCnPage(state.page)) location.hash = '/cn-holdings'; });
+$('#reload-cn-holdings').addEventListener('click',event => { void busy(event.currentTarget,loadCnHoldings); });
 $('#reload-cn-pool').addEventListener('click',event => { void busy(event.currentTarget,loadCnPool); });
 $('#cn-add').addEventListener('click',() => {
   $('#cn-income-etf').replaceChildren(new Option('请选择宽基 ETF',''),...cnPool.etf_catalog.map(
@@ -502,10 +558,8 @@ $('#page-cn').addEventListener('click',event => {
   const button = event.target.closest('[data-remove-cn]');
   if (!button) return;
   const code = button.dataset.removeCn;
-  removeRecord(`移除 ${code} 的关注？`,'更新中证红利成分时会保留这次移除。',async () => {
-    await api('/cn/watchlist/' + encodeURIComponent(code),{method:'DELETE'});
-    if (state.page === 'cn') await loadCnPool();
-  });
+  removeRecord(`移除 ${code} 的关注？`,'更新中证红利成分时会保留这次移除。',
+    () => api('/cn/watchlist/' + encodeURIComponent(code),{method:'DELETE'}),loadCnPool);
 });
 
 $('#push-filters').addEventListener('submit', event => {
@@ -520,11 +574,15 @@ $('#position-form').addEventListener('submit', event => {
     try {
       const data = Object.fromEntries(['symbol','name','quantity','average_cost','notes'].map(k => [k,form.elements.namedItem(k).value.trim()]));
       const p = state.editPosition;
+      const cn = form.dataset.market === 'CN';
+      const path = cn ? '/cn/holdings' : '/holdings';
       if (p) data.expected_version = p.version;
       const bucket = form.elements.namedItem("tactical").value;
-      if (bucket) data.tactical = bucket === "tactical";
-      await api(p ? '/holdings/' + p.id : '/holdings',{method:p ? 'PUT' : 'POST',body:JSON.stringify(data)});
-      $('#position-dialog').close(); await loadWorkspace(); notice(p ? '持仓已更新。' : '持仓已添加，可点击“更新行情”计算市值。');
+      if (!cn && bucket) data.tactical = bucket === "tactical";
+      await api(p ? path + '/' + encodeURIComponent(p.id) : path,{method:p ? 'PUT' : 'POST',body:JSON.stringify(data)});
+      $('#position-dialog').close();
+      notice(p ? '持仓已更新。' : cn ? 'A 股持仓已添加。' : '持仓已添加，可点击“更新行情”计算市值。');
+      if (cn) await loadCnHoldings(); else await loadWorkspace();
     } catch (error) { formError('#position-error',error.message); }
   });
 });
@@ -537,17 +595,31 @@ $('#pool-form').addEventListener('submit', event => {
 });
 $('#remove-confirm').addEventListener('click', event => {
   void busy(event.currentTarget,async () => {
-    try { await state.pendingRemoval(); $('#remove-dialog').close(); await loadWorkspace(); notice('记录已移除，历史保留。'); }
+    try {
+      const {action,reload} = state.pendingRemoval;
+      await action(); $('#remove-dialog').close(); notice('记录已移除，历史保留。');
+      await reload();
+    }
     catch (error) { formError('#remove-error',error.message); }
   });
 });
 document.addEventListener('click', event => {
   const close = event.target.closest('[data-close-dialog]');
   if (close) { close.closest('dialog').close(); return; }
-  if (event.target.closest('[data-add-position]')) { openPosition(); return; }
+  const addPosition = event.target.closest('[data-add-position]');
+  if (addPosition) { openPosition(null,addPosition.dataset.addPosition || 'US'); return; }
   if (event.target.closest('[data-add-pool]')) { openPool(); return; }
   const edit = event.target.closest('[data-edit-position]');
   if (edit) { openPosition(edit.dataset.editPosition); return; }
+  const editCn = event.target.closest('[data-edit-cn-position]');
+  if (editCn) { openPosition(editCn.dataset.editCnPosition,'CN'); return; }
+  const removeCn = event.target.closest('[data-remove-cn-position]');
+  if (removeCn) {
+    const p = cnPositions.get(removeCn.dataset.removeCnPosition);
+    if (p) removeRecord(`移除 ${p.symbol} 的 A 股持仓？`,'历史持仓快照会保留。',
+      () => api(`/cn/holdings/${encodeURIComponent(p.id)}?version=${encodeURIComponent(p.version)}`,{method:'DELETE'}),loadCnHoldings);
+    return;
+  }
   const remove = event.target.closest('[data-remove-position]');
   if (remove) {
     const p = state.positions.get(remove.dataset.removePosition);
@@ -637,8 +709,13 @@ async function boot() {
   state.booting = true;
   try {
     const config = await api('/config'); state.timezone = config.display_timezone || 'Asia/Shanghai';
-    await loadWorkspace(); state.connected = true; $('#connection').textContent = '已连接本地服务'; $('#connection').classList.add('ready');
+    state.connected = true; $('#connection').textContent = '已连接本地服务'; $('#connection').classList.add('ready');
     route();
+    try { await loadWorkspace(); }
+    catch (error) {
+      $('#positions-content').innerHTML = empty('暂时无法读取美股持仓','请刷新页面重试。');
+      if (!isCnPage(state.page)) notice(error.message,true);
+    }
     try {
       const recent = await api('/research');
       $('#recent-stocks').innerHTML = recent.filter(r => /^[A-Z][A-Z0-9.\-]{0,14}$/.test(r.symbol) && !/\.(SS|SZ|BJ)$/.test(r.symbol)).slice(0,8).map(r => `<button data-recent-stock="${esc(r.symbol)}">${esc(r.symbol)}</button>`).join('');

@@ -124,6 +124,28 @@ class ManualPosition(Base):
     updated_at: Mapped[str] = mapped_column(String(60), default=stamp)
 
 
+class CNManualPosition(Base):
+    """沪深人民币持仓，单独存储，避免被美股账户与监控读取。"""
+    __tablename__ = "cn_manual_positions"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    symbol: Mapped[str] = mapped_column(String(15), unique=True)
+    name: Mapped[str] = mapped_column(String(100), default="")
+    quantity: Mapped[str] = mapped_column(String(60))
+    average_cost: Mapped[str] = mapped_column(String(60))
+    notes: Mapped[str] = mapped_column(String(1000), default="")
+    version: Mapped[str] = mapped_column(String(32), default=uid)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[str] = mapped_column(String(60), default=stamp)
+
+
+class CNPositionChange(Base):
+    __tablename__ = "cn_position_changes"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    position_id: Mapped[str] = mapped_column(ForeignKey("cn_manual_positions.id"), index=True)
+    created_at: Mapped[str] = mapped_column(String(60), default=stamp)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
 class PortfolioAccount(Base):
     __tablename__ = "portfolio_accounts"
     id: Mapped[str] = mapped_column(String(32), primary_key=True)

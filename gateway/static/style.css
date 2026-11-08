@@ -8,6 +8,7 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .portfolio-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .portfolio-section{margin:0 0 24px}
+#cn-holdings-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .portfolio-grid+.portfolio-section{margin:24px 0 0}
 .portfolio-budget{margin-bottom:12px}
 @media(min-width:851px){.portfolio-budget{grid-template-columns:repeat(5,minmax(0,1fr))}}

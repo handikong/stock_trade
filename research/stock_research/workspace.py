@@ -20,8 +20,8 @@ class Conflict(ValueError):
 
 def symbol(value):
     value = value.strip().upper().removeprefix("$")
-    if re.fullmatch(r"\d{6}(?:\.(?:SS|SZ|BJ))?", value) or value.endswith((".SS", ".SZ", ".BJ")):
-        raise ValueError("A股暂未开放，本版请添加美股代码")
+    if re.fullmatch(r"(?:SH|SZ|BJ)?[0-9]{6}",value) or value.endswith((".SH",".SS",".SZ",".BJ")):
+        raise ValueError("此处使用美股代码，沪深持仓请切换到 A 股")
     if not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}", value):
         raise ValueError("请输入有效美股代码，例如GOOG、NVDA或BRK-B")
     return value

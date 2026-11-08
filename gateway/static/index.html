@@ -6,19 +6,23 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261108-market-cap">
-  <script type="module" src="/app.js?v=20261108-cn-income"></script>
+  <link rel="stylesheet" href="/style.css?v=20261108-cn-holdings">
+  <script type="module" src="/app.js?v=20261108-cn-holdings"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
   <aside class="sidebar">
-    <a class="brand" href="#/holdings"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 23V13h5v10zm9 0V5h5v18zm9 0V9h5v14z" fill="currentColor"/></svg><span>见微<small>持仓与研究</small></span></a>
+    <a class="brand" id="workspace-home" href="#/holdings"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 23V13h5v10zm9 0V5h5v18zm9 0V9h5v14z" fill="currentColor"/></svg><span>见微<small>持仓与研究</small></span></a>
     <div class="nav-caption">我的工作台</div>
-    <nav aria-label="主要导航">
+    <nav id="nav-us" aria-label="美股导航">
       <a href="#/holdings" data-nav="holdings"><span data-icon="wallet"></span>持仓总览<span id="holding-count" class="nav-count">—</span></a>
       <a href="#/watchlist" data-nav="watchlist"><span data-icon="radar"></span>扫描股票池<span id="pool-count" class="nav-count">—</span></a>
       <a href="#/research" data-nav="research"><span data-icon="search"></span>个股研究</a>
       <a href="#/push-history" data-nav="push-history"><span data-icon="bell"></span>推送记录</a>
+    </nav>
+    <nav id="nav-cn" aria-label="A 股导航" hidden>
+      <a href="#/cn-holdings" data-nav="cn-holdings"><span data-icon="wallet"></span>持仓总览<span id="cn-holding-count" class="nav-count">—</span></a>
+      <a href="#/cn" data-nav="cn"><span data-icon="radar"></span>收息关注池</a>
     </nav>
     <div class="sidebar-note"><span class="small-dot"></span>盘后整理，人工决策<p>让每一次买卖都有依据。</p></div>
     <div class="sidebar-bottom"><span>本地个人工作台</span></div>
@@ -72,6 +76,22 @@
         <p class="footnote">扫描信号属于技术跟踪，不代表已持仓；移出名单会保留历史记录。</p>
       </section>
 
+      <section id="page-cn-holdings" class="page" hidden>
+        <div class="page-heading">
+          <div><p class="eyebrow">A-SHARE PORTFOLIO</p><h1>A 股持仓</h1><p class="subtitle">沪深股票与 ETF · 人民币</p></div>
+          <button type="button" class="primary" data-add-position="CN"><span data-icon="plus"></span>添加持仓</button>
+        </div>
+        <div id="cn-holdings-metrics" class="metric-strip" aria-label="A 股持仓汇总">
+          <div class="metric"><span>持仓成本</span><strong>—</strong></div>
+          <div class="metric"><span>持有标的</span><strong>—</strong></div>
+        </div>
+        <section class="panel portfolio-section">
+          <div class="panel-heading"><div><h2>持仓明细</h2><p>按录入数量和成本均价计算 · CNY</p></div><button type="button" class="secondary compact" id="reload-cn-holdings">重新读取</button></div>
+          <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
+        </section>
+        <p class="footnote">当前展示登记的成本。接入 A 股行情后可计算市值和浮动盈亏。</p>
+      </section>
+
       <section id="page-cn" class="page" hidden>
         <div class="page-heading"><div><p class="eyebrow">CHINA INCOME WATCHLIST</p><h1>A 股收息关注池</h1><p class="subtitle">高息股候选与大盘宽基 ETF · 人民币</p></div><div class="portfolio-actions"><button type="button" class="secondary" id="reload-cn-pool">重新读取</button><button type="button" class="primary" id="cn-add" disabled><span data-icon="plus"></span>添加关注</button></div></div>
         <section class="panel portfolio-section">
@@ -121,7 +141,22 @@
     </main>
   </div>
 
-  <dialog id="position-dialog" aria-labelledby="position-dialog-title"><form id="position-form"><div class="dialog-heading"><div><p class="eyebrow">MY POSITION</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">填写当前实际持有的数量及成本均价，报价币种为美元。</p><div class="form-grid"><label>股票代码<input id="position-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"></label><label>股票名称 <span class="optional">选填</span><input name="name" maxlength="100" placeholder="例如 谷歌"></label><label>持股数量<input name="quantity" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 20"></label><label>成本均价 · USD<input name="average_cost" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 180.50"></label><label class="span-2">仓位归属<select name="tactical"><option value="">沿用已有归属／新导入按核心仓</option><option value="core">核心仓</option><option value="tactical">机动仓</option></select></label><label class="span-2">备注 <span class="optional">选填</span><textarea name="notes" maxlength="1000" rows="3" placeholder="记录这笔持仓的背景"></textarea></label></div><div id="position-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div></form></dialog>
+  <dialog id="position-dialog" aria-labelledby="position-dialog-title">
+    <form id="position-form">
+      <div class="dialog-heading"><div><p class="eyebrow" id="position-market">美股 · USD</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div>
+      <p class="dialog-intro" id="position-intro">填写当前实际持有的数量及成本均价。</p>
+      <div class="form-grid">
+        <label><span id="position-symbol-label">股票代码</span><input id="position-symbol" name="symbol" required maxlength="15" autocomplete="off" autocapitalize="characters"></label>
+        <label><span id="position-name-label">股票名称</span> <span class="optional">选填</span><input name="name" maxlength="100"></label>
+        <label><span id="position-quantity-label">持股数量</span><input name="quantity" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?"></label>
+        <label><span id="position-cost-label">成本均价 · USD</span><input name="average_cost" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?"></label>
+        <label class="span-2" id="position-tactical-field">仓位归属<select name="tactical"><option value="">沿用已有归属／新导入按核心仓</option><option value="core">核心仓</option><option value="tactical">机动仓</option></select></label>
+        <label class="span-2">备注 <span class="optional">选填</span><textarea name="notes" maxlength="1000" rows="3" placeholder="记录这笔持仓的背景"></textarea></label>
+      </div>
+      <div id="position-error" class="form-error" role="alert" hidden></div>
+      <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div>
+    </form>
+  </dialog>
   <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与两套已设置策略的扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
   <dialog id="cn-income-dialog" aria-labelledby="cn-income-title">
     <form id="cn-income-form">

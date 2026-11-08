@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
+from . import cn_holdings, cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -73,7 +73,7 @@ class Query(BaseModel):
     symbol: str = Field(min_length=1,max_length=15)
 
 
-class PositionInput(BaseModel):
+class ManualHoldingInput(BaseModel):
     model_config = {"extra":"forbid"}
     symbol: str = Field(min_length=1,max_length=15)
     name: str = Field(default="",max_length=100)
@@ -81,6 +81,9 @@ class PositionInput(BaseModel):
     average_cost: StrictStr = Field(min_length=1,max_length=60)
     notes: str = Field(default="",max_length=1000)
     expected_version: str | None = Field(default=None,min_length=32,max_length=32)
+
+
+class PositionInput(ManualHoldingInput):
     tactical: StrictBool | None = None
 
 
@@ -146,7 +149,7 @@ async def workspace_conflict(request,exc):
 @app.get("/api/v1/workspace")
 def workspace_overview():
     return {"market":"US","markets":[{"id":"US","name":"美股","currency":"USD","enabled":True},
-            {"id":"CN","name":"A股","currency":"CNY","enabled":True,"scope":"watchlist"}],
+            {"id":"CN","name":"A股","currency":"CNY","enabled":True,"scope":"workspace"}],
             "holdings":workspace.holdings(),"watchlist":workspace.pool()}
 
 
@@ -172,6 +175,32 @@ def cn_watchlist_remove(symbol: str):
 @app.post("/api/v1/cn/watchlist/dividends/refresh")
 def cn_watchlist_refresh():
     return cn_income.refresh_dividends()
+
+
+@app.get("/api/v1/cn/holdings")
+def cn_holdings_read():
+    return cn_holdings.holdings()
+
+
+@app.post("/api/v1/cn/holdings")
+def cn_position_add(p: ManualHoldingInput):
+    return cn_holdings.save(p.model_dump())
+
+
+@app.put("/api/v1/cn/holdings/{position_id}")
+def cn_position_edit(position_id: str,p: ManualHoldingInput):
+    try:
+        return cn_holdings.save(p.model_dump(),position_id)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
+
+
+@app.delete("/api/v1/cn/holdings/{position_id}")
+def cn_position_remove(position_id: str,version: str):
+    try:
+        return cn_holdings.remove(position_id,version)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
 
 
 @app.get("/api/v1/portfolio")

@@ -10,10 +10,11 @@ from .stockanalysis_mg7 import ORIGIN, USER_AGENT, Reader, StopFetch, _forecast,
 
 BEIJING = ZoneInfo("Asia/Shanghai")
 BOARDS = {"SH":r"(?:60[0135]|688)[0-9]{3}", "SZ":r"(?:00[0-3]|30[01])[0-9]{3}"}
+ETF_BOARDS = {"SH":r"(?:51[0-8]|520|56[0-7]|58[89])[0-9]{3}", "SZ":r"(?!159900)15[89][0-9]{3}"}
 EXCHANGES = {"SH":"sha", "SZ":"she"}
 
 
-def symbol(value):
+def symbol(value, *, allow_etf=False):
     text = value.strip().upper()
     match = re.fullmatch(r"([0-9]{6})(?:\.(SH|SS|SZ))?", text)
     if match:
@@ -25,7 +26,11 @@ def symbol(value):
             raise ValueError("请输入沪深 A 股代码，例如 600519.SH 或 300750.SZ")
         suffix, code = match.groups()
     venue = next((key for key, pattern in BOARDS.items() if re.fullmatch(pattern,code)), None)
+    if venue is None and allow_etf:
+        venue = next((key for key, pattern in ETF_BOARDS.items() if re.fullmatch(pattern,code)), None)
     if venue is None or (suffix and suffix != venue):
+        if allow_etf:
+            raise ValueError("仅支持沪深普通 A 股和支持代码段内的 ETF，代码与交易所需一致")
         raise ValueError("仅支持沪深普通 A 股，代码和交易所需一致")
     return f"{code}.{venue}"
 
