@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import cn_sources, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
+from . import cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -132,6 +132,12 @@ class PoolScan(BaseModel):
     refresh: bool = Field(default=False,strict=True)
 
 
+class CNIncomeInput(Query):
+    model_config = {"extra":"forbid"}
+    kind: Literal["dividend","broad_etf"]
+    name: str = Field(default="",max_length=100)
+
+
 @app.exception_handler(workspace.Conflict)
 async def workspace_conflict(request,exc):
     return JSONResponse({"detail":str(exc)},status_code=409)
@@ -147,9 +153,25 @@ def workspace_overview():
 @app.get("/api/v1/cn/watchlist")
 def cn_watchlist():
     with Session() as session:
-        pool = cn_sources.pool(session)
-        return {**pool, "members":sorted(pool["members"].values(),key=lambda row:(row["last_seen"],-row["rank"]),
-                                        reverse=True)}
+        return cn_income.read(session)
+
+
+@app.post("/api/v1/cn/watchlist")
+def cn_watchlist_add(p: CNIncomeInput):
+    return cn_income.add(p.symbol,p.kind,p.name)
+
+
+@app.delete("/api/v1/cn/watchlist/{symbol}")
+def cn_watchlist_remove(symbol: str):
+    try:
+        return cn_income.remove(symbol)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
+
+
+@app.post("/api/v1/cn/watchlist/dividends/refresh")
+def cn_watchlist_refresh():
+    return cn_income.refresh_dividends()
 
 
 @app.get("/api/v1/portfolio")

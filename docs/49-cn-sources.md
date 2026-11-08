@@ -1,21 +1,22 @@
-# A 股关注池与估值来源核对
+# A 股收息关注池与估值来源
 
-## 人气榜与入池
+## 两类关注名单
 
-按东方财富 A 股人气榜的前 100 条取样。榜单代表站内访问、关注和讨论热度。代码核对排名完整且唯一，再从同一来源读取沪深候选的股票简称及人民币总市值。新增时排除北交所、基金、B 股、ST 和退市整理股。同股按带交易所后缀的代码去重，昨日入池的股票落榜后继续保留。若请求、榜单校验或简称核对失败，保留原关注池。 [东方财富榜单及规则](https://guba.eastmoney.com/rank/)
+- **高息股候选**从中证红利指数（000922）成分中筛选沪深普通 A 股，排除成分表中简称标为 ST 或退市整理的股票。页面展示成分表日期和入池依据。用户也可手动添加自己核对过分红的沪深股票。 [中证红利指数](https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/000922factsheet.pdf)
+- **大盘宽基 ETF**按已核对的跟踪指数分类。默认目录含沪深300 ETF（510300.SH）、上证50 ETF（510050.SH）和中证A500 ETF（512050.SH）。页面可移除及重新添加目录内的基金。目录可在 `config/cn-income-etfs.json` 维护。 [上交所沪深300 ETF](https://www.sse.com.cn/assortment/fund/list/etfinfo/basic/index.shtml?FUNDID=510300) · [华夏上证50 ETF](https://en.chinaamc.com/etf-connect/50etf/) · [华夏中证A500 ETF](https://fund.chinaamc.com/fund/512050/)
 
-默认每日北京时间 16:30 起运行，19:00 结束当天补跑窗口，包含休市日。同日成功只入池一次。开关为 `config/post-close-schedule.json` 的 `cn_heat_enabled`，时间可调。工作台顶部「A 股」展示该名单、最近上榜时间及人民币总市值排序。市值取该股票最近一次上榜时的报价快照，缺值放最后。美股扫描仍从原美股名单读取。
+工作台顶部「A 股」可手动更新中证红利。程序读取 [中证指数成分文件](https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000922cons.xls)，核对完整 100 条、指数代码、唯一证券代码、成分表日期及沪深交易所。下载失败、文件异常或日期倒退时保留旧名单。每次成功更新替换指数候选，手工添加或移除优先。已离开指数的股票可以手动保留。
 
-东方财富批量报价可能返回 302，跳到同一接口的 `push2delay.eastmoney.com`。程序只识别这一路 HTTPS 跳转，保留原报价参数继续请求一次。其他跳转或响应异常时，错误会区分人气榜与批量报价，名单仍沿用最近成功记录。 [公开请求链记录](https://urlscan.io/result/019d3edc-174c-736e-9b5b-47a09563d2cb)
+东方财富人气榜、原 16:30 定时任务及旧 `preview`、`sync` 命令均已停用。历史热榜档案独立保留。新的收息关注池使用独立记录，美股扫描读取美股名单。
 
 ```bash
-# 查看上游当下榜单
-.venv/bin/python -m stock_research.cn_cli preview
-# 同步今天的榜单并更新独立关注池，同日成功后复用档案
-.venv/bin/python -m stock_research.cn_cli sync
-# 查看已保存的独立关注池
+# 手动更新中证红利成分
+.venv/bin/python -m stock_research.cn_cli refresh-dividends
+# 查看两类关注名单
 .venv/bin/python -m stock_research.cn_cli pool
 ```
+
+首次部署收息池或从热榜版本升级时，使用 `bash deploy.sh` 安装 XLS 读取依赖。
 
 ## EPS 和 PE
 
@@ -30,11 +31,14 @@
 .venv/bin/python -m stock_research.cn_cli research 300750.SZ
 ```
 
-这一阶段交付关注池、每日同步和估值核对入口。后续接 A 股收盘日线缓存、研究页、策略扫描、飞书和人民币仓位。日历、复权、停牌、价格限制及成交模拟需要各自按 A 股口径处理。 [上交所交易规则](https://big5.sse.com.cn/site/cht/www.sse.com.cn/lawandrules/sselawsrules2025/trade/universal/c/c_20260424_10816492.shtml)
+估值查询适用于沪深普通股票。买点判断留待后续规则确认，关注池当前展示候选和来源。后续评估高息股时，可以用已实施的近 12 个月普通现金分红和未复权收盘价计算历史股息率，再结合分红持续性、估值和技术位置。ETF 的实际分红按基金公告独立核对。
 
 ## 用户验收
 
-- CN01 预览完整 100 个榜位，核对沪深代码及过滤结果。
-- CN02 同步两次，第二次应复用当天档案。核对网页与 CLI 名单、排序和美股名单隔离。
+- CN01 首次打开 A 股，核对默认三只 ETF 的跟踪指数。手动更新中证红利后，核对成分表日期和沪深候选。
+- CN02 移除一只成分股，手动添加一只已核对的股票，再次更新。核对移除继续生效、手工股仍在、网页和 CLI 名单一致。
 - CN03 核对两只样本的人民币 EPS、历史 PE 区分、季度样本数与缺项提示。
-- CN04 核对北京时间 16:30 的后台任务及失败保留旧池。真实抓取与网页验收由用户执行。
+- CN04 核对下载失败时保留原候选，旧热榜命令提示停用，A 股名单和美股名单互相独立。
+- CN05 从目录移除并重新添加宽基 ETF。核对缺少目录条目的基金无法通过宽基入口加入。
+
+真实抓取与网页验收由用户执行。

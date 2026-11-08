@@ -386,35 +386,56 @@ async function loadPushHistory(more = false) {
   }
 }
 let cnPool = null;
+let cnReadVersion = 0;
 function renderCnPool() {
-  if (!cnPool) return;
-  const order = $('#cn-pool-sort').value;
-  const rows = order === 'rank' ? cnPool.members : sortByCap(cnPool.members,'market_cap_cny',order);
-  $('#cn-pool-count').textContent = `${rows.length} 只`;
-  $('#cn-pool-date').textContent = cnPool.last_date ? `最近同步 ${cnPool.last_date}（北京时间）` : '尚无人气榜同步记录';
-  $('#cn-pool-content').innerHTML = rows.length
-    ? table(['股票代码','股票简称','总市值 · CNY','最近榜单名次','首次上榜','最近上榜'],rows.map(row =>
-      [esc(row.symbol),esc(row.name),displayCap(row.market_cap_cny),esc(row.rank),esc(row.first_seen),esc(row.last_seen)]),[2,3])
-    : empty('A 股关注池为空','等待每日人气榜同步。', '', true);
+  const source = cnPool.dividend_source;
+  $('#cn-pool-date').textContent = source ? `中证红利成分表 · ${source.as_of}` : '尚未导入中证红利成分';
+  for (const [group,kind,column,description] of [
+    ['etf','broad_etf','跟踪指数','可从宽基目录添加关注。'],
+    ['dividend','dividend','入池依据','可更新中证红利成分，也可手动添加已核对的股票。']
+  ]) {
+    const rows = cnPool.members.filter(row => row.kind === kind);
+    $(`#cn-${group}-count`).textContent = `${rows.length} 只`;
+    $(`#cn-${group}-content`).innerHTML = rows.length
+      ? table(['代码','名称',column,'操作'],rows.map(row => [
+          `<span class="mono">${esc(row.symbol)}</span>`,esc(row.name),esc(row.benchmark || row.basis),
+          `<button type="button" class="text-button" data-remove-cn="${esc(row.symbol)}" aria-label="移除 ${esc(row.symbol)}">移除</button>`
+        ]))
+      : empty('暂无关注',description,'',true);
+  }
+  $('#cn-add').disabled = false;
 }
 async function loadCnPool() {
   const generation = state.generation;
+  const version = ++cnReadVersion;
   try {
     const data = await api('/cn/watchlist');
-    if (generation !== state.generation) return;
+    if (generation !== state.generation || version !== cnReadVersion) return;
     cnPool = data;
     renderCnPool();
   } catch (error) {
-    if (generation !== state.generation) return;
+    if (generation !== state.generation || version !== cnReadVersion) return;
     $('#cn-pool-date').textContent = error.message;
-    if (!cnPool) $('#cn-pool-content').innerHTML = empty('暂时无法读取 A 股关注池','请确认后台已启动后重新读取。','',true);
+    if (!cnPool) {
+      for (const group of ['etf','dividend']) {
+        $(`#cn-${group}-content`).innerHTML = empty('暂时无法读取','请确认服务可用后重新读取。','',true);
+      }
+    }
+  }
+}
+function cnIncomeFields() {
+  const form = $('#cn-income-form');
+  const isEtf = form.elements.kind.value === 'broad_etf';
+  for (const [field,hidden] of [['stock',isEtf],['name',isEtf],['etf',!isEtf]]) {
+    $(`#cn-income-${field}-field`).hidden = hidden;
+    form.elements.namedItem(field).disabled = hidden;
   }
 }
 function route() {
   // 页内锚点与页面路由分开，跳到主要内容不会切回持仓页。
   if (location.hash && !location.hash.startsWith('#/')) return;
   const [page, query = ''] = location.hash.replace(/^#\/?/,'').split('?');
-  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',cn:'A 股关注池'};
+  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',cn:'A 股收息关注池'};
   const next = Object.hasOwn(pages,page) ? page : 'holdings';
   ++state.generation;
   state.page = next;
@@ -443,8 +464,49 @@ function researchHash(code) { location.hash = '/research?symbol=' + encodeURICom
 
 $('#market-us').addEventListener('click',() => { if (state.page === 'cn') location.hash = '/watchlist'; });
 $('#market-cn').addEventListener('click',() => { location.hash = '/cn'; });
-$('#cn-pool-sort').addEventListener('change',renderCnPool);
 $('#reload-cn-pool').addEventListener('click',event => { void busy(event.currentTarget,loadCnPool); });
+$('#cn-add').addEventListener('click',() => {
+  $('#cn-income-etf').replaceChildren(new Option('请选择宽基 ETF',''),...cnPool.etf_catalog.map(
+    row => new Option(`${row.symbol} · ${row.name} · ${row.benchmark}`,row.symbol)));
+  $('#cn-income-form').reset();
+  cnIncomeFields();
+  formError('#cn-income-error');
+  $('#cn-income-dialog').showModal();
+});
+$('#cn-income-kind').addEventListener('change',cnIncomeFields);
+$('#cn-income-form').addEventListener('submit',event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const kind = data.get('kind');
+  const symbol = data.get(kind === 'broad_etf' ? 'etf' : 'stock').trim();
+  void busy(form.querySelector('[type=submit]'),async () => {
+    try {
+      await post('/cn/watchlist',{kind,symbol,name:data.get('name')?.trim() || ''});
+      $('#cn-income-dialog').close();
+      await loadCnPool();
+      notice('已加入 A 股收息关注池。');
+    } catch (error) { formError('#cn-income-error',error.message); }
+  });
+});
+$('#cn-dividend-refresh').addEventListener('click',event => {
+  void busy(event.currentTarget,async () => {
+    try {
+      const result = await post('/cn/watchlist/dividends/refresh');
+      if (state.page === 'cn') await loadCnPool();
+      notice(result.message);
+    } catch (error) { notice(error.message,true); }
+  });
+});
+$('#page-cn').addEventListener('click',event => {
+  const button = event.target.closest('[data-remove-cn]');
+  if (!button) return;
+  const code = button.dataset.removeCn;
+  removeRecord(`移除 ${code} 的关注？`,'更新中证红利成分时会保留这次移除。',async () => {
+    await api('/cn/watchlist/' + encodeURIComponent(code),{method:'DELETE'});
+    if (state.page === 'cn') await loadCnPool();
+  });
+});
 
 $('#push-filters').addEventListener('submit', event => {
   event.preventDefault();

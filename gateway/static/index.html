@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=20261108-market-cap">
-  <script type="module" src="/app.js?v=20261108-cn-pool"></script>
+  <script type="module" src="/app.js?v=20261108-cn-income"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -73,15 +73,15 @@
       </section>
 
       <section id="page-cn" class="page" hidden>
-        <div class="page-heading"><div><p class="eyebrow">CHINA WATCHLIST</p><h1>A 股关注池</h1><p class="subtitle">东方财富人气榜前 100 条 · 沪深 A 股</p></div><span class="soft-label">人民币 · CNY</span></div>
-        <section class="panel">
-          <div class="panel-heading"><div><h2>关注名单 <span id="cn-pool-count" class="count-label"></span></h2><p id="cn-pool-date" role="status">读取同步记录…</p></div><button type="button" class="text-button" id="reload-cn-pool">重新读取</button></div>
-          <div class="panel-body pool-sort-tools"><label for="cn-pool-sort">排序</label><select id="cn-pool-sort">
-            <option value="cap-desc">市值从大到小</option><option value="cap-asc">市值从小到大</option><option value="rank">最近上榜</option>
-          </select></div>
-          <div id="cn-pool-content" class="loading-state">正在读取 A 股关注池…</div>
+        <div class="page-heading"><div><p class="eyebrow">CHINA INCOME WATCHLIST</p><h1>A 股收息关注池</h1><p class="subtitle">高息股候选与大盘宽基 ETF · 人民币</p></div><div class="portfolio-actions"><button type="button" class="secondary" id="reload-cn-pool">重新读取</button><button type="button" class="primary" id="cn-add" disabled><span data-icon="plus"></span>添加关注</button></div></div>
+        <section class="panel portfolio-section">
+          <div class="panel-heading"><div><h2>大盘宽基 ETF <span id="cn-etf-count" class="count-label"></span></h2><p>按基金跟踪的指数分类</p></div></div>
+          <div id="cn-etf-content"><p class="loading-state">正在读取宽基 ETF…</p></div>
         </section>
-        <p class="footnote">每天北京时间 16:30 起同步，新增股票按代码去重保留。</p>
+        <section class="panel portfolio-section">
+          <div class="panel-heading"><div><h2>高息股候选 <span id="cn-dividend-count" class="count-label"></span></h2><p id="cn-pool-date" role="status">正在读取成分表记录…</p></div><button type="button" class="secondary compact" id="cn-dividend-refresh"><span data-icon="refresh"></span>更新中证红利</button></div>
+          <div id="cn-dividend-content"><p class="loading-state">正在读取高息股候选…</p></div>
+        </section>
       </section>
 
       <section id="page-research" class="page" hidden>
@@ -123,6 +123,20 @@
 
   <dialog id="position-dialog" aria-labelledby="position-dialog-title"><form id="position-form"><div class="dialog-heading"><div><p class="eyebrow">MY POSITION</p><h2 id="position-dialog-title">添加持仓</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">填写当前实际持有的数量及成本均价，报价币种为美元。</p><div class="form-grid"><label>股票代码<input id="position-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"></label><label>股票名称 <span class="optional">选填</span><input name="name" maxlength="100" placeholder="例如 谷歌"></label><label>持股数量<input name="quantity" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 20"></label><label>成本均价 · USD<input name="average_cost" required inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,12})?" placeholder="例如 180.50"></label><label class="span-2">仓位归属<select name="tactical"><option value="">沿用已有归属／新导入按核心仓</option><option value="core">核心仓</option><option value="tactical">机动仓</option></select></label><label class="span-2">备注 <span class="optional">选填</span><textarea name="notes" maxlength="1000" rows="3" placeholder="记录这笔持仓的背景"></textarea></label></div><div id="position-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div></form></dialog>
   <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与两套已设置策略的扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
+  <dialog id="cn-income-dialog" aria-labelledby="cn-income-title">
+    <form id="cn-income-form">
+      <div class="dialog-heading"><h2 id="cn-income-title">添加 A 股关注</h2></div>
+      <p class="dialog-intro">手动添加高息股前请核对分红记录。宽基 ETF 从已核对跟踪指数的目录选取。</p>
+      <div class="form-grid">
+        <label class="span-2">类别<select id="cn-income-kind" name="kind"><option value="dividend">高息股候选</option><option value="broad_etf">大盘宽基 ETF</option></select></label>
+        <label id="cn-income-stock-field">沪深股票代码<input name="stock" maxlength="15" placeholder="例如 600000.SH" autocomplete="off" required></label>
+        <label id="cn-income-name-field">股票简称 <span class="optional">选填</span><input name="name" maxlength="100" autocomplete="off"></label>
+        <label id="cn-income-etf-field" class="span-2" hidden>宽基 ETF<select id="cn-income-etf" name="etf" required disabled></select></label>
+      </div>
+      <div id="cn-income-error" class="form-error" role="alert" hidden></div>
+      <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">加入关注</button></div>
+    </form>
+  </dialog>
   <dialog id="remove-dialog" aria-labelledby="remove-title"><div class="dialog-heading"><h2 id="remove-title">移除记录</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p id="remove-description" class="dialog-intro"></p><div id="remove-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button class="secondary" data-close-dialog>取消</button><button class="danger" id="remove-confirm">确认移除</button></div></dialog>
   <dialog id="portfolio-request" aria-labelledby="portfolio-request-title">
     <form id="portfolio-request-form">

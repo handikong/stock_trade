@@ -12,7 +12,7 @@ dependencies = [
   "psycopg[binary]>=3.2,<4", "pydantic-settings>=2.7,<3",
   "httpx>=0.28,<1", "yfinance>=0.2.66,<0.3", "pandas>=2.2,<3",
   "exchange-calendars>=4.8,<5", "beautifulsoup4>=4.13,<5",
-  "pypdf>=6,<7", "python-multipart>=0.0.20,<1"
+  "pypdf>=6,<7", "python-multipart>=0.0.20,<1", "xlrd>=2.0,<3"
 ]
 
 [project.scripts]

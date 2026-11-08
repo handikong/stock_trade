@@ -1,0 +1,17 @@
+{
+  "510300.SH": {
+    "name": "沪深300ETF华泰柏瑞",
+    "benchmark": "沪深300",
+    "source": "https://www.sse.com.cn/assortment/fund/list/etfinfo/basic/index.shtml?FUNDID=510300"
+  },
+  "510050.SH": {
+    "name": "华夏上证50ETF",
+    "benchmark": "上证50",
+    "source": "https://en.chinaamc.com/etf-connect/50etf/"
+  },
+  "512050.SH": {
+    "name": "华夏中证A500ETF",
+    "benchmark": "中证A500",
+    "source": "https://fund.chinaamc.com/fund/512050/"
+  }
+}

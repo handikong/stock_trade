@@ -35,6 +35,7 @@ class Policy(BaseModel):
     poll_seconds: int = Field(ge=5,le=300)
     volume_top50_enabled: bool = False
     futu_heat_enabled: bool = False
+    # 兼容旧配置和任务快照。旧 A 股人气榜入口已经停用。
     cn_heat_enabled: bool = False
     cn_heat_time: str = "16:30"
     cn_heat_until: str = "19:00"
@@ -57,8 +58,7 @@ class Policy(BaseModel):
         if date.fromisoformat(self.start_date).isoformat()!=self.start_date:
             raise ValueError("计划开始日期需要YYYY-MM-DD格式")
         values = (self.market_time,self.signal_time,self.catch_up_until,self.weekly_valuation_time,
-                  self.market_brief_time,self.market_brief_until,self.holdings_brief_time,self.holdings_brief_until,
-                  self.cn_heat_time,self.cn_heat_until)
+                  self.market_brief_time,self.market_brief_until,self.holdings_brief_time,self.holdings_brief_until)
         if any(not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d",v) for v in values):
             raise ValueError("计划时间需要HH:MM格式")
         if not self.market_time < self.signal_time < self.catch_up_until:
@@ -67,8 +67,6 @@ class Policy(BaseModel):
             raise ValueError("大盘报告生成时间需早于补跑截止")
         if not self.holdings_brief_time<self.holdings_brief_until:
             raise ValueError("持仓复盘生成时间需早于补跑截止")
-        if not self.cn_heat_time < self.cn_heat_until:
-            raise ValueError("A 股人气榜时间需早于补跑截止")
         if self.futu_heat_enabled and self.volume_top50_enabled:
             raise ValueError("富途热榜与旧 Yahoo 成交量榜不能同时扩充关注池")
         return self
@@ -120,32 +118,22 @@ def _heat_day(cfg):
     return None
 
 
-def _cn_heat_day(cfg):
-    current = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
-    day = current.date().isoformat()
-    if (cfg.enabled and cfg.cn_heat_enabled and day >= cfg.start_date
-            and cfg.cn_heat_time <= current.strftime("%H:%M") < cfg.cn_heat_until):
-        return day
-    return None
-
-
-def _enqueue_heat(cfg, day, *, phase="heat"):
-    jid = _job_id(phase,day)
+def _enqueue_heat(cfg, day):
+    jid = _job_id("heat",day)
     with Session() as session:
         if session.get(Job,jid):
             return None
-    anchor = security_for("AAPL" if phase == "heat" else "600519.SH",create=True)
-    label = "富途美股热榜" if phase == "heat" else "东方财富 A 股人气榜"
+    anchor = security_for("AAPL",create=True)
     with Session() as session:
-        session.add(Job(id=jid,security_id=anchor.id,kind=KINDS[phase],active_key=f"post-close:{phase}",
-            payload={"phase":phase,"local_date":day,"target_session":day,"policy":cfg.model_dump()},
-            message=f"{label}排队中 · {day}"))
+        session.add(Job(id=jid,security_id=anchor.id,kind=KINDS["heat"],active_key="post-close:heat",
+            payload={"phase":"heat","local_date":day,"target_session":day,"policy":cfg.model_dump()},
+            message=f"富途美股热榜排队中 · {day}"))
         try:
             session.commit()
         except IntegrityError:
             session.rollback()
             return None
-    logger.info("已创建%s任务 · %s（北京时间）",label,day)
+    logger.info("已创建富途美股热榜任务 · %s（北京时间）",day)
     return jid
 
 
@@ -296,10 +284,6 @@ def enqueue_due():
     if holdings_day and (jid:=_enqueue_report("holdings_brief",holdings_day)):
         result["queued"].append(jid)
         result["message"] = "已入队持仓复盘"
-    cn_day = _cn_heat_day(cfg)
-    if cn_day and (jid:=_enqueue_heat(cfg,cn_day,phase="cn_heat")):
-        result["queued"].append(jid)
-        result["message"] = "已入队东方财富 A 股人气榜"
     day = _valuation_day(cfg)
     if day and not result["queued"]:
         jid = _enqueue_valuation(cfg,day,result["target_session"])
@@ -478,14 +462,7 @@ def run(job):
     if job.kind == KINDS["heat"]:
         return _heat(job,result)
     if job.kind == KINDS["cn_heat"]:
-        from . import cn_sources
-        day = job.payload["local_date"]
-        allowed = lambda: _cn_heat_day(policy()) == day
-        if not allowed():
-            return {**result,"status":"expired","message":"A 股人气榜任务已过窗口或停用"}
-        report = cn_sources.sync_hot_list(day,allowed=allowed)
-        return {**result,"status":"complete","added":report["added"],"active_count":report["active_count"],
-                "message":f"A 股人气榜已同步 · 新增 {len(report['added'])} 只，当前 {report['active_count']} 只"}
+        return {**result,"status":"disabled","message":"A 股人气榜已停用，请使用 A 股收息关注池"}
     if job.kind == KINDS["valuation"]:
         from . import weekly_valuation
         return weekly_valuation.run(job,result,allowed=lambda: _valuation_day(policy()) == job.payload["local_date"])
