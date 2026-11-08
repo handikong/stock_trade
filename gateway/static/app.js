@@ -74,6 +74,7 @@ function updateBusy() {
   $('#refresh-holdings').disabled = !state.workspace?.holdings?.items?.length || active('holdings_refresh');
   $('#refresh-cn-holdings').disabled = !cnPositions.size || active('cn_holdings_refresh');
   $('#cn-scan').disabled = !cnPool?.members?.length || active('cn_watchlist_scan');
+  $('#cn-pool-refresh-caps').disabled = !cnPool?.members?.some(row => row.kind === 'dividend') || active('cn_watchlist_market_caps');
   $('#research-refresh').disabled = !state.symbol || [...state.jobs.values()].some(j => j.kind === 'refresh' && j.symbol === state.symbol);
 
 }
@@ -303,7 +304,7 @@ function monitorJob(id, kind, code = '') {
           if (kind === 'refresh' && code === state.symbol && state.page === 'research') await reloadResearch(code);
           if (kind === 'cn_holdings_refresh') {
             if (state.page === 'cn-holdings') await loadCnHoldings();
-          } else if (kind === 'cn_watchlist_scan') {
+          } else if (kind === 'cn_watchlist_scan' || kind === 'cn_watchlist_market_caps') {
             if (state.page === 'cn') await loadCnPool();
           } else await loadWorkspace();
           if (kind.startsWith('cn_') === isCnPage(state.page)) {
@@ -457,20 +458,31 @@ let cnPool = null;
 let cnReadVersion = 0;
 function renderCnPool() {
   const source = cnPool.dividend_source;
+  const caps = cnPool.market_caps;
+  const order = $('#cn-pool-sort').value;
   $('#cn-last-scan').textContent = cnPool.last_scan ? `最近扫描 ${when(cnPool.last_scan)} · 人民币` : '高息股候选与大盘宽基 ETF · 人民币';
   $('#cn-pool-date').textContent = source ? `中证红利成分表 · ${source.as_of}` : '尚未导入中证红利成分';
   for (const [group,kind,column,description] of [
     ['etf','broad_etf','跟踪指数','可从宽基目录添加关注。'],
     ['dividend','dividend','入池依据','可更新中证红利成分，也可手动添加已核对的股票。']
   ]) {
-    const rows = cnPool.members.filter(row => row.kind === kind);
+    const dividend = kind === 'dividend';
+    const members = cnPool.members.filter(row => row.kind === kind);
+    const rows = dividend && order !== 'symbol' ? sortByCap(members,'market_cap_cny',order) : members;
+    if (dividend) {
+      const count = members.filter(row => Number(row.market_cap_cny) > 0).length;
+      $('#cn-pool-cap-source').textContent = caps?.fetched_at
+        ? `市值参考 · ${caps.source} · ${when(caps.fetched_at)} 更新 · ${count}/${members.length} 只`
+        : members.length ? '暂无市值缓存，点击「更新市值」补齐。' : '添加高息股候选后可更新市值。';
+    }
     $(`#cn-${group}-count`).textContent = `${rows.length} 只`;
     $(`#cn-${group}-content`).innerHTML = rows.length
-      ? table(['代码','名称',column,'收盘参考 · CNY','策略买点','操作'],rows.map(row => [
+      ? table(['代码','名称',column,...(dividend ? ['总市值 · CNY'] : []),'收盘参考 · CNY','策略买点','操作'],rows.map(row => [
           `<span class="mono">${esc(row.symbol)}</span>`,esc(row.name),esc(row.benchmark || row.basis),
+          ...(dividend ? [displayCap(row.market_cap_cny)] : []),
           cnQuote(row.quote),row.buy_signals?.length ? row.buy_signals.map(name => badge(name,'positive')).join(' ') : '—',
           `<button type="button" class="text-button" data-remove-cn="${esc(row.symbol)}" aria-label="移除 ${esc(row.symbol)}">移除</button>`
-        ]),[3])
+        ]),dividend ? [3,4] : [3])
       : empty('暂无关注',description,'',true);
   }
   $('#cn-add').disabled = false;
@@ -548,6 +560,11 @@ $('#refresh-cn-holdings').addEventListener('click',event => { void busy(event.cu
   catch (error) { notice(error.message,true); }
 }); });
 $('#reload-cn-pool').addEventListener('click',event => { void busy(event.currentTarget,loadCnPool); });
+$('#cn-pool-sort').addEventListener('change',() => { if (cnPool) renderCnPool(); });
+$('#cn-pool-refresh-caps').addEventListener('click',event => { void busy(event.currentTarget,async () => {
+  try { const job = await post('/cn/watchlist/market-caps/refresh'); await monitorJob(job.job_id,'cn_watchlist_market_caps'); }
+  catch (error) { notice(error.message,true); }
+}); });
 $('#cn-scan').addEventListener('click',event => { void busy(event.currentTarget,async () => {
   try { const job = await post('/cn/watchlist/scan'); await monitorJob(job.job_id,'cn_watchlist_scan'); }
   catch (error) { notice(error.message,true); }

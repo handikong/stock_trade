@@ -186,6 +186,16 @@ def cn_watchlist_scan(p: PoolScan):
     return {"job_id":queue(anchor.id,"cn_watchlist_scan",p.model_dump())}
 
 
+@app.post("/api/v1/cn/watchlist/market-caps/refresh")
+def cn_watchlist_refresh_caps():
+    with Session() as session:
+        code = next((row["symbol"] for row in cn_income.read(session)["members"] if row["kind"]=="dividend"),None)
+    if code is None:
+        raise ValueError("A 股股票名单为空，请先添加高息股候选")
+    anchor = security_for(code,create=True)
+    return {"job_id":queue(anchor.id,market_caps.CN_JOB_KIND,{})}
+
+
 @app.get("/api/v1/cn/holdings")
 def cn_holdings_read():
     return cn_holdings.holdings()

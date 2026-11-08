@@ -11,7 +11,8 @@ from .store import Job, Session, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
                    "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat",*cn_post_close.KINDS.values())
-WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh","cn_holdings_refresh","cn_watchlist_scan",market_caps.JOB_KIND)
+WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh","cn_holdings_refresh","cn_watchlist_scan",
+                   market_caps.JOB_KIND,market_caps.CN_JOB_KIND)
 
 logger=logging.getLogger(__name__)
 
@@ -71,8 +72,9 @@ def run(job: Job):
         region = "CN" if job.kind=="cn_watchlist_scan" else "US"
         progress(job.id,5,f"正在扫描{'A 股' if region=='CN' else '美股'}；不会获取财报或发送通知")
         return watchlist.scan(offline=False,refresh=job.payload.get("refresh",False),region=region)
-    if job.kind==market_caps.JOB_KIND:
-        return market_caps.refresh(lambda percent,message:progress(job.id,percent,message))
+    if job.kind in (market_caps.JOB_KIND,market_caps.CN_JOB_KIND):
+        region = "CN" if job.kind==market_caps.CN_JOB_KIND else "US"
+        return market_caps.refresh(lambda percent,message:progress(job.id,percent,message),region=region)
     if job.kind=="refresh":
         result=refresh_sources(sid,job.payload.get("force",False),lambda p,m:progress(job.id,p,m))
         if not result["steps"]:

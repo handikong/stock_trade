@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=20261108-cn-close">
-  <script type="module" src="/app.js?v=20261108-cn-close"></script>
+  <script type="module" src="/app.js?v=20261108-cn-market-cap"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -102,6 +102,14 @@
         </section>
         <section class="panel portfolio-section">
           <div class="panel-heading"><div><h2>高息股候选 <span id="cn-dividend-count" class="count-label"></span></h2><p id="cn-pool-date" role="status">正在读取成分表记录…</p></div><button type="button" class="secondary compact" id="cn-dividend-refresh"><span data-icon="refresh"></span>更新中证红利</button></div>
+          <div class="panel-body pool-sort-tools">
+            <label for="cn-pool-sort">排序</label>
+            <select id="cn-pool-sort">
+              <option value="cap-desc">市值从大到小</option><option value="cap-asc">市值从小到大</option><option value="symbol">股票代码</option>
+            </select>
+            <button class="secondary compact" id="cn-pool-refresh-caps" type="button" disabled>更新市值</button>
+            <p id="cn-pool-cap-source" class="subline" role="status"></p>
+          </div>
           <div id="cn-dividend-content"><p class="loading-state">正在读取高息股候选…</p></div>
         </section>
       </section>

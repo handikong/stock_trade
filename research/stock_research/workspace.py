@@ -121,6 +121,8 @@ def cn_pool():
                if scan and scan["status"] in ("complete","partial") else {})
     with Session() as session:
         pool = cn_income.read(session)
+        caps = market_caps.cached(session,"CN")
+        values = caps.get("values",{})
         symbols = [row["symbol"] for row in pool["members"]]
         securities = {row.symbol:row for row in session.scalars(select(Security).where(Security.symbol.in_(symbols)))}
         members = []
@@ -137,8 +139,10 @@ def cn_pool():
                        and evaluation.get("indicator_parameters")==indicator)
             names = [item["name"] for item in latest_scan.get("current_signals",[])
                      if item.get("event_kind","BUY")=="BUY" and item.get("name")] if current else []
-            members.append({**row,"quote":q,"buy_signals":names})
-    return {**pool,"members":members,"last_scan":(scan or {}).get("finished_at")}
+            members.append({**row,"quote":q,"buy_signals":names,
+                            "market_cap_cny":values.get(code) if row["kind"]=="dividend" else None})
+    return {**pool,"members":members,"last_scan":(scan or {}).get("finished_at"),
+            "market_caps":{key:caps[key] for key in ("source","fetched_at") if key in caps}}
 
 
 def save_position(data, position_id=None):
