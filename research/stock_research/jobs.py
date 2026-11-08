@@ -10,7 +10,7 @@ from .service import refresh_sources
 from .store import Job, Session, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
-                   "scheduled_market_brief","scheduled_holdings_brief")
+                   "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat")
 WORKSPACE_KINDS = ("watchlist_scan","holdings_refresh",market_caps.JOB_KIND)
 
 logger=logging.getLogger(__name__)

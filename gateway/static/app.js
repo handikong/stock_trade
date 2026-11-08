@@ -156,6 +156,13 @@ function displayCap(value) {
   if (value >= 1e4) return num(value / 1e4) + ' 万';
   return num(value);
 }
+function sortByCap(rows, field, order) {
+  return [...rows].sort((a,b) => {
+    const x = Number(a[field]) || 0, y = Number(b[field]) || 0;
+    if (!x || !y) return Number(Boolean(y)) - Number(Boolean(x));
+    return order === 'cap-asc' ? x - y : y - x;
+  });
+}
 function renderPool() {
   const data = state.workspace.watchlist, run = data.last_scan;
   const capSource = data.market_caps;
@@ -172,12 +179,7 @@ function renderPool() {
     return;
   }
   const order = $('#pool-sort').value;
-  const rows = [...data.items];
-  if (order !== 'symbol') rows.sort((a,b) => {
-    const x = Number(a.market_cap_usd) || 0, y = Number(b.market_cap_usd) || 0;
-    if (!x || !y) return Number(Boolean(y)) - Number(Boolean(x));
-    return order === 'cap-asc' ? x - y : y - x;
-  });
+  const rows = order === 'symbol' ? data.items : sortByCap(data.items,'market_cap_usd',order);
   $('#pool-content').innerHTML = table(['股票','总市值 · USD','收盘参考','行情状态','最近策略结果','扫描截至','操作'],rows.map((r,i) => {
     const signals = r.current_signals || [], old = r.scan;
     const signal = !old ? badge('尚未扫描') : !r.scan_is_current ? badge(old.status === 'ERROR' ? '扫描未完成' : '历史记录 · 需重扫','caution') : signals.length ? signals.map(s => badge(s.event_kind === 'EXIT' ? '退出提示' : '买入提示',s.event_kind === 'EXIT' ? 'caution' : 'positive')).join(' ') : badge('暂无当前信号');
@@ -383,20 +385,52 @@ async function loadPushHistory(more = false) {
     if (generation === pushHistory.generation) button.disabled = false;
   }
 }
+let cnPool = null;
+function renderCnPool() {
+  if (!cnPool) return;
+  const order = $('#cn-pool-sort').value;
+  const rows = order === 'rank' ? cnPool.members : sortByCap(cnPool.members,'market_cap_cny',order);
+  $('#cn-pool-count').textContent = `${rows.length} 只`;
+  $('#cn-pool-date').textContent = cnPool.last_date ? `最近同步 ${cnPool.last_date}（北京时间）` : '尚无人气榜同步记录';
+  $('#cn-pool-content').innerHTML = rows.length
+    ? table(['股票代码','股票简称','总市值 · CNY','最近榜单名次','首次上榜','最近上榜'],rows.map(row =>
+      [esc(row.symbol),esc(row.name),displayCap(row.market_cap_cny),esc(row.rank),esc(row.first_seen),esc(row.last_seen)]),[2,3])
+    : empty('A 股关注池为空','等待每日人气榜同步。', '', true);
+}
+async function loadCnPool() {
+  const generation = state.generation;
+  try {
+    const data = await api('/cn/watchlist');
+    if (generation !== state.generation) return;
+    cnPool = data;
+    renderCnPool();
+  } catch (error) {
+    if (generation !== state.generation) return;
+    $('#cn-pool-date').textContent = error.message;
+    if (!cnPool) $('#cn-pool-content').innerHTML = empty('暂时无法读取 A 股关注池','请确认后台已启动后重新读取。','',true);
+  }
+}
 function route() {
   // 页内锚点与页面路由分开，跳到主要内容不会切回持仓页。
   if (location.hash && !location.hash.startsWith('#/')) return;
   const [page, query = ''] = location.hash.replace(/^#\/?/,'').split('?');
-  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录'};
+  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',cn:'A 股关注池'};
   const next = Object.hasOwn(pages,page) ? page : 'holdings';
   ++state.generation;
   state.page = next;
   for (const p of Object.keys(pages)) {
     $('#page-' + p).hidden = p !== next;
     const nav = document.querySelector(`[data-nav="${p}"]`);
+    if (!nav) continue;
     if (p === next) nav.setAttribute('aria-current','page'); else nav.removeAttribute('aria-current');
   }
+  for (const [selector, active] of [['#market-us',next !== 'cn'],['#market-cn',next === 'cn']]) {
+    $(selector).setAttribute('aria-pressed',String(active));
+    $(selector).classList.toggle('market-active',active);
+  }
+  $('#global-search').hidden = next === 'cn';
   document.title = `${pages[next]} · 见微`;
+  if (next === 'cn' && state.connected) void loadCnPool();
   if (next === 'research') {
     const code = new URLSearchParams(query).get('symbol');
     if (state.connected && code && (code !== state.symbol || !state.report)) void loadStock(code);
@@ -406,6 +440,11 @@ function route() {
   if (next === 'holdings') void loadIntraday();
 }
 function researchHash(code) { location.hash = '/research?symbol=' + encodeURIComponent(code.trim().toUpperCase()); }
+
+$('#market-us').addEventListener('click',() => { if (state.page === 'cn') location.hash = '/watchlist'; });
+$('#market-cn').addEventListener('click',() => { location.hash = '/cn'; });
+$('#cn-pool-sort').addEventListener('change',renderCnPool);
+$('#reload-cn-pool').addEventListener('click',event => { void busy(event.currentTarget,loadCnPool); });
 
 $('#push-filters').addEventListener('submit', event => {
   event.preventDefault();

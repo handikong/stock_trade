@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=20261108-market-cap">
-  <script type="module" src="/app.js?v=20261108-market-cap"></script>
+  <script type="module" src="/app.js?v=20261108-cn-pool"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -25,7 +25,7 @@
   </aside>
   <div class="shell">
     <header class="topbar">
-      <div class="market-switch" aria-label="市场"><button class="market-active" aria-pressed="true">美股 <span>USD</span></button><button disabled title="A股暂未开放">A股 <span>暂未开放</span></button></div>
+      <div class="market-switch" aria-label="市场"><button type="button" id="market-us" class="market-active" aria-pressed="true">美股 <span>USD</span></button><button type="button" id="market-cn" aria-pressed="false">A 股 <span>CNY</span></button></div>
       <form id="global-search" role="search"><label class="sr-only" for="global-symbol">查询美股代码</label><span data-icon="search"></span><input id="global-symbol" name="symbol" maxlength="15" placeholder="查询股票，例如 GOOG" autocomplete="off" autocapitalize="characters"><button type="submit" class="search-submit" aria-label="查询股票"><span data-icon="arrow"></span></button></form>
       <span id="connection" class="connection">正在连接服务</span>
     </header>
@@ -70,6 +70,18 @@
           <div id="pool-content" class="loading-state">正在读取扫描名单…</div>
         </section>
         <p class="footnote">扫描信号属于技术跟踪，不代表已持仓；移出名单会保留历史记录。</p>
+      </section>
+
+      <section id="page-cn" class="page" hidden>
+        <div class="page-heading"><div><p class="eyebrow">CHINA WATCHLIST</p><h1>A 股关注池</h1><p class="subtitle">东方财富人气榜前 100 条 · 沪深 A 股</p></div><span class="soft-label">人民币 · CNY</span></div>
+        <section class="panel">
+          <div class="panel-heading"><div><h2>关注名单 <span id="cn-pool-count" class="count-label"></span></h2><p id="cn-pool-date" role="status">读取同步记录…</p></div><button type="button" class="text-button" id="reload-cn-pool">重新读取</button></div>
+          <div class="panel-body pool-sort-tools"><label for="cn-pool-sort">排序</label><select id="cn-pool-sort">
+            <option value="cap-desc">市值从大到小</option><option value="cap-asc">市值从小到大</option><option value="rank">最近上榜</option>
+          </select></div>
+          <div id="cn-pool-content" class="loading-state">正在读取 A 股关注池…</div>
+        </section>
+        <p class="footnote">每天北京时间 16:30 起同步，新增股票按代码去重保留。</p>
       </section>
 
       <section id="page-research" class="page" hidden>

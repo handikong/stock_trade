@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
+from . import cn_sources, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -140,8 +140,16 @@ async def workspace_conflict(request,exc):
 @app.get("/api/v1/workspace")
 def workspace_overview():
     return {"market":"US","markets":[{"id":"US","name":"美股","currency":"USD","enabled":True},
-            {"id":"CN","name":"A股","currency":"CNY","enabled":False}],
+            {"id":"CN","name":"A股","currency":"CNY","enabled":True,"scope":"watchlist"}],
             "holdings":workspace.holdings(),"watchlist":workspace.pool()}
+
+
+@app.get("/api/v1/cn/watchlist")
+def cn_watchlist():
+    with Session() as session:
+        pool = cn_sources.pool(session)
+        return {**pool, "members":sorted(pool["members"].values(),key=lambda row:(row["last_seen"],-row["rank"]),
+                                        reverse=True)}
 
 
 @app.get("/api/v1/portfolio")
