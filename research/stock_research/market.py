@@ -78,6 +78,24 @@ def cache_state(item, region="US"):
         "message":"命中完整有效缓存" if ready else "缓存需补齐或复核；旧资料仅供研究参考"}
 
 
+def _ohlc(row, close, session_date, *, accept_float_noise=False):
+    opened, high, low = (clean(row.get(field)) for field in ("Open","High","Low"))
+    if any(value is None for value in (opened,high,low)):
+        raise ValueError(f"{session_date} 供应商OHLC字段不完整，未覆盖原缓存")
+    bottom, top = sorted((opened,close),key=float)
+    raw_high, raw_low = high, low
+    if accept_float_noise:
+        # 只消化单精度报价的浮点尾差，明显越界的日线仍拒绝。
+        if 0<float(low)-float(bottom)<=min(float(bottom)*2e-7,1e-4):
+            low = bottom
+        if 0<float(top)-float(high)<=min(float(top)*2e-7,1e-4):
+            high = top
+    if not 0<float(low)<=float(bottom)<=float(top)<=float(high):
+        raise ValueError(f"{session_date} 供应商OHLC关系不一致，未覆盖原缓存 · "
+                         f"开 {opened} 高 {raw_high} 低 {raw_low} 收 {close}")
+    return opened,high,low
+
+
 def refresh_market(security_id: str, force=False, *, region="US"):
     kind = snapshot_kind(region)
     cn = region == "CN"
@@ -115,9 +133,11 @@ def refresh_market(security_id: str, force=False, *, region="US"):
             start=min(start,date.fromisoformat(old_payload["missing_sessions"][0])-timedelta(days=7))
         if old_payload.get("requested_start",str(target_start))>str(target_start):
             start=target_start
+    # Yahoo 的 end 为开区间。沪深只取最近完整收盘之前的日线，盘中行无需写入缓存。
+    history_end = {"end":str(date.fromisoformat(last_complete)+timedelta(days=1))} if cn else {}
     def history(begin):
         return yahoo_call(security_id,"history(日线)",lambda:ticker.history(start=str(begin),interval="1d",
-            auto_adjust=False,back_adjust=False,actions=True,repair=False,prepost=False,raise_errors=True))
+            auto_adjust=False,back_adjust=False,actions=True,repair=False,prepost=False,raise_errors=True,**history_end))
     frame=history(start)
     if frame.empty:
         raise ValueError("yf没有返回有效行情，已保留原缓存")
@@ -140,26 +160,24 @@ def refresh_market(security_id: str, force=False, *, region="US"):
         raise ValueError("沪深日线币种与人民币不一致，已保留原缓存")
     # 增量缺失不能删除旧窗口中的有效记录；完整重取时则不混入旧调整价。
     merged={b["date"]:b for b in (old_payload or {}).get("bars",[])} if start>target_start else {}
+    if cn:
+        merged={day:bar for day,bar in merged.items() if bar.get("complete") is True and day<=last_complete}
     for idx,row in frame.iterrows():
+        session_date=idx.date().isoformat()
+        if cn and (session_date>last_complete or not cal.is_session(session_date)):
+            continue
         close=clean(row.get("Close")); adjusted=clean(row.get("Adj Close"))
         if close is None or adjusted is None or float(close)<=0 or float(adjusted)<=0:
-            raise ValueError("供应商价格存在无效数值，未覆盖原缓存")
+            raise ValueError(f"{session_date} 供应商价格存在无效数值，未覆盖原缓存")
         factor=float(adjusted)/float(close)
-        if any(clean(row.get(k)) is None for k in ("Open","High","Low")):
-            raise ValueError("供应商OHLC字段不完整，未覆盖原缓存")
-        if not (0<float(row["Low"])<=min(float(row["Open"]),float(close))
-                <=max(float(row["Open"]),float(close))<=float(row["High"])):
-            raise ValueError("供应商OHLC关系不一致，未覆盖原缓存")
+        opened,high,low = _ohlc(row,close,session_date,accept_float_noise=cn)
         volume=clean(row.get("Volume"))
         if volume is None or float(volume)<0:
-            raise ValueError("供应商成交量无效，未覆盖原缓存")
-        session_date=idx.date().isoformat()
-        if cn and (idx.date() > cal.last_session.date() or not cal.is_session(session_date)):
-            continue
-        merged[session_date]={"date":session_date,"open":clean(row["Open"]),"high":clean(row["High"]),
-            "low":clean(row["Low"]),"close":close,"adjusted_close":adjusted,
-            "adjusted_open":str(float(row["Open"])*factor),"adjusted_high":str(float(row["High"])*factor),
-            "adjusted_low":str(float(row["Low"])*factor),"volume":int(float(volume)),
+            raise ValueError(f"{session_date} 供应商成交量无效，未覆盖原缓存")
+        merged[session_date]={"date":session_date,"open":opened,"high":high,
+            "low":low,"close":close,"adjusted_close":adjusted,
+            "adjusted_open":str(float(opened)*factor),"adjusted_high":str(float(high)*factor),
+            "adjusted_low":str(float(low)*factor),"volume":int(float(volume)),
             "dividend":clean(row.get("Dividends",0)),"split":clean(row.get("Stock Splits",0)),
             "complete":session_date<=last_complete}
     bars=[merged[k] for k in sorted(merged) if k>=str(target_start)]
