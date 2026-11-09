@@ -41,7 +41,15 @@ def _position(row):
             "version":row.version,"created_at":row.created_at,"updated_at":row.updated_at}
 
 
-def quote(session, security, region="US"):
+def _quote_price(value):
+    try:
+        price = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    return price if price.is_finite() and 0 < price <= Decimal("1e18") else None
+
+
+def quote(session, security, region="US", *, daily_change=False):
     source = latest(session, security.id, market.snapshot_kind(region)) if security else None
     state = market.cache_state(source,region)
     if (source and region=="CN" and state["state"]=="stale" and state.get("last_complete_session")
@@ -55,15 +63,28 @@ def quote(session, security, region="US"):
                       currency=(source.payload.get("profile") or {}).get("currency"),
                       fetched_at=source.payload.get("fetched_at"), expected_session=state.get("expected_session"))
         # 行情缓存可能保留供应商浮点展开后的长小数，按有效报价读取，不套用手工输入精度。
-        try:
-            price = Decimal(str(source.payload.get("last_price")))
-        except InvalidOperation:
-            price = None
-        if price is not None and price.is_finite() and 0 < price <= Decimal("1e18"):
+        price = _quote_price(source.payload.get("last_price"))
+        if price is not None:
             result["price"] = str(price)
+            if daily_change and result["state"] == "fresh":
+                cal, _ = market.calendar_context(region)
+                day = result["date"]
+                if day and cal.is_session(day) and day != cal.first_session.date().isoformat():
+                    previous_day = cal.previous_session(day).date().isoformat()
+                    bars = {b["date"]:b for b in source.payload.get("bars", [])
+                            if b.get("complete") is True and b.get("date") in (previous_day, day)}
+                    previous = _quote_price(bars.get(previous_day, {}).get("close"))
+                    latest_bar = bars.get(day)
+                    if previous is not None and latest_bar and latest_bar.get("split") in (None, "0", "0.0", 0):
+                        result["previous_close"] = str(previous)
         else:
             result.update(state="unknown",message="行情缓存的收盘价缺失或无效，请更新该股行情")
     return result
+
+
+def day_move(price, previous_close, quantity):
+    change = price - previous_close
+    return change * quantity, change / previous_close
 
 
 def summarize_holdings(items, region, currency):
@@ -74,7 +95,8 @@ def summarize_holdings(items, region, currency):
             q = record["quote"]
             qty = number(record["quantity"],"持股数量"); basis = qty * number(record["average_cost"],"成本均价")
             item = {**record,"cost_value":str(basis),"market_value":None,"reference_market_value":None,
-                    "unrealized_pnl":None,"unrealized_return":None,"weight":None}
+                    "unrealized_pnl":None,"unrealized_return":None,"weight":None,
+                    "day_pnl":None,"day_return":None}
             cost += basis
             if q["price"] is not None and q["currency"] == currency:
                 value = qty * Decimal(q["price"])
@@ -83,6 +105,9 @@ def summarize_holdings(items, region, currency):
                     priced += 1; current_value += value
                     item.update(market_value=str(value),unrealized_pnl=str(value-basis),
                                 unrealized_return=str((value-basis)/basis))
+                    if q.get("previous_close") is not None:
+                        day_pnl, day_return = day_move(Decimal(q["price"]), Decimal(q["previous_close"]), qty)
+                        item.update(day_pnl=str(day_pnl),day_return=str(day_return))
             rows.append(item)
         complete = bool(rows) and priced == len(rows)
         if complete and current_value > 0:
@@ -102,7 +127,7 @@ def holdings():
         for row in session.scalars(select(ManualPosition).where(ManualPosition.active.is_(True)).order_by(ManualPosition.created_at, ManualPosition.id)):
             security = session.get(Security,row.security_id)
             items.append({**_position(row),"name":row.name or security.profile.get("name") or row.symbol,
-                          "quote":quote(session,security)})
+                          "quote":quote(session,security,daily_change=True)})
         return summarize_holdings(items,"US","USD")
 
 

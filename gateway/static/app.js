@@ -1,5 +1,5 @@
 import {connectPortfolio} from './portfolio.js?v=20261109-account-equity';
-import {connectEquity} from './equity.js?v=20261109';
+import {connectEquity} from './equity.js?v=20261109-day-pnl';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,14 +91,15 @@ function renderHoldings() {
   if (!data.items.length) {
     $('#positions-content').innerHTML = empty('记录你的第一笔持仓','输入股票、数量与成本均价，建立属于自己的持仓总览。',`<button class="secondary" data-add-position>${icon('plus')}添加持仓</button>`);
   } else {
-    $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','价格','持仓市值','浮动盈亏','操作'],data.items.map((r,i) => [
+    $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','价格','持仓市值','今日盈亏','浮动盈亏','操作'],data.items.map((r,i) => [
       stock(r.symbol,r.name,i),`${num(r.quantity,6)}<span class="subline">股</span>`,num(r.average_cost),
       `<strong data-holding-price="${esc(r.id)}"></strong><span class="subline" data-holding-field="source"></span>
         <details class="holding-technicals" hidden><summary>技术与收盘参考</summary><span class="subline" data-holding-field="evidence"></span></details>`,
       '<span data-holding-field="market"></span><span class="subline" data-holding-field="market-note" hidden></span>',
+      '<span data-holding-field="day-pnl"></span><span class="subline" data-holding-field="day-return"></span>',
       '<span data-holding-field="pnl"></span><span class="subline" data-holding-field="return"></span>',
       `<div class="row-actions"><button class="text-button" data-edit-position="${esc(r.id)}">编辑</button><button class="text-button remove" data-remove-position="${esc(r.id)}">移除</button></div>`
-    ]),[1,2,3,4,5]);
+    ]),[1,2,3,4,5,6]);
   }
   renderIntraday();
 }
@@ -113,7 +114,8 @@ function renderHoldingTotals(holdings, live, liveCount) {
     + metric('持仓成本',num(s.count ? s.cost_value : null),'按录入数量与成本均价', '', true)
     + metric('持仓浮动盈亏',signed(pnl),validNumber(total?.unrealized_return) ? `${source} · 相对成本 ${pct(total.unrealized_return)}` : `等待完整${source}报价`,tone(pnl),true)
     + metric('持仓股票',String(s.count),'持仓与扫描名单分别管理');
-  $('#portfolio-note').textContent = '浮盈亏按有效报价与录入均价估算，未计费用、分红和现金。';
+  $('#portfolio-note').textContent = '今日盈亏按现价相对前收的变动 × 当前股数估算。浮盈亏以录入成本为基准，两者均未计已实现盈亏、费用和分红。';
+  equity.setIntraday(live ? {session:live.session,pnl:total?.day_pnl,count:s.count} : null);
   if (live ? !total : !s.complete) {
     const detail = s.count ? `等待完整${source}报价后显示市值构成。` : '持仓构成会在这里展示。';
     $('#allocation-content').innerHTML = empty(s.count ? '行情尚未齐全' : '等待添加持仓',detail, '', true);
@@ -164,6 +166,11 @@ function renderIntraday() {
     pnlField.textContent = signed(pnl);
     pnlField.className = tone(pnl);
     field('return').textContent = pct(live ? live.unrealized_return : position.unrealized_return);
+    const day = data?.session ? live : position;
+    const dayField = field('day-pnl');
+    dayField.textContent = signed(day?.day_pnl);
+    dayField.className = tone(day?.day_pnl);
+    field('day-return').textContent = pct(day?.day_return);
     if (live && validNumber(live.market_value)) liveCount++;
   }
   renderHoldingTotals(holdings,data?.session ? data : null,liveCount);
@@ -461,13 +468,14 @@ async function loadCnHoldings() {
       + metric('浮动盈亏',signed(summary.unrealized_pnl),summary.complete ? `相对成本 ${pct(summary.unrealized_return)} · CNY` : '等待完整有效报价',tone(summary.unrealized_pnl))
       + metric('持有标的',String(summary.count),'沪深股票与 ETF');
     content.innerHTML = items.length
-      ? table(['证券','数量（股或份）','成本均价 · CNY','收盘参考 · CNY','参考市值 · CNY','浮动盈亏 · CNY','操作'],items.map(row => [
+      ? table(['证券','数量（股或份）','成本均价 · CNY','收盘参考 · CNY','参考市值 · CNY','今日盈亏 · CNY','浮动盈亏 · CNY','操作'],items.map(row => [
           `<strong class="mono">${esc(row.symbol)}</strong>${row.name ? `<span class="subline">${esc(row.name)}</span>` : ''}`,
           esc(row.quantity),esc(row.average_cost),cnQuote(row.quote),
           num(row.reference_market_value),
+          `<span class="${tone(row.day_pnl)}">${signed(row.day_pnl)}</span><span class="subline">${pct(row.day_return)}</span>`,
           `<span class="${tone(row.unrealized_pnl)}">${signed(row.unrealized_pnl)}</span><span class="subline">${pct(row.unrealized_return)}</span>`,
           `<div class="row-actions"><button type="button" class="text-button" data-edit-cn-position="${esc(row.id)}" aria-label="编辑 ${esc(row.symbol)} 持仓">编辑</button><button type="button" class="text-button remove" data-remove-cn-position="${esc(row.id)}" aria-label="移除 ${esc(row.symbol)} 持仓">移除</button></div>`
-        ]),[1,2,3,4,5])
+        ]),[1,2,3,4,5,6])
       : empty('还没有 A 股持仓','可以登记已经持有的沪深股票或 ETF。');
     updateBusy();
   } catch (error) {

@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=20261109-live-holdings">
-  <script type="module" src="/app.js?v=20261109-live-holdings"></script>
+  <script type="module" src="/app.js?v=20261109-day-pnl"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -40,7 +40,7 @@
       <section id="page-holdings" class="page">
         <div class="page-heading"><div><p class="eyebrow">PORTFOLIO OVERVIEW</p><h1>我的持仓</h1><p class="subtitle">先看仓位，再做判断。</p></div><div class="portfolio-actions"><button class="secondary" data-add-position>导入已有持仓</button><button class="primary" id="portfolio-request-open"><span data-icon="plus"></span>评估买入</button></div></div>
         <div id="portfolio-metrics" class="metric-strip" aria-label="持仓汇总"><div class="metric"><span>正在读取持仓</span><strong>—</strong></div></div>
-        <section class="panel portfolio-section" aria-label="美股收盘净值与当日盈亏">
+        <section class="panel portfolio-section" aria-label="美股账户净值与当日盈亏">
           <div id="us-equity-content" class="equity-overview" aria-live="polite">正在读取账户净值…</div>
         </section>
         <section class="panel portfolio-section">
@@ -101,7 +101,7 @@
           <div class="panel-heading"><div><h2>持仓明细</h2><p>按有效收盘和录入成本计算 · CNY</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-holdings">重新读取</button><button type="button" class="secondary compact" id="refresh-cn-holdings" disabled><span data-icon="refresh"></span>更新行情</button></div></div>
           <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
         </section>
-        <p class="footnote">使用沪深完整交易日的收盘参考价。持仓行情齐全时汇总市值和浮动盈亏。</p>
+        <p class="footnote">使用沪深完整交易日的收盘参考价。今日盈亏按相邻交易日收盘价差与当前股数或份数估算。</p>
       </section>
 
       <section id="page-cn" class="page" hidden>

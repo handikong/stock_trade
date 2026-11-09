@@ -109,8 +109,18 @@ def relative_return(code, refs, prices):
     return prices[code] / refs[code]["previous_close"] - 1
 
 
+def _level_groups(levels, buffer):
+    groups = []
+    for name, level in sorted(levels, key=lambda entry: entry[1], reverse=True):
+        if not groups or groups[-1][0][1] - level > buffer:
+            groups.append([])
+        groups[-1].append((name, level))
+    return groups
+
+
 def break_state(row, ref, price, policy):
-    if not ref["atr"]:
+    baseline = ref["previous_close"]
+    if not ref["atr"] or baseline is None:
         return None
     buffer = ref["atr"] * policy.buffer_daily_atr
     levels = [(name, level) for name, level in ref["levels"].items()
@@ -119,16 +129,62 @@ def break_state(row, ref, price, policy):
     if support:
         levels.insert(0, ("日线支撑下沿", support[0]))
     latest, previous = row.get("latest"), row.get("previous")
+    groups = _level_groups([(name, level) for name, level in levels if baseline >= level - buffer], buffer)
     states = []
-    for name, level in levels:
-        if ref["previous_close"] < level - buffer or price >= level - buffer:
+    for group in groups:
+        crossed = [(name, level) for name, level in group if price < level - buffer]
+        if not crossed:
             continue
-        confirmed = bool(latest and previous and _number(latest["c"]) < level - buffer
-                         and _number(previous["c"]) < level - buffer)
-        # 只有趋势线或均线失守时保留预警，附近支撑也失守才升级。
-        anchored = name in {"日线支撑下沿", "前低"} or (support and price < support[0] - buffer)
-        states.append((confirmed and bool(anchored), name, level))
-    return max(states, key=lambda state: (state[0], state[2])) if states else None
+        # 两根收线都必须跌破同一结构位。单独跌破均线或趋势线只预警。
+        confirmed = bool(latest and previous and any(
+            name in {"日线支撑下沿", "前低"} and max(_number(latest["c"]), _number(previous["c"])) < level - buffer
+            for name, level in crossed))
+        states.append((confirmed, crossed, group[0]))
+    return max(states, key=lambda state: (state[0], state[2][1]), default=None)
+
+
+def _breakout_retest(latest, previous, price, vwap, level, buffer):
+    return (_number(previous["c"]) > level + buffer and abs(_number(latest["l"]) - level) <= buffer
+            and _number(latest["c"]) > level and price >= level and price > _number(vwap))
+
+
+def structure_state(row, ref, price, policy, profit_target=None):
+    latest, previous = row.get("latest"), row.get("previous")
+    baseline = ref["previous_close"]
+    if not (latest and previous and ref["atr"] and baseline):
+        return None
+    buffer = ref["atr"] * policy.buffer_daily_atr
+    close = _number(latest["c"])
+    resistance = ref["resistance"]
+    if resistance and profit_target is not None:
+        lower = resistance[0]
+        high = max(_number(latest["h"]), _number(previous["h"]))
+        if high >= max(lower, profit_target) and max(close, price) < lower - buffer:
+            return "profit", [("压力下沿", lower), ("登记止盈价", profit_target)], ("登记止盈价", profit_target)
+
+    vwap = row.get("vwap")
+    upper = ("压力上沿", resistance[1]) if resistance else ("前高", ref["levels"].get("前高"))
+    level = upper[1]
+    if vwap and level is not None and baseline <= level and _breakout_retest(latest, previous, price, vwap, level, buffer):
+        return "breakout", [upper], upper
+
+    support = ref["support"]
+    support_levels = [("支撑上沿", support[1])] if support else [("前低", ref["levels"].get("前低"))]
+    support_levels.append(("EMA20", ref["levels"].get("EMA20")))
+    groups = _level_groups([(name, level) for name, level in support_levels
+                            if level is not None and baseline >= level - buffer], buffer)
+    prior_close = _number(previous["c"])
+    low, prior_low = _number(latest["l"]), _number(previous["l"])
+    for group in groups:
+        recovered = []
+        for name, level in group:
+            lower = support[0] if name == "支撑上沿" else level
+            if (lower - buffer <= min(low, prior_low) <= level and close > prior_close
+                    and (low <= level or prior_close <= level + buffer) and min(close, price) >= level + buffer):
+                recovered.append((name, level))
+        if recovered:
+            return "reclaim", recovered, group[0]
+    return None
 
 
 def add_stage(row, ref, price, stage, mode, policy):
@@ -146,8 +202,7 @@ def add_stage(row, ref, price, stage, mode, policy):
         touched = min(low, _number(previous["l"]))
         return stop < touched <= trigger and close > _number(latest["o"]) and close > _number(previous["c"])
     buffer = ref["atr"] * policy.buffer_daily_atr
-    return (_number(previous["c"]) > trigger + buffer and abs(low-trigger) <= buffer
-            and close > trigger and price > _number(row["vwap"]))
+    return _breakout_retest(latest, previous, price, row["vwap"], trigger, buffer)
 
 
 def review_add(candidate, prices):

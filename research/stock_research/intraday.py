@@ -9,6 +9,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import localcontext
 from queue import Empty, Full, PriorityQueue
 from threading import Event, Thread
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +20,7 @@ from .config import settings
 from .notification_cards import _price
 from .notification_probe import _write
 from .store import ManualPosition, PositionPlan, Session, digest, now, stamp
+from .workspace import day_move
 
 logger = logging.getLogger(__name__)
 BEIJING = ZoneInfo("Asia/Shanghai")
@@ -26,9 +28,14 @@ NEW_YORK = ZoneInfo("America/New_York")
 FOLDER = "intraday-notifications"
 BENCHMARKS = rules.BENCHMARKS
 D = risk.D
-PRIORITY = {"stop":0, "scale":1, "reduce":2, "market":3, "watch":4, "add":5}
+PRIORITY = {"stop":0, "scale":1, "reduce":2, "profit":3, "market":4, "watch":5,
+            "add":6, "breakout":7, "reclaim":8}
 LABELS = {"stop":"止损复核", "scale":"报价尺度待复核", "reduce":"减仓复核",
-          "market":"大盘同步走弱", "watch":"关键位失守预警", "add":"加仓复核"}
+          "market":"大盘同步走弱", "watch":"关键位失守预警", "add":"加仓复核",
+          "profit":"止盈复核", "breakout":"突破回踩确认", "reclaim":"支撑收回"}
+STRUCTURE_NOTES = {"profit":"触及登记止盈价后回落，收线与现价均低于压力区。",
+                   "breakout":"突破后回踩守住关键位，现价在 VWAP 上方。",
+                   "reclaim":"回踩关键位后收回，已完成 K 线与现价均在缓冲上方。"}
 
 
 class Policy(BaseModel):
@@ -39,6 +46,7 @@ class Policy(BaseModel):
     quote_max_age_seconds: int = Field(25, ge=10, le=90)
     buffer_daily_atr: D = Field(D("0.10"), gt=0, le=1)
     scale_review_fraction: D = Field(D("0.35"), gt=0, lt=1)
+    take_profit_targets: dict[str, Annotated[D, Field(gt=0)]] = Field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -236,6 +244,7 @@ class Monitor:
         reload_at, restart_at, processed = now(), now(), None
         while not self._stop.is_set():
             current = now()
+            session_status = {}
             try:
                 eastern_day = current.astimezone(NEW_YORK).date()
                 if eastern_day != day:
@@ -251,14 +260,16 @@ class Monitor:
                         self._disconnect()
                     self._view = {"state":"等待美股常规开盘","items":{}}
                 else:
+                    session_status = {"session":trading.day.isoformat(), "items":{},
+                                      "push_active":settings.intraday_feishu_enabled and current < trading.cutoff}
                     if self._process and (self._process.poll() is not None or subscribed != symbols):
                         self._disconnect()
                         restart_at = current + timedelta(seconds=3)
-                        self._view = {"state":"正在重新订阅 Alpaca 行情","items":{}}
+                        self._view = {**session_status, "state":"正在重新订阅 Alpaca 行情"}
                     if not self._process and current >= restart_at:
                         self._launch(trading, symbols, policy)
                         subscribed, processed = symbols, None
-                        self._view = {"state":"正在连接 Alpaca","items":{}}
+                        self._view = {**session_status, "state":"正在连接 Alpaca"}
                     raw = self._raw
                     if raw and raw[0] is self._process and raw[1]["at"] != processed:
                         processed = raw[1]["at"]
@@ -267,7 +278,7 @@ class Monitor:
                 # 行情线程异常不能影响盘后后台，也不能继续使用旧快照发送。
                 logger.exception("盘中监控处理失败")
                 self._disconnect()
-                self._view = {"state":"盘中监控暂不可用，等待重连","items":{}}
+                self._view = {"items":{}, **session_status, "state":"盘中监控暂不可用，等待重连"}
                 reload_at = restart_at = now() + timedelta(seconds=20)
                 if self._stop.wait(5):
                     break
@@ -280,20 +291,21 @@ class Monitor:
         live = frame["symbols"]
         mode = rules.market_mode(frame, refs, stable_prices) if frame["backfill"] else "待确认"
         items = {}
-        values = {}
+        values, day_changes = {}, []
         total_cost = D(0)
         for code, position in positions.items():
             if code not in prices:
                 continue
             price = prices[code]
             last, tape = live[code]["last"], live[code]
-            value = D(position.quantity) * price
-            basis = D(position.quantity) * D(position.average_cost)
+            quantity = D(position.quantity)
+            value = quantity * price
+            basis = quantity * D(position.average_cost)
             change = value - basis
             if code not in scale:
                 values[code] = value
                 total_cost += basis
-            items[code] = {"version":position.version,"price":str(price),"at":last["at"],
+            item = {"version":position.version,"price":str(price),"at":last["at"],
                            "market_value":risk.cash(value) if code not in scale else None,
                            "pnl":risk.cash(change) if code not in scale else None,
                            "unrealized_return":str(change / basis) if code not in scale else None,
@@ -302,12 +314,20 @@ class Monitor:
                            "support":list(map(str,refs[code]["support"])) if refs[code]["support"] else None,
                            "resistance":list(map(str,refs[code]["resistance"])) if refs[code]["resistance"] else None,
                            "trend":refs[code]["trend"],"scale_review":code in scale}
+            previous = refs[code]["previous_close"]
+            if code not in scale and previous is not None:
+                day_pnl, day_return = day_move(price, previous, quantity)
+                day_changes.append(day_pnl)
+                item.update(day_pnl=str(day_pnl),day_return=str(day_return))
+            items[code] = item
         total = None
         if positions and len(values) == len(positions):
             market_value = sum(values.values())
             pnl = market_value - total_cost
             total = {"market_value":risk.cash(market_value), "pnl":risk.cash(pnl),
                      "unrealized_return":str(pnl / total_cost)}
+            if len(day_changes) == len(positions):
+                total["day_pnl"] = str(sum(day_changes))
             for code, value in values.items():
                 items[code]["weight"] = str(value / market_value)
         view = {"at":frame["at"],"state":"IEX 行情已连接" if frame["ready"] else frame["state"],"items":items,
@@ -346,12 +366,22 @@ class Monitor:
                 continue
             broken = rules.break_state(row, ref, price, policy)
             if broken:
-                confirmed, name, level = broken
+                confirmed, levels, (name, level) = broken
                 kind = "reduce" if confirmed else "watch"
                 note = ("连续两根完整 K 线收在破位缓冲下方" if confirmed else "盘中价已越过缓冲，等待完整 K 线确认")
-                events.append(_event(kind, code, f"{name} {_price(level)} USD · {note}\n"+_risk_text(row, code, refs, prices, mode),
+                anchors = " / ".join(f"{label} {_price(value)}" for label, value in levels)
+                events.append(_event(kind, code, f"{anchors} USD · {note}\n"+_risk_text(row, code, refs, prices, mode),
                                      f"{name}:{level}", **meta))
                 continue
+            profit_target = policy.take_profit_targets.get(code) if price > D(position.average_cost) else None
+            structure = rules.structure_state(row, ref, price, policy, profit_target)
+            if structure and datetime.fromisoformat(row["latest"]["t"]) >= updated:
+                kind, levels, (name, level) = structure
+                anchors = " / ".join(f"{label} {_price(value)}" for label, value in levels)
+                events.append(_event(kind, code, f"{anchors} USD · {STRUCTURE_NOTES[kind]}\n"+
+                                     _risk_text(row, code, refs, prices, mode), f"{name}:{level}", **meta))
+                if kind == "profit":
+                    continue
             plan = plans.get(code)
             if plan:
                 for stage in plan.payload["stages"]:

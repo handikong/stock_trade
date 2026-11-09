@@ -4,5 +4,6 @@
   "confirmation_minutes": 5,
   "quote_max_age_seconds": 25,
   "buffer_daily_atr": 0.10,
-  "scale_review_fraction": 0.35
+  "scale_review_fraction": 0.35,
+  "take_profit_targets": {}
 }

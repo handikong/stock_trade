@@ -5,6 +5,42 @@ export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,no
   const views = {}, reads = {US:0,CN:0};
   const dialog = $('#equity-history');
   let region = 'US', period = 'month', request = 0, points = [];
+  let intradayUS = null;
+
+  function renderDaily(market) {
+    const card = $(panels[market]).querySelector('.equity-day');
+    if (!card) return;
+    const view = views[market], saved = view.latest;
+    const settled = saved?.session === view.target_session ? saved : null;
+    const live = market === 'US' ? intradayUS : null;
+    const daily = live ? live.pnl : settled?.daily_pnl;
+    const label = live ? '盘中持仓盈亏' : '当日盈亏';
+    let note;
+    if (live) {
+      note = daily != null ? `${live.session} · 相对前收 · 按当前股数估算`
+        : live.count ? '等待全部持仓的有效盘中价与前收' : '暂无持仓';
+    } else if (daily != null) {
+      const basis = view.estimate != null && !view.estimate_is_saved ? '上次保存' : '扣除外部净入金';
+      note = `${settled.session} · ${basis}`;
+    } else {
+      note = settled ? '需要相邻两日净值和净入金记录' : '等待最近收盘净值保存';
+    }
+    const amount = daily != null ? `${view.currency} ${signed(daily)}` : '—';
+    const value = card.querySelector('strong');
+    if (value.textContent !== amount) value.textContent = amount;
+    value.className = tone(daily);
+    const heading = card.querySelector('[data-day-label]');
+    if (heading.textContent !== label) heading.textContent = label;
+    const detail = card.querySelector('.subline');
+    if (detail.textContent !== note) detail.textContent = note;
+  }
+
+  function setIntraday(view) {
+    const ended = intradayUS && !view;
+    intradayUS = view;
+    renderDaily('US');
+    if (ended) void load('US');
+  }
 
   async function load(market) {
     const ticket = ++reads[market];
@@ -16,16 +52,14 @@ export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,no
       const estimate = view.estimate ?? saved?.equity;
       const mark = view.estimate != null ? view.target_session : saved?.session;
       const unsaved = view.estimate != null && !view.estimate_is_saved;
-      const daily = saved?.session === view.target_session ? saved?.daily_pnl : null;
-      const pnlNote = daily != null ? `${saved.session} · ${unsaved ? '上次保存' : '扣除外部净入金'}`
-        : saved?.session === view.target_session ? '需要相邻两日净值和净入金记录' : '等待最近收盘净值保存';
       let note = !view.cash ? '请先填写账户现金' : mark ? `${mark}${unsaved ? ' · 待保存' : ' · 收盘估算'}` : '等待有效收盘报价';
       if (view.missing.length) note = `${mark ? mark + ' · ' : ''}${view.missing.length} 只持仓待补收盘价`;
       $(panels[market]).innerHTML = `<button type="button" class="equity-history-trigger" data-equity-history="${market}">
         <span>账户估算净值</span><strong>${estimate != null ? `${view.currency} ${num(estimate)}` : '—'}</strong>
         <span class="equity-card-meta"><span>${esc(note)}</span><span class="equity-link">查看走势 <span aria-hidden="true">↗</span></span></span>
-      </button><div class="equity-day"><span>当日盈亏</span><strong class="${tone(daily)}">${daily != null ? `${view.currency} ${signed(daily)}` : '—'}</strong>
-        <span class="subline">${esc(pnlNote)}</span></div>`;
+      </button><div class="equity-day"${market === 'US' ? ' aria-live="off"' : ''}><span data-day-label></span><strong></strong>
+        <span class="subline"></span></div>`;
+      renderDaily(market);
       if (market === 'CN') {
         const button = $('#cn-equity-cash-open');
         button.disabled = false;
@@ -164,5 +198,5 @@ export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,no
       } catch (error) { formError('#cn-equity-cash-error',error.message); }
     });
   });
-  return {load};
+  return {load,setIntraday};
 }

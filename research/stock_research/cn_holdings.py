@@ -27,7 +27,7 @@ def holdings():
         for row in rows:
             security = securities.get(row.symbol)
             items.append({**_view(row),"name":row.name or (security.profile.get("name") if security else "") or row.symbol,
-                          "quote":quote(session,security,"CN")})
+                          "quote":quote(session,security,"CN",daily_change=True)})
         return summarize_holdings(items,"CN","CNY")
 
 
