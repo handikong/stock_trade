@@ -96,8 +96,8 @@ def _local(cfg):
     return datetime.now(timezone.utc).astimezone(ZoneInfo(cfg.timezone))
 
 
-def _target(cfg):
-    now = _local(cfg)
+def _target(cfg, *, at=None):
+    now = _local(cfg) if at is None else at.astimezone(ZoneInfo(cfg.timezone))
     if not cfg.enabled:
         return now,None,"计划任务已停用"
     if now.date().isoformat()<cfg.start_date:
@@ -106,7 +106,7 @@ def _target(cfg):
         return now,None,"等待行情更新时点"
     if now.strftime("%H:%M")>=cfg.catch_up_until:
         return now,None,"已过当日补跑截止时间，不追发历史买点"
-    cal, target = market.calendar_context()
+    cal, target = market.calendar_context(at=at)
     # 按实际收盘落在北京时间哪一天判断，不能按中国周一至周五硬切。
     closed = cal.session_close(target).tz_convert(cfg.timezone)
     if closed.date()!=now.date():
@@ -465,7 +465,9 @@ def _signals(job, result):
             else:
                 result["warnings"].append({"symbol":symbol,"message":"缺少目标日完整有效缓存或已移出关注列表，跳过买点推送"})
         if not eligible:
-            return {**result,"status":"partial","message":"没有可用的当日完整K线，本次未扫描或发送"}
+            message = "没有可用的当日完整 K 线，本次未扫描或发送"
+            return {**result,"status":"partial","message":message,
+                    "notifications":{"status":"NO_VALID_SCAN","message":message}}
         logger.info("盘后计算买点：交易日%s，可用股票%s只；只读缓存，不判断账户金额",job.payload["target_session"],len(eligible))
         scan = watchlist.scan(symbols=eligible,offline=True)
         if scan.get("expected_session")!=job.payload["target_session"]:
@@ -482,12 +484,17 @@ def _signals(job, result):
             result["warnings"].append({"symbol":row["symbol"],"message":(row.get("error") or {}).get("message") or "扫描资料未达到当前有效要求，不推送"})
     for symbol in scan.get("excluded_symbols") or []:
         result["warnings"].append({"symbol":symbol,"message":"扫描前已移出关注列表，跳过"})
-    has_buy = any(row["status"]=="OK" and any(s.get("event_kind")=="BUY" for s in row.get("current_signals",[])) for row in scan["results"])
+    valid = [row for row in scan["results"] if row["status"]=="OK"]
+    has_buy = any(s.get("event_kind")=="BUY" for row in valid for s in row.get("current_signals",[]))
     if not has_buy:
+        message = "当日没有当前有效买点，未发送飞书消息" if valid else "扫描没有有效结果，未发送飞书消息"
         return {**result,"status":"partial" if result["warnings"] else "complete",
-                "message":"当日没有当前有效买点，未发送飞书消息"}
+                "message":message,"notifications":{"status":"NO_BUYS" if valid else "NO_VALID_SCAN","message":message}}
     outcome = notifications.run(scan_id=result["scan_id"],send=True,cached_research=True,buy_only=True,
                                 delivery_guard=lambda: _allowed(job.payload))
+    if not outcome["items"]:
+        outcome["status"] = "NO_CURRENT_EVENTS"
+        outcome["message"] = "买点在投递复核时已失效，未发送"
     result["notifications"] = outcome
     result["warnings"].extend({"message":w} for w in outcome["warnings"])
     for item in outcome["items"]:

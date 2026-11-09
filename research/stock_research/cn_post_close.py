@@ -14,12 +14,12 @@ KINDS = {phase:f"scheduled_cn_{phase}" for phase in ("market","scan","morning","
 LABELS = {"market":"行情更新","scan":"盘前扫描","morning":"盘前飞书与复盘","weekly":"大盘周报","valuation":"每周估值"}
 
 
-def current_window(cfg):
-    local = datetime.now(timezone.utc).astimezone(cn_sources.BEIJING)
+def current_window(cfg, *, at=None):
+    local = (datetime.now(timezone.utc) if at is None else at).astimezone(cn_sources.BEIJING)
     day, clock = local.date().isoformat(), local.strftime("%H:%M")
     if not cfg.enabled or not cfg.cn_enabled or day<cfg.start_date:
         return day,None,()
-    calendar,target = market.calendar_context("CN")
+    calendar,target = market.calendar_context("CN",at=at)
     trading = local.weekday()<5 and local.date()<=calendar.last_session.date() and calendar.is_session(day)
     phases = []
     if trading:
@@ -132,7 +132,7 @@ def _scan(job, result, allowed, checkpoint):
     checkpoint(job.id,result,95,"A 股扫描与有效买点已保存")
 
 
-def _send_report(job, result, card, category, part, guard, checkpoint):
+def _send_report(job, result, card, category, part, blocked, checkpoint):
     from . import feishu
     key = f"{category}:{part}"
     deliveries = result.setdefault("deliveries",{})
@@ -142,14 +142,21 @@ def _send_report(job, result, card, category, part, guard, checkpoint):
             existing.update(status="UNKNOWN",message="上次投递中断，请核对飞书群")
             checkpoint(job.id,result,95,"A 股报告投递状态已恢复")
         return
-    if not guard():
+    if skip:=blocked():
+        status, message = skip
+        result.setdefault("delivery_notes",{})[key] = {"status":status,"message":message}
         return
+    guard = lambda: blocked() is None
     delivery = {"category":category,"card":card,"status":"SENDING","started_at":stamp()}
     deliveries[key] = delivery
     checkpoint(job.id,result,95,"A 股报告等待飞书确认")
     try:
         accepted = feishu.send(card,allowed=guard)
-        delivery["status"] = "SENT" if accepted else "SKIPPED"
+        if accepted:
+            delivery["status"] = "SENT"
+        else:
+            status, message = blocked() or ("SKIPPED_WINDOW","发送前未通过计划任务复核")
+            delivery.update(status=status,message=message)
     except (ValueError,feishu.DeliveryFailure) as exc:
         delivery.update(status=getattr(exc,"status","FAILED"),message=str(exc))
         result["warnings"].append({"message":str(exc)})
@@ -209,35 +216,55 @@ def _morning(job, result, allowed, checkpoint):
                         result["warnings"].append({"symbol":item["symbol"],"message":item.get("error") or item["status"]})
                 sent = sum(item["status"]=="SENT" for item in outcome["items"])
                 already = sum(item["status"]=="SKIPPED_SENT" for item in outcome["items"])
-                result["notifications"] = {**outcome,"status":"PROCESSED",
-                                           "message":f"买点飞书新发 {sent} 条，已送达去重 {already} 条"}
+                result["notifications"] = {**outcome,"status":"PROCESSED" if outcome["items"] else "NO_CURRENT_EVENTS",
+                    "message":f"买点飞书新发 {sent} 条，已送达去重 {already} 条" if outcome["items"] else "买点在投递复核时已失效，未发送"}
             except ValueError as exc:
                 result["warnings"].append({"message":str(exc)})
                 result["notifications"] = {"status":"FAILED","items":[],"message":str(exc)}
         checkpoint(job.id,result,55,"A 股买点处理已保存")
-    if policy().holdings_brief_enabled and allowed():
+    elif result.get("notifications") is None:
+        result["notifications"] = {"status":"SKIPPED_WINDOW","message":"A 股买点发送窗口已结束或任务已停用"}
+    notes = result.setdefault("delivery_notes",{})
+    cfg = policy()
+    if cfg.holdings_brief_enabled and allowed():
         if "holdings_report" not in result:
             result["holdings_report"] = cn_briefs.holdings_report(day,target,scan)
             checkpoint(job.id,result,65,"A 股持仓复盘已保存")
         report = result["holdings_report"]
-        def holdings_guard():
-            if not allowed() or not policy().holdings_brief_enabled or not policy().holdings_brief_feishu_enabled:
-                return False
+        def holdings_blocked():
+            current = policy()
+            if not current.holdings_brief_enabled or not current.holdings_brief_feishu_enabled:
+                return "DISABLED","持仓复盘飞书已关闭，仅保存本地复盘"
+            if not allowed():
+                return "SKIPPED_WINDOW","A 股盘前发送窗口结束或任务停用"
             with Session() as session:
-                return [(row.symbol,row.version) for row in cn_holdings.positions(session)]==[
-                    (row["symbol"],row["version"]) for row in report["items"]]
+                if [(row.symbol,row.version) for row in cn_holdings.positions(session)] != [
+                    (row["symbol"],row["version"]) for row in report["items"]]:
+                    return "SKIPPED_CHANGED","持仓或版本已变化，未发送旧复盘"
+        if not report["items"]:
+            notes["holdings"] = {"status":"NO_HOLDINGS","message":"没有登记 A 股持仓"}
         for part,card in enumerate(cn_briefs.holdings_cards(report),1):
-            _send_report(job,result,card,"holdings",part,holdings_guard,checkpoint)
-    if policy().market_brief_enabled and allowed():
+            _send_report(job,result,card,"holdings",part,holdings_blocked,checkpoint)
+    else:
+        notes["holdings"] = {"status":"DISABLED" if not cfg.holdings_brief_enabled else "SKIPPED_WINDOW"}
+    if cfg.market_brief_enabled and allowed():
         report_type = "monday" if datetime.fromisoformat(day).weekday()==0 else "daily"
         report = _market_report(job,result,allowed,checkpoint,report_type)
+        def market_blocked():
+            current = policy()
+            push = current.cn_market_brief_feishu_enabled
+            if not current.market_brief_enabled or not (current.market_brief_feishu_enabled if push is None else push):
+                return "DISABLED","A 股大盘飞书已关闭，仅保存本地简报"
+            if not allowed():
+                return "SKIPPED_WINDOW","A 股盘前发送窗口结束或任务停用"
         if report and report["benchmarks"]:
-            def market_guard():
-                cfg = policy()
-                push = cfg.cn_market_brief_feishu_enabled
-                return allowed() and cfg.market_brief_enabled and (cfg.market_brief_feishu_enabled if push is None else push)
             _send_report(job,result,market_brief._card(report),"market",1,
-                         market_guard,checkpoint)
+                         market_blocked,checkpoint)
+        else:
+            status, message = market_blocked() or ("NO_DATA","缺少有效 A 股大盘基准行情，未发简报")
+            notes["market"] = {"status":status,"message":message}
+    else:
+        notes["market"] = {"status":"DISABLED" if not cfg.market_brief_enabled else "SKIPPED_WINDOW"}
 
 
 def run(job, *, policy, checkpoint):

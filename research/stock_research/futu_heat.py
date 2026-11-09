@@ -180,8 +180,10 @@ def send_notice(report, *, allowed):
     with watchlist.write_lock(), Session() as db:
         row = db.get(WatchlistState,_day_id(day))
         report = row.seed
-        if report["delivery"]["status"] != "PENDING" or not allowed():
+        if report["delivery"]["status"] != "PENDING":
             return report
+        if not allowed():
+            return {**report,"delivery":{"status":"SKIPPED_WINDOW","message":"富途热榜投递窗口已结束或任务已停用"}}
         report = {**report,"delivery":{"status":"SENDING","started_at":stamp()}}
         row.seed = report
         db.commit()

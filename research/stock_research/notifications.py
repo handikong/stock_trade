@@ -181,7 +181,7 @@ def run(*, symbol=None, scan_id=None, refresh=False, send=False, cached_research
                 previous = session.get(SignalDelivery, key) if destination_key else None
                 if send and not _allowed(previous, retry_failed, retry_unknown):
                     results.append({"id": key, "symbol": item["symbol"], "kind": item["kind"],
-                                    "status": "SKIPPED_" + previous.status})
+                                    "status": "SKIPPED_" + previous.status,"error":previous.last_error})
                     continue
             if handled >= settings.feishu_max_messages_per_run:
                 results.append({"symbol": item["symbol"], "kind": item["kind"], "status": "DEFERRED_LIMIT"})

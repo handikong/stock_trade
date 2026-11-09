@@ -1,6 +1,6 @@
 """盘后任务状态入口；不自行启动服务，也不借状态查询触发抓取或群消息。"""
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 from .cli import ChineseParser, configure_console_logging, dump
 from .console_tables import table
@@ -11,11 +11,11 @@ logger=logging.getLogger(__name__)
 def main(argv=None):
     parser = ChineseParser(description="查看系统内每日盘后任务；实际执行依赖单进程后台服务常驻。",add_help=False)
     parser.add_argument("-h","--help",action="help",help="查看中文说明")
-    parser.add_argument("action",choices=("status","tick","leaders","fetch-leaders","market-brief","holdings-brief"),nargs="?",default="status",
-        help="status查看计划；leaders查看榜单；fetch-leaders立即取榜；market-brief大盘报告；holdings-brief持仓复盘；tick只入队")
+    parser.add_argument("action",choices=("status","plan","tick","leaders","fetch-leaders","market-brief","holdings-brief"),nargs="?",default="status",
+        help="status查看计划状态；plan查看指定日的飞书清单；leaders查看榜单；fetch-leaders立即取榜；market-brief大盘报告；holdings-brief持仓复盘；tick只入队")
     parser.add_argument("--json",action="store_true",help="输出完整状态JSON，不含凭据")
     parser.add_argument("--date", metavar="YYYY-MM-DD",
-        help="榜单用美东交易日，大盘报告及持仓复盘用北京时间日期")
+        help="榜单用美东交易日，飞书清单和复盘用北京时间日期；plan 默认明天")
     parser.add_argument("--report",choices=("daily","monday","weekly"),help="仅筛选大盘报告类型，默认展示最新一份")
     parser.add_argument("--preview",action="store_true",help="即时预览；大盘可能更新行情并调用模型，持仓只读缓存")
     args = parser.parse_args(argv)
@@ -24,8 +24,8 @@ def main(argv=None):
     if args.preview and (args.action not in ("market-brief","holdings-brief") or args.report or args.date):
         parser.error("--preview 只适用于即时大盘报告或持仓复盘，请去掉 --date 和 --report")
     if args.date is not None:
-        if args.action not in ("leaders","fetch-leaders","market-brief","holdings-brief"):
-            parser.error("--date 只适用于榜单、大盘报告或持仓复盘")
+        if args.action not in ("plan","leaders","fetch-leaders","market-brief","holdings-brief"):
+            parser.error("--date 只适用于飞书清单、榜单、大盘报告或持仓复盘")
         try:
             if date.fromisoformat(args.date).isoformat() != args.date:
                 raise ValueError
@@ -89,7 +89,23 @@ def main(argv=None):
                       str(r["appearances"]),labels[r["action"]]] for r in report["rows"]]))
             return 1 if args.date and report is None else 0
         from . import post_close
-        if args.action=="tick":
+        if args.action=="plan":
+            from . import scheduled_delivery as audit
+            from .store import now
+            current = now().astimezone(audit.BEIJING)
+            day = date.fromisoformat(args.date) if args.date else current.date()+timedelta(days=1)
+            rows = audit.inspect_plan(audit.plan(day,post_close.policy()),current=current)
+            if args.json:
+                print(dump({"date":day.isoformat(),"timezone":"Asia/Shanghai","items":[
+                    {**row,"start":row["start"].isoformat(),"end":row["end"].isoformat()} for row in rows]}))
+            elif rows:
+                print(f"计划飞书 · {day}（北京时间）")
+                print(table(["开始","截止","任务","子项","状态","原因"], [
+                    [row["start"].strftime("%H:%M"),row["end"].strftime("%H:%M"),row["name"],
+                     item["item"] or "—",item["status"],item["reason"]] for row in rows for item in row["details"]]))
+            else:
+                print(f"{day}（北京时间）没有安排定时飞书任务。")
+        elif args.action=="tick":
             from .store import initialize
             initialize()
             value=post_close.enqueue_due()

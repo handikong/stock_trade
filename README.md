@@ -121,6 +121,7 @@ bash update.sh
 
 # 查看计划任务和最新大盘简报
 .venv/bin/python -m stock_research.schedule_cli status
+.venv/bin/python -m stock_research.schedule_cli plan
 .venv/bin/python -m stock_research.schedule_cli market-brief
 
 # 预览测试卡；第二条实际发送一条测试消息

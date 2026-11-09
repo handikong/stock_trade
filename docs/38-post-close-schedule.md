@@ -93,6 +93,16 @@ Linux 服务器可用 [`bash deploy.sh`](41-linux-deploy.md) 拉取、安装、�
 .venv/bin/python -m stock_research.schedule_cli status --json
 ```
 
+`plan` 按北京时间日期列出定时飞书的起止时间、发送条件和已有投递结果，默认查看明天。查询只读配置、交易日历和任务记录。要核对指定日，用 `plan --date YYYY-MM-DD`，需要结构化结果可加 `--json`。
+
+```bash
+.venv/bin/python -m stock_research.schedule_cli plan
+.venv/bin/python -m stock_research.schedule_cli plan --date 2026-11-10
+grep -E '\[计划(清单|任务|推送)\].*日期=2026-11-10' data/deploy/worker.log
+```
+
+服务器日志用 `[计划清单]` 记录当日窗口和开关，`[计划任务]` 记录任务开始和处理结果，`[计划推送]` 单列群机器人接收情况。多条策略或多张持仓卡片逐条记录，A 股盘前任务拆分成买点、持仓复盘和大盘简报。`SENT` 代表机器人确认接收，`FAILED` 代表发送失败，`UNKNOWN` 需要核对群消息。无买点、无新增、无持仓、开关关闭以及发送前资料变化分别记录。后台到截止时发现未入队标为 `MISSED`，仍排队或执行中的标为 `WINDOW_ELAPSED`。服务器停机期间无法写日志，可用日期清单检查缺失的任务。
+
 status只读配置及已有Job，不创建不存在的SQLite库，不启动Worker、不触发抓取/投递。JSON含每轮警告，配置enabled不表示进程确实存活。也可读取同源鉴权接口GET `/api/v1/schedule`，返回一样的状态。
 
 提供`tick`给用户需要时按真实当前时间手动入队：

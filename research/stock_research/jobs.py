@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from . import account_equity, analysis, cn_post_close, market_caps
 from .config import settings
 from .service import refresh_sources
-from .store import Job, Session, stamp, uid
+from .store import Job, Session, now, stamp, uid
 
 SCHEDULED_KINDS = ("scheduled_futu_heat","scheduled_market","scheduled_signals","scheduled_valuation",
                    "scheduled_market_brief","scheduled_holdings_brief","scheduled_cn_heat",
@@ -102,6 +102,9 @@ class Worker:
         self.leader=None
         self.next_schedule_tick=0.0
         self.last_schedule_message=None
+        self.delivery_plan_key=None
+        self.delivery_plan=[]
+        self.checked_delivery_windows=set()
 
     def start(self):
         settings.storage.mkdir(parents=True,exist_ok=True)
@@ -141,6 +144,7 @@ class Worker:
             from . import post_close
             cfg=post_close.policy()
             self.next_schedule_tick=time.monotonic()+cfg.poll_seconds
+            self._audit_delivery_schedule(cfg)
             result=post_close.enqueue_due()
             label=(result["local_date"],result["message"])
             if label!=self.last_schedule_message:
@@ -150,6 +154,30 @@ class Worker:
             if self.last_schedule_message!="schedule-error":
                 logger.warning("盘后计划检查未完成，请核对计划配置、交易日历及数据库；不发起消息")
                 self.last_schedule_message="schedule-error"
+
+    def _audit_delivery_schedule(self,cfg):
+        from . import scheduled_delivery as audit
+        current=now().astimezone(audit.BEIJING)
+        key=(current.date(),cfg.model_dump_json())
+        try:
+            if key!=self.delivery_plan_key:
+                self.delivery_plan=audit.plan(current.date(),cfg)
+                self.checked_delivery_windows.clear()
+                for row in self.delivery_plan:
+                    logger.info("[计划清单] 日期=%s 时间=%s 截止=%s 任务=%s 发送=%s 条件=%s",
+                                current.date(),row["start"].strftime("%H:%M"),row["end"].strftime("%H:%M"),row["name"],
+                                "条件满足时发送" if row["enabled"] else "已关闭",row["condition"])
+                self.delivery_plan_key=key
+            expired=[row for row in self.delivery_plan if row["enabled"] and current>=row["end"]
+                     and (row["job_id"],row["channel"]) not in self.checked_delivery_windows]
+            for row in audit.inspect_plan(expired,current=current):
+                item=row["details"][0]
+                if item["status"] in ("MISSED","WINDOW_ELAPSED"):
+                    logger.warning("[计划推送] 日期=%s 任务=%s 编号=%s 状态=%s 原因=%s",
+                                   current.date(),row["name"],row["job_id"],item["status"],item["reason"])
+                self.checked_delivery_windows.add((row["job_id"],row["channel"]))
+        except Exception as exc:
+            logger.warning("[计划清单] 日期=%s 读取失败 · %s",current.date(),type(exc).__name__)
 
     def _loop(self):
         while not self.stop.is_set():
@@ -166,15 +194,22 @@ class Worker:
                 if not job:
                     self.stop.wait(1)
                     continue
+                if job.kind in SCHEDULED_KINDS:
+                    logger.info("[计划任务] 日期=%s 任务=%s 编号=%s 交易日=%s 状态=STARTED",
+                                job.payload.get("local_date"),job.kind,job.id,job.payload.get("target_session"))
                 try:
                     result=run(job)
                     status="failed" if result.get("status")=="expired" else "completed"
                     message=result.get("message") or (result["skipped"] if result.get("status")=="disabled" else "处理完成，部分资料可能仍需补充" if result.get("warnings") else "处理完成")
                 except ValueError as exc:
                     result={};status="failed";message=str(exc)
-                except Exception:
+                except Exception as exc:
                     logger.warning("研究任务未完成：%s",job.kind)
                     result={};status="failed";message="处理未完成，原缓存与已保存材料保留，请核对资料和配置后重试"
+                    if job.kind in SCHEDULED_KINDS:
+                        from .providers import failure_detail
+                        detail=failure_detail(exc)
+                        message=f"{detail['message']}（{detail['error_type']}）"
                 with Session() as session:
                     item=session.get(Job,job.id)
                     if status=="failed" and not result and job.kind in SCHEDULED_KINDS:
@@ -182,7 +217,11 @@ class Worker:
                     item.status=status;item.message=message;item.result=result;item.progress=100
                     item.active_key=None;item.updated_at=stamp()
                     session.commit()
-                logger.info("后台任务%s · %s：%s",job.kind,status,message)
+                if job.kind in SCHEDULED_KINDS:
+                    from . import scheduled_delivery as audit
+                    audit.log_outcomes(job,result,status,message)
+                else:
+                    logger.info("后台任务%s · %s：%s",job.kind,status,message)
             except Exception:
                 logger.warning("任务队列暂不可用，等待下一次尝试")
                 self.stop.wait(3)

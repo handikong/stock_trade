@@ -38,8 +38,8 @@ def clean(value):
         return str(value)
 
 
-def calendar_context(region="US"):
-    current=pd.Timestamp.now(tz="UTC")
+def calendar_context(region="US", *, at=None):
+    current=pd.Timestamp.now(tz="UTC") if at is None else pd.Timestamp(at).tz_convert("UTC")
     if region == "CN":
         today = current.tz_convert("Asia/Shanghai").date()
         # 沪深股票常规收盘及休市使用上交所日历。超出已公布年份时不按工作日猜测。

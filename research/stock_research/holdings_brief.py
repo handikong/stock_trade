@@ -352,7 +352,13 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
     warnings = [*report["warnings"],*({"message":p["message"]} for p in delivery if p.get("message"))]
     partial = warnings or any(r["action"]=="unknown" for r in report["items"])
     sent = sum(p["status"]=="已发送" for p in delivery)
-    result.update(warnings=warnings,status="partial" if partial else "complete",
+    delivery_status = (None if delivery else "NO_HOLDINGS" if not report["items"] else
+                       "DISABLED" if not delivery_enabled() else "SKIPPED_WINDOW")
+    remaining = (len(report["items"])+BATCH_SIZE-1)//BATCH_SIZE-len(delivery)
+    if delivery and remaining>0:
+        stopped = "上一张卡片未确认接收" if delivery[-1]["status"]!="已发送" else "投递已关闭或窗口结束"
+        result["remaining_delivery"] = {"status":"NOT_ATTEMPTED","message":f"{stopped}，其余 {remaining} 张未发"}
+    result.update(warnings=warnings,status="partial" if partial else "complete",delivery_status=delivery_status,
                   message=f"持仓复盘已保存 · {len(report['items'])}只 · 已发送飞书 {sent} 张")
     return result
 
