@@ -22,14 +22,22 @@
 
 ## 查看和部署
 
+飞书采用单列卡片。标题用颜色和文字区分强弱，副标题标明收盘与下一交易日。首段显示方向及操作观察条件，每个基准单独列收盘涨跌、最近支撑下沿、压力上沿和 EMA20。量能异常、偏高的 VIX、最近一条日程和可简短展示的 DeepSeek 解读才进入卡片。完整结构事件、新闻、来源和诊断仍可用终端查看。 [飞书自定义机器人卡片](https://open.feishu.cn/document/feishu-cards/quick-start/send-message-cards-with-custom-bot)
+
 ```bash
 bash update.sh
 .venv/bin/python -m stock_research.schedule_cli market-brief
 .venv/bin/python -m stock_research.schedule_cli market-brief --report weekly
 .venv/bin/python -m stock_research.schedule_cli market-brief --date 2026-11-07 --json
+# 读取最近归档并预览新版卡片，可再加 --json 查看卡片结构
+.venv/bin/python -m stock_research.schedule_cli market-brief --card
+# 用服务配置做只读鉴权检查，不生成模型内容或发飞书
+.venv/bin/python -m stock_research.schedule_cli deepseek-check
 # 即时预览，可联网补基准行情、读取官方来源并调用模型；不发送或写正式简报档案
 .venv/bin/python -m stock_research.schedule_cli market-brief --preview
 ```
+
+HTTP 401 表示该 API 地址拒绝鉴权。核对服务器项目 `.env` 的 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_BASE_URL`，也可用检查命令查看是否被进程环境变量覆盖。官方地址使用 `https://api.deepseek.com`。检查命令对官方地址读取余额可用状态，对自定义网关读取模型列表，只显示状态和主机。简报的 HTTP 错误写入后台日志及本地档案，飞书卡继续显示程序研判。 [DeepSeek 错误码](https://api-docs.deepseek.com/quick_start/error_codes/) · [余额接口](https://api-docs.deepseek.com/api/get-user-balance/)
 
 报告开关与时间位于 `config/post-close-schedule.json`（`market_brief_enabled`、`market_brief_time`、`market_brief_until`）。仓库配置默认发送美股大盘飞书，使用自定义 `POST_CLOSE_SCHEDULE_FILE` 的服务器在实际配置中设置 `market_brief_feishu_enabled: true`。周一开盘计划使用最近一次美股收盘，按北京时间独立于美股策略扫描。当天已归档且没有投递尝试的报告，可以在 12:00 前开启开关后沿用原报告发送。服务器密钥保存在 `.env`。
 
@@ -41,3 +49,4 @@ bash update.sh
 - MB04 已发布新闻和未来事件带来源与时间；数据源不可用时有提示。
 - MB05 模型只用已有证据，超时或格式异常仍显示程序结论；保存报告只读查询。
 - MB06 同一天重启沿用原报告。打开开关可在当日窗口恢复仅归档的简报，已有投递尝试的报告不自动重发。任务日志区分已接收、失败、仅归档及窗口结束。
+- MB07 用已归档报告预览新版卡片。核对彩色标题、日期、基准分块、关键位和风险提示。DeepSeek 401 的鉴权失败提示见日志及本地报告。

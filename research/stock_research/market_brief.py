@@ -2,7 +2,9 @@
 from datetime import date, datetime, time, timedelta
 import json
 import logging
+import os
 import re
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
@@ -109,24 +111,79 @@ def _evidence(payload, allowed):
     return report
 
 
+def _deepseek_url():
+    base = settings.deepseek_base_url.strip().rstrip("/")
+    parsed = urlsplit(base)
+    if (parsed.scheme not in ("http","https") or not parsed.hostname or parsed.username is not None
+            or parsed.password is not None or parsed.query or parsed.fragment):
+        raise ValueError("DEEPSEEK_BASE_URL 格式无效，请填写服务根地址")
+    return base,parsed.hostname
+
+
+def _deepseek_failure(code):
+    reasons = {401:("auth_failed","鉴权失败，请核对 DEEPSEEK_API_KEY 是否有效且与 DEEPSEEK_BASE_URL 对应"),
+               402:("insufficient_balance","API 余额不足，请核对开放平台余额"),
+               429:("rate_limited","请求限流，请稍后再试")}
+    category,reason = reasons.get(code,("http_error","请核对接口地址与服务状态"))
+    return {"status":"failed","category":category,"http_status":code,"message":f"DeepSeek HTTP {code} · {reason}"}
+
+
+def check_deepseek():
+    """使用与简报相同的密钥做只读检查，结果中不包含密钥或余额。"""
+    key = settings.deepseek_api_key.get_secret_value().strip()
+    source = "进程环境变量" if any(name.lower()=="deepseek_api_key" for name in os.environ) else "项目 .env"
+    if not key:
+        return {"status":"unconfigured","key_source":source,"message":"未读取到 DEEPSEEK_API_KEY，请核对服务器配置"}
+    if any(ch.isspace() for ch in key):
+        return {"status":"failed","key_source":source,"message":"DEEPSEEK_API_KEY 含空白，请只填写 API Key"}
+    try:
+        base,host = _deepseek_url()
+    except ValueError:
+        return {"status":"failed","message":"DEEPSEEK_BASE_URL 格式无效，请核对服务器项目的 .env"}
+    info = {"host":host,"key_source":source}
+    official = host=="api.deepseek.com" and urlsplit(base).path in ("","/v1")
+    endpoint = base.removesuffix("/v1")+"/user/balance" if official else base+"/models"
+    try:
+        with httpx.Client(timeout=10,trust_env=False,follow_redirects=False) as client:
+            response = client.get(endpoint,headers={"Authorization":"Bearer "+key})
+            if response.status_code!=200:
+                return {**info,**_deepseek_failure(response.status_code)}
+            body = response.json()
+        if isinstance(body,dict) and official and type(body.get("is_available")) is bool:
+            if not body["is_available"]:
+                return {**info,"status":"failed","category":"insufficient_balance","message":"DeepSeek 鉴权通过，API 余额不足"}
+            return {**info,"status":"ready","message":"DeepSeek 鉴权通过，余额可用，未请求模型生成"}
+        if isinstance(body,dict) and not official and isinstance(body.get("data"),list):
+            return {**info,"status":"ready","message":"配置的网关模型列表返回正常，未请求模型生成"}
+    except (httpx.HTTPError,httpx.InvalidURL,ValueError):
+        return {**info,"status":"failed","message":"无法完成 DeepSeek 检查，请核对服务器网络、接口地址和响应格式"}
+    return {**info,"status":"failed","message":"检查接口响应格式异常，请核对 DEEPSEEK_BASE_URL"}
+
+
 def _model(report):
-    key = settings.deepseek_api_key.get_secret_value()
+    key = settings.deepseek_api_key.get_secret_value().strip()
     if not key:
         return {"status":"unconfigured","message":"缺少 DEEPSEEK_API_KEY，显示程序研判"}
+    if any(ch.isspace() for ch in key):
+        return {"status":"failed","category":"invalid_key","message":"DEEPSEEK_API_KEY 含空白，请只填写 API Key"}
+    try:
+        base,_ = _deepseek_url()
+    except ValueError:
+        return {"status":"failed","category":"invalid_endpoint","message":"DEEPSEEK_BASE_URL 格式无效，请核对服务根地址"}
     evidence = {k:report[k] for k in ("report_type","as_of_session","next_session","reused_session","rules",
                                      "benchmarks","assessment","participation","vix","news","events","warnings")}
     cn = report.get("market")=="CN"
     if cn:
         evidence["market"] = "A 股（沪深）"
     with httpx.Client(timeout=45,trust_env=False,follow_redirects=False) as client:
-        response = client.post(settings.deepseek_base_url.rstrip("/")+"/chat/completions",
+        response = client.post(base+"/chat/completions",
                                headers={"Authorization":"Bearer "+key},
                                json={"model":settings.deepseek_model,"thinking":{"type":"disabled"},
                                      "response_format":{"type":"json_object"},"max_tokens":1100,
                                      "messages":[{"role":"system","content":SYSTEM.replace("美股","A 股") if cn else SYSTEM},
                                                  {"role":"user","content":json.dumps(evidence,ensure_ascii=False,separators=(",",":"))}]})
         if response.status_code!=200:
-            return {"status":"failed","message":f"DeepSeek 返回 HTTP {response.status_code}，显示程序研判"}
+            return _deepseek_failure(response.status_code)
         data = response.json()
     choice = data["choices"][0]
     if choice.get("finish_reason")!="stop":
@@ -149,9 +206,13 @@ def _interpret(report):
     if not report["benchmarks"] and not (report["news"] or report["events"]):
         return {"status":"insufficient","message":"行情和事件资料均待补，暂未请求 DeepSeek"}
     try:
-        return _model(report)
-    except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError,AttributeError):
-        return {"status":"failed","message":"DeepSeek 不可用或输出未通过校验，显示程序研判"}
+        result = _model(report)
+    except (httpx.HTTPError,httpx.InvalidURL,ValueError,KeyError,IndexError,TypeError,AttributeError):
+        result = {"status":"failed","message":"DeepSeek 不可用或输出未通过校验"}
+    if result["status"]=="failed":
+        logger.warning("[DeepSeek] %s大盘简报 · 日期=%s · %s · 使用程序研判",
+                       "A 股" if report.get("market")=="CN" else "美股",report["local_date"],result["message"])
+    return result
 
 
 def preview():
@@ -213,11 +274,51 @@ def render(report):
 
 
 def _card(report):
-    from .notification_cards import _text
-    body = "\n".join(_text(line,400) for line in render(report).splitlines()[1:])
-    label = ("A 股" if report.get("market")=="CN" else "") + LABELS[report["report_type"]]
-    return {"schema":"2.0","header":{"template":"blue","title":{"tag":"plain_text","content":label}},
-            "body":{"elements":[{"tag":"markdown","content":body}]}}
+    from .notification_cards import _price, _text
+    assessment = report["assessment"]
+    state = assessment["state"]
+    market_label = "A 股" if report.get("market")=="CN" else "美股"
+    report_type = report["report_type"]
+    title = f"{market_label} · {LABELS[report_type]}"
+    source = "沿用收盘" if report.get("reused_session") else "收盘"
+    subtitle = f"{source} {report['as_of_session']} · 下一交易日 {report['next_session'] or '待确认'}"
+    plan = _text(assessment["plan"].replace("；","。"),110)
+    elements = [{"tag":"markdown","content":f"**大盘{_text(state,24)}**  \n{plan}"}]
+    benchmarks = report["benchmarks"]
+    if benchmarks:
+        elements.append({"tag":"hr"})
+    for symbol,row in benchmarks.items():
+        week = row.get("week") or {}
+        weekly_return = week.get("return_pct") if report_type=="weekly" else None
+        change = f"周 {weekly_return:+.2f}%" if weekly_return is not None else f"日 {row['daily_pct']:+.2f}%"
+        support = (row.get("support") or {}).get("low")
+        resistance = (row.get("resistance") or {}).get("high")
+        context = f"EMA20 {_price((row.get('ema') or {}).get('EMA20'))}"
+        if row.get("volume_ratio") is not None and row.get("volume_state") in ("放量","缩量"):
+            context += f" · {row['volume_state']} {row['volume_ratio']:.2f}×"
+        lines = [f"**{_text(symbol,20)}**  {_price(row['close'])}（{change}） · {_text(row['trend'],12)}",
+                 f"支撑下沿 **{_price(support)}** · 压力上沿 **{_price(resistance)}**",context]
+        elements.append({"tag":"markdown","content":"  \n".join(lines)})
+
+    notes = []
+    if (vix:=report.get("vix")) and vix.get("elevated"):
+        notes.append(f"**波动偏高** · VIX {_price(vix['close'])}")
+    if events:=report.get("events"):
+        event = events[0]
+        when = (event["beijing_time"][5:16].replace("T"," ")+" 北京时间" if event.get("beijing_time") else
+                event["date_et"][5:]+" 美东日期")
+        notes.append(f"**最近日程** · {_text(event['title'],36)} · {when}")
+    model = report.get("model") or {}
+    if model.get("status")=="ready" and (narrative:=model.get("narrative")):
+        insight = re.split(r"[。！？；]",narrative["assessment"],maxsplit=1)[0].strip()
+        if 0<len(insight)<=64:
+            notes.append(f"**DeepSeek 补充** · {_text(insight,64)}")
+    if notes:
+        elements.extend([{"tag":"hr"},{"tag":"markdown","content":"  \n".join(notes)}])
+    template = "orange" if state=="偏弱" else "green" if state=="偏强" else "blue"
+    return {"schema":"2.0","header":{"template":template,"title":{"tag":"plain_text","content":title},
+                                      "subtitle":{"tag":"plain_text","content":subtitle}},
+            "body":{"direction":"vertical","vertical_spacing":"8px","elements":elements}}
 
 
 def run(job,result,*,allowed,delivery_enabled,checkpoint):

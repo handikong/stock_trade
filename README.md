@@ -51,7 +51,7 @@ APCA_API_SECRET_KEY=
 
 ### DeepSeek 大盘解读
 
-登录 DeepSeek 开放平台，在 **API Keys** 页面创建密钥，填到 `DEEPSEEK_API_KEY`。模型和地址可直接使用上面的默认值。该密钥用于大盘简报解读，留空时照常生成程序的技术研判。 [DeepSeek API Keys](https://platform.deepseek.com/api_keys) · [官方接入文档](https://api-docs.deepseek.com/)
+登录 DeepSeek 开放平台，在 **API Keys** 页面创建密钥，填到 `DEEPSEEK_API_KEY`。模型和地址可直接使用上面的默认值。该密钥用于大盘简报解读，留空时照常生成程序的技术研判。可用 `.venv/bin/python -m stock_research.schedule_cli deepseek-check` 查看鉴权状态。 [DeepSeek API Keys](https://platform.deepseek.com/api_keys) · [官方接入文档](https://api-docs.deepseek.com/)
 
 ### 外部数据库（可选）
 

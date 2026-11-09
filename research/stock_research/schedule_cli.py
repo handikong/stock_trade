@@ -11,16 +11,19 @@ logger=logging.getLogger(__name__)
 def main(argv=None):
     parser = ChineseParser(description="查看系统内每日盘后任务；实际执行依赖单进程后台服务常驻。",add_help=False)
     parser.add_argument("-h","--help",action="help",help="查看中文说明")
-    parser.add_argument("action",choices=("status","plan","tick","leaders","fetch-leaders","market-brief","holdings-brief"),nargs="?",default="status",
-        help="status查看计划状态；plan查看指定日的飞书清单；leaders查看榜单；fetch-leaders立即取榜；market-brief大盘报告；holdings-brief持仓复盘；tick只入队")
+    parser.add_argument("action",choices=("status","plan","tick","leaders","fetch-leaders","market-brief","holdings-brief","deepseek-check"),nargs="?",default="status",
+        help="status查看计划状态；plan查看指定日的飞书清单；leaders查看榜单；fetch-leaders立即取榜；market-brief大盘报告；holdings-brief持仓复盘；deepseek-check检查鉴权；tick只入队")
     parser.add_argument("--json",action="store_true",help="输出完整状态JSON，不含凭据")
     parser.add_argument("--date", metavar="YYYY-MM-DD",
         help="榜单用美东交易日，飞书清单和复盘用北京时间日期；plan 默认明天")
     parser.add_argument("--report",choices=("daily","monday","weekly"),help="仅筛选大盘报告类型，默认展示最新一份")
     parser.add_argument("--preview",action="store_true",help="即时预览；大盘可能更新行情并调用模型，持仓只读缓存")
+    parser.add_argument("--card",action="store_true",help="用新版飞书卡片展示大盘简报")
     args = parser.parse_args(argv)
     if args.report and args.action!="market-brief":
         parser.error("--report 只适用于 market-brief")
+    if args.card and args.action!="market-brief":
+        parser.error("--card 只适用于 market-brief")
     if args.preview and (args.action not in ("market-brief","holdings-brief") or args.report or args.date):
         parser.error("--preview 只适用于即时大盘报告或持仓复盘，请去掉 --date 和 --report")
     if args.date is not None:
@@ -33,6 +36,18 @@ def main(argv=None):
             parser.error("--date 须为有效的 YYYY-MM-DD 日期")
     configure_console_logging()
     try:
+        if args.action=="deepseek-check":
+            from .market_brief import check_deepseek
+            result = check_deepseek()
+            if args.json:
+                print(dump(result))
+            else:
+                print(result["message"])
+                if result.get("host"):
+                    print(f"接口主机 {result['host']}")
+                if result.get("key_source"):
+                    print(f"密钥读取来源 {result['key_source']}")
+            return 0 if result["status"]=="ready" else 1
         if args.action=="holdings-brief":
             from .cli_helpers import storage_ready
             from .holdings_brief import preview, render, saved
@@ -46,7 +61,7 @@ def main(argv=None):
             return 0
         if args.action=="market-brief":
             from .cli_helpers import storage_ready
-            from .market_brief import preview, render, saved
+            from .market_brief import _card, preview, render, saved
             if args.preview:
                 from .store import initialize
                 initialize()
@@ -56,7 +71,14 @@ def main(argv=None):
             if value is None:
                 print("尚无符合条件的大盘报告，请等待后台生成。")
                 return 1
-            print(dump(value) if args.json else render(value))
+            if args.card:
+                from .notification_cards import card_text
+                card = _card(value)
+                header = card["header"]
+                print(dump(card) if args.json else "\n\n".join([
+                    header["title"]["content"]+"\n"+header["subtitle"]["content"], *card_text(card)]))
+            else:
+                print(dump(value) if args.json else render(value))
             return 0
         if args.action=="fetch-leaders":
             from .volume_leaders import preview
