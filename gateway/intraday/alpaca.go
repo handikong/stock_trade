@@ -58,6 +58,8 @@ func (p *packet) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Type string          `json:"T"`
 		C    json.RawMessage `json:"c"`
+		// 显式接收小写 s，避免 Go 将成交股数匹配到大写 S（股票代码）。
+		TradeSize json.RawMessage `json:"s"`
 		*wire
 	}
 	raw.wire = (*wire)(p)
@@ -115,8 +117,10 @@ func streamReadError(stage string, err error) error {
 		return fmt.Errorf("Alpaca %s失败 · 本地连接已关闭", stage)
 	case errors.Is(err, websocket.ErrReadLimit):
 		return fmt.Errorf("Alpaca %s失败 · WebSocket 消息超过读取上限", stage)
-	case errors.As(err, &syntax), errors.As(err, &field):
-		return fmt.Errorf("Alpaca %s失败 · JSON 格式或字段类型异常", stage)
+	case errors.As(err, &syntax):
+		return fmt.Errorf("Alpaca %s失败 · JSON 语法异常 · 字节 %d", stage, syntax.Offset)
+	case errors.As(err, &field):
+		return fmt.Errorf("Alpaca %s失败 · JSON 字段类型异常 · 字段 %q · 预期 %s", stage, field.Field, field.Type)
 	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
 		return fmt.Errorf("Alpaca %s失败 · 消息提前结束", stage)
 	default:
