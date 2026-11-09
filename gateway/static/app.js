@@ -88,31 +88,39 @@ function renderHoldings() {
   state.positions = new Map(data.items.map(r => [r.id,r]));
   $('#holding-count').textContent = s.count;
   $('#positions-total').textContent = `${s.count} 只`;
-  $('#portfolio-metrics').innerHTML = metric('持仓市值',num(s.market_value),s.count ? `有效报价 ${s.priced_count} / ${s.count} 只` : '添加持仓后计算', '', true)
-    + metric('持仓成本',num(s.count ? s.cost_value : null),'按录入数量与成本均价', '', true)
-    + metric('持仓浮动盈亏',signed(s.unrealized_pnl),validNumber(s.unrealized_return) ? `相对成本 ${pct(s.unrealized_return)}` : '等待完整有效行情',tone(s.unrealized_pnl),true)
-    + metric('持仓股票',String(s.count),'持仓与扫描名单分别管理');
-  $('#portfolio-note').textContent = data.message;
   if (!data.items.length) {
     $('#positions-content').innerHTML = empty('记录你的第一笔持仓','输入股票、数量与成本均价，建立属于自己的持仓总览。',`<button class="secondary" data-add-position>${icon('plus')}添加持仓</button>`);
   } else {
-    $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','收盘参考','参考市值','浮动盈亏','操作'],data.items.map((r,i) => {
-      const q = r.quote, quoted = q.currency === r.currency;
-      const live = field => `<span class="subline" data-intraday-field="${field}" data-position-id="${esc(r.id)}" hidden></span>`;
-      return [stock(r.symbol,r.name,i),`${num(r.quantity,6)}<span class="subline">股</span>`,num(r.average_cost),
-        `${num(quoted ? q.price : null)}<span class="subline">${esc(q.date || '尚无行情')} ${!quoted ? '· 币种待核对' : q.state !== 'fresh' ? '· 待更新' : ''}</span>${live('price')}`,
-        `${num(r.reference_market_value)}${q.state !== 'fresh' ? '<span class="subline">仅历史参考</span>' : ''}${live('market_value')}`,
-        `<span class="${tone(r.unrealized_pnl)}">${signed(r.unrealized_pnl)}</span><span class="subline">${pct(r.unrealized_return)}</span>${live('pnl')}`,
-        `<div class="row-actions"><button class="text-button" data-edit-position="${esc(r.id)}">编辑</button><button class="text-button remove" data-remove-position="${esc(r.id)}">移除</button></div>`];
-    }),[1,2,3,4,5]);
-  }
-  if (!s.complete) {
-    $('#allocation-content').innerHTML = empty(s.count ? '行情尚未齐全' : '等待添加持仓',s.count ? '更新持仓行情后显示市值构成。缺失和过期价格不会计为零。' : '持仓构成会在这里展示。', '', true);
-  } else {
-    const rows = data.items;
-    $('#allocation-content').innerHTML = `<div class="allocation-body"><div class="allocation-bar" aria-hidden="true">${rows.map((r,i) => `<span style="flex:${Math.max(0,Number(r.weight))};background:${palette[i % palette.length]}"></span>`).join('')}</div>${rows.map((r,i) => `<div class="allocation-row"><i style="background:${palette[i % palette.length]}" aria-hidden="true"></i><strong>${esc(r.symbol)}</strong><span>${pct(r.weight)}</span></div>`).join('')}<p class="allocation-note">仅表示已录入股票内部的市值构成，不包含账户现金。</p></div>`;
+    $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','价格','持仓市值','浮动盈亏','操作'],data.items.map((r,i) => [
+      stock(r.symbol,r.name,i),`${num(r.quantity,6)}<span class="subline">股</span>`,num(r.average_cost),
+      `<strong data-holding-price="${esc(r.id)}"></strong><span class="subline" data-holding-field="source"></span>
+        <details class="holding-technicals" hidden><summary>技术与收盘参考</summary><span class="subline" data-holding-field="evidence"></span></details>`,
+      '<span data-holding-field="market"></span><span class="subline" data-holding-field="market-note" hidden></span>',
+      '<span data-holding-field="pnl"></span><span class="subline" data-holding-field="return"></span>',
+      `<div class="row-actions"><button class="text-button" data-edit-position="${esc(r.id)}">编辑</button><button class="text-button remove" data-remove-position="${esc(r.id)}">移除</button></div>`
+    ]),[1,2,3,4,5]);
   }
   renderIntraday();
+}
+function renderHoldingTotals(holdings, live, liveCount) {
+  const s = holdings.summary, source = live ? '盘中 IEX' : '收盘';
+  // 持仓变更后，等待监控和工作台的名单及版本一致。
+  const liveComplete = live?.total && liveCount === s.count && Object.keys(live.items).length === s.count;
+  const total = live ? (liveComplete ? live.total : null) : s;
+  const pnl = live ? total?.pnl : s.unrealized_pnl;
+  const priced = live ? liveCount : s.priced_count;
+  $('#portfolio-metrics').innerHTML = metric('持仓市值',num(total?.market_value),s.count ? `${source}报价 ${priced} / ${s.count} 只` : '添加持仓后计算', '', true)
+    + metric('持仓成本',num(s.count ? s.cost_value : null),'按录入数量与成本均价', '', true)
+    + metric('持仓浮动盈亏',signed(pnl),validNumber(total?.unrealized_return) ? `${source} · 相对成本 ${pct(total.unrealized_return)}` : `等待完整${source}报价`,tone(pnl),true)
+    + metric('持仓股票',String(s.count),'持仓与扫描名单分别管理');
+  $('#portfolio-note').textContent = '浮盈亏按有效报价与录入均价估算，未计费用、分红和现金。';
+  if (live ? !total : !s.complete) {
+    const detail = s.count ? `等待完整${source}报价后显示市值构成。` : '持仓构成会在这里展示。';
+    $('#allocation-content').innerHTML = empty(s.count ? '行情尚未齐全' : '等待添加持仓',detail, '', true);
+  } else {
+    const rows = holdings.items.map(r => ({symbol:r.symbol,weight:live ? live.items[r.symbol].weight : r.weight}));
+    $('#allocation-content').innerHTML = `<div class="allocation-body"><div class="allocation-bar" aria-hidden="true">${rows.map((r,i) => `<span style="flex:${Math.max(0,Number(r.weight))};background:${palette[i % palette.length]}"></span>`).join('')}</div>${rows.map((r,i) => `<div class="allocation-row"><i style="background:${palette[i % palette.length]}" aria-hidden="true"></i><strong>${esc(r.symbol)}</strong><span>${pct(r.weight)}</span></div>`).join('')}<p class="allocation-note">按${source}市值计算持仓占比，现金单独统计。</p></div>`;
+  }
 }
 function renderIntraday() {
   const data = liveHoldings;
@@ -122,28 +130,43 @@ function renderIntraday() {
     data?.excluded?.length ? `${data.excluded.length} 只超出订阅上限` : ''].filter(Boolean).join(' · ');
   if (status.textContent !== note) status.textContent = note;
   const info = Object.entries(data?.benchmarks || {}).map(([code,quote]) => `${code} ${num(quote.price)}`);
-  if (data?.total) info.push(`盘中市值 ${num(data.total.market_value)} USD`, `盘中浮盈亏 ${signed(data.total.pnl)} USD`);
   summary.textContent = info.join(' · ');
   summary.hidden = !info.length;
-  for (const node of document.querySelectorAll('[data-intraday-field]')) {
-    const position = state.positions.get(node.dataset.positionId);
-    const quote = data?.items?.[position?.symbol];
-    const field = node.dataset.intradayField;
-    const value = quote?.version === position?.version ? quote?.[field] : null;
-    node.hidden = !validNumber(value);
-    node.classList.toggle('gain',field === 'pnl' && tone(value) === 'gain');
-    node.classList.toggle('loss',field === 'pnl' && tone(value) === 'loss');
-    if (!node.hidden) {
-      if (field === 'price') {
-        const evidence = quote.scale_review ? '报价口径待核对' : [quote.vwap && `VWAP ${num(quote.vwap)}`,
-          quote.ema20 && `日线 EMA20 ${num(quote.ema20)}`, quote.relative_volume && `量比 ${num(quote.relative_volume)} 倍`,
-          quote.support && `支撑 ${quote.support.map(v => num(v)).join('–')}`,
-          quote.resistance && `压力 ${quote.resistance.map(v => num(v)).join('–')}`,
-          quote.signal].filter(Boolean).join(' · ');
-        node.textContent = `IEX ${num(value)} · ${when(quote.at)}${evidence ? ' · ' + evidence : ''}`;
-      } else node.textContent = `盘中 ${field === 'pnl' ? signed(value) : num(value)}`;
-    }
+  const holdings = state.workspace?.holdings;
+  if (!holdings) return;
+  let liveCount = 0;
+  for (const price of $('#positions-content').querySelectorAll('[data-holding-price]')) {
+    const position = state.positions.get(price.dataset.holdingPrice), close = position.quote;
+    const quote = data?.items?.[position.symbol];
+    const live = quote?.version === position.version && validNumber(quote.price) ? quote : null;
+    const closePrice = close.currency === position.currency ? close.price : null;
+    const row = price.closest('tr');
+    const field = name => row.querySelector(`[data-holding-field="${name}"]`);
+    const source = validNumber(closePrice) ? `收盘 ${close.date || '日期未知'}${close.state === 'fresh' ? '' : ' · 待更新'}` : '暂无有效收盘价';
+    price.textContent = num(live ? live.price : closePrice);
+    field('source').textContent = live ? `IEX · ${when(live.at)}` : source;
+    const technical = live && !live.scale_review ? [live.vwap && `VWAP ${num(live.vwap)}`,
+      live.ema20 && `日线 EMA20 ${num(live.ema20)}`, live.relative_volume && `量比 ${num(live.relative_volume)} 倍`,
+      live.support && `支撑 ${live.support.map(v => num(v)).join('–')}`,
+      live.resistance && `压力 ${live.resistance.map(v => num(v)).join('–')}`,
+      live.signal] : [];
+    const evidence = live ? [validNumber(closePrice) && `${source} ${num(closePrice)}`, ...technical].filter(Boolean).join(' · ') : '';
+    field('evidence').textContent = evidence;
+    row.querySelector('.holding-technicals').hidden = !evidence;
+
+    const marketValue = live ? live.market_value : position.reference_market_value;
+    const pnl = live ? live.pnl : position.unrealized_pnl;
+    field('market').textContent = num(marketValue);
+    const marketNote = live?.scale_review ? '报价口径待核对' : !live && validNumber(marketValue) && close.state !== 'fresh' ? '仅历史参考' : '';
+    field('market-note').textContent = marketNote;
+    field('market-note').hidden = !marketNote;
+    const pnlField = field('pnl');
+    pnlField.textContent = signed(pnl);
+    pnlField.className = tone(pnl);
+    field('return').textContent = pct(live ? live.unrealized_return : position.unrealized_return);
+    if (live && validNumber(live.market_value)) liveCount++;
   }
+  renderHoldingTotals(holdings,data?.session ? data : null,liveCount);
 }
 async function loadIntraday() {
   if (!state.connected || state.page !== 'holdings' || document.hidden || intradayPending) return;

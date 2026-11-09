@@ -9,6 +9,8 @@
 .portfolio-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .portfolio-section{margin:0 0 24px}
 .portfolio-grid+.portfolio-section{margin:24px 0 0}
+.holding-technicals{max-width:12rem;margin-top:4px;color:var(--muted);font:11px/1.5 var(--body)}
+.holding-technicals summary{min-height:24px;white-space:normal}
 .portfolio-budget{margin-bottom:12px}
 @media(min-width:851px){.portfolio-budget{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(min-width:851px){#portfolio-account-content .portfolio-budget{grid-template-columns:repeat(4,minmax(0,1fr))}}

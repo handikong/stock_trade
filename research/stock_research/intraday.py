@@ -280,20 +280,23 @@ class Monitor:
         live = frame["symbols"]
         mode = rules.market_mode(frame, refs, stable_prices) if frame["backfill"] else "待确认"
         items = {}
-        values, changes = [], []
+        values = {}
+        total_cost = D(0)
         for code, position in positions.items():
             if code not in prices:
                 continue
             price = prices[code]
             last, tape = live[code]["last"], live[code]
             value = D(position.quantity) * price
-            change = value - D(position.quantity)*D(position.average_cost)
+            basis = D(position.quantity) * D(position.average_cost)
+            change = value - basis
             if code not in scale:
-                values.append(value)
-                changes.append(change)
+                values[code] = value
+                total_cost += basis
             items[code] = {"version":position.version,"price":str(price),"at":last["at"],
                            "market_value":risk.cash(value) if code not in scale else None,
                            "pnl":risk.cash(change) if code not in scale else None,
+                           "unrealized_return":str(change / basis) if code not in scale else None,
                            "vwap":tape.get("vwap"),"volume":tape["volume"],"relative_volume":tape.get("relative_volume"),
                            "ema20":str(refs[code]["levels"]["EMA20"]) if "EMA20" in refs[code]["levels"] else None,
                            "support":list(map(str,refs[code]["support"])) if refs[code]["support"] else None,
@@ -301,7 +304,12 @@ class Monitor:
                            "trend":refs[code]["trend"],"scale_review":code in scale}
         total = None
         if positions and len(values) == len(positions):
-            total = {"market_value":risk.cash(sum(values)), "pnl":risk.cash(sum(changes))}
+            market_value = sum(values.values())
+            pnl = market_value - total_cost
+            total = {"market_value":risk.cash(market_value), "pnl":risk.cash(pnl),
+                     "unrealized_return":str(pnl / total_cost)}
+            for code, value in values.items():
+                items[code]["weight"] = str(value / market_value)
         view = {"at":frame["at"],"state":"IEX 行情已连接" if frame["ready"] else frame["state"],"items":items,
                       "session":trading.day.isoformat(),"cutoff_at":trading.cutoff.isoformat(),
                       "push_active":settings.intraday_feishu_enabled and current<trading.cutoff,
