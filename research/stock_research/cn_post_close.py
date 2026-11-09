@@ -117,9 +117,12 @@ def _scan(job, result, allowed, checkpoint):
         active = {row["symbol"] for row in cn_income.read(session)["members"]}
     symbols = [code for code in job.payload["members"] if code in eligible and code in active]
     if not symbols or not allowed():
+        result.update(scan_count=0,valid_count=0,buy_count=0)
         return
     scan = watchlist.scan(symbols=symbols,offline=True,region="CN")
     result["scan_id"] = scan["scan_id"]
+    result["scan_count"] = len(scan["results"])
+    result["valid_count"] = sum(row["status"]=="OK" for row in scan["results"])
     result["buy_count"] = sum(event.get("event_kind","BUY")=="BUY"
         for row in scan["results"] for event in row["current_signals"])
     for row in scan["results"]:
@@ -189,17 +192,28 @@ def _morning(job, result, allowed, checkpoint):
         prep = session.get(Job,job.payload["scan_job_id"])
         scan_id = (prep.result or {}).get("scan_id") if prep else None
     scan = watchlist.scan_record(scan_id,region="CN") if scan_id else {}
-    if scan and (prep.result or {}).get("buy_count",0) and result.get("notifications") is None and allowed():
-        try:
-            result["notifications"] = notifications.run(scan_id=scan_id,send=True,buy_only=True,
-                                                        delivery_guard=allowed,region="CN")
-            result["warnings"].extend({"message":warning} for warning in result["notifications"]["warnings"])
-            for item in result["notifications"]["items"]:
-                if item["status"] not in ("SENT","SKIPPED_SENT"):
-                    result["warnings"].append({"symbol":item["symbol"],"message":item.get("error") or item["status"]})
-        except ValueError as exc:
-            result["warnings"].append({"message":str(exc)})
-            result["notifications"] = {"items":[],"error":str(exc)}
+    valid = [row for row in scan.get("results",[]) if row["status"]=="OK"]
+    if result.get("notifications") is None and allowed():
+        if not valid:
+            message = "没有有效扫描结果，未发买点飞书"
+            result["notifications"] = {"status":"NO_VALID_SCAN","items":[],"message":message}
+            result["warnings"].append({"message":message})
+        elif not any(signal.get("event_kind","BUY")=="BUY" for row in valid for signal in row["current_signals"]):
+            result["notifications"] = {"status":"NO_BUYS","items":[],"message":"扫描有效，未触发买点"}
+        else:
+            try:
+                outcome = notifications.run(scan_id=scan_id,send=True,buy_only=True,delivery_guard=allowed,region="CN")
+                result["warnings"].extend({"message":warning} for warning in outcome["warnings"])
+                for item in outcome["items"]:
+                    if item["status"] not in ("SENT","SKIPPED_SENT"):
+                        result["warnings"].append({"symbol":item["symbol"],"message":item.get("error") or item["status"]})
+                sent = sum(item["status"]=="SENT" for item in outcome["items"])
+                already = sum(item["status"]=="SKIPPED_SENT" for item in outcome["items"])
+                result["notifications"] = {**outcome,"status":"PROCESSED",
+                                           "message":f"买点飞书新发 {sent} 条，已送达去重 {already} 条"}
+            except ValueError as exc:
+                result["warnings"].append({"message":str(exc)})
+                result["notifications"] = {"status":"FAILED","items":[],"message":str(exc)}
         checkpoint(job.id,result,55,"A 股买点处理已保存")
     if policy().holdings_brief_enabled and allowed():
         if "holdings_report" not in result:
@@ -218,8 +232,12 @@ def _morning(job, result, allowed, checkpoint):
         report_type = "monday" if datetime.fromisoformat(day).weekday()==0 else "daily"
         report = _market_report(job,result,allowed,checkpoint,report_type)
         if report and report["benchmarks"]:
+            def market_guard():
+                cfg = policy()
+                push = cfg.cn_market_brief_feishu_enabled
+                return allowed() and cfg.market_brief_enabled and (cfg.market_brief_feishu_enabled if push is None else push)
             _send_report(job,result,market_brief._card(report),"market",1,
-                lambda:allowed() and policy().market_brief_enabled and policy().market_brief_feishu_enabled,checkpoint)
+                         market_guard,checkpoint)
 
 
 def run(job, *, policy, checkpoint):
@@ -250,5 +268,9 @@ def run(job, *, policy, checkpoint):
         _market_report(job,result,allowed,checkpoint,"weekly")
     else:
         return cn_research.weekly(job,result,allowed=allowed,checkpoint=checkpoint)
-    return {**result,"status":"partial" if result["warnings"] or not allowed() else "complete",
-            "message":f"A 股{LABELS[phase]}已处理 · 日线 {target}"}
+    message = f"A 股{LABELS[phase]}已处理 · 日线 {target}"
+    if phase=="scan":
+        message += f" · 有效 {result.get('valid_count',0)}/{result.get('scan_count',0)} 只 · 买点 {result.get('buy_count',0)} 条"
+    if phase=="morning" and (outcome:=result.get("notifications")) and outcome.get("message"):
+        message += f" · {outcome['message']}"
+    return {**result,"status":"partial" if result["warnings"] or not allowed() else "complete","message":message}

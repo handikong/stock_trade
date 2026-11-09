@@ -43,7 +43,7 @@
 
 沪深节假日按交易所日历处理。周一或节后首个交易日使用此前最后一个实际交易日的收盘价。开盘后停止补发。任务按目标交易日去重，个股飞书继续使用原投递去重和结果未知保护。A 股盘前/盘后任务由 `cn_enabled` 单独开关，具体时间在 `config/post-close-schedule.json` 可改。若安装的交易日历缺少当前年份，任务暂停以避免在休市日运行。 [上交所休市安排](https://www.sse.com.cn/disclosure/announcement/general/c/c_20251222_10802507.shtml) · [深交所休市安排](https://www.szse.cn/disclosure/notice/general/t20251222_618087.html)
 
-大盘简报用沪深300和创业板 ETF 的趋势、均线、关键价位、成交量及 ATR，并读取证监会公开要闻。配置 DeepSeek 时沿用同样的结构化解读。大盘和持仓复盘沿用 `market_brief_feishu_enabled` 与 `holdings_brief_feishu_enabled`。持仓复盘用技术状态复核止损、止盈、减仓和加仓条件，股数额度留待人民币资金管理。A 股没有盘中 WebSocket 订阅和盘中预警。 [证监会要闻](https://www.csrc.gov.cn/csrc/c100028/common_xq_list.shtml?tab=02)
+大盘简报用沪深300和创业板 ETF 的趋势、均线、关键价位、成交量及 ATR，并读取证监会公开要闻。配置 DeepSeek 时沿用同样的结构化解读。A 股大盘飞书由 `cn_market_brief_feishu_enabled` 控制，仓库默认只归档。旧自定义配置未填此字段时沿用原共用开关。持仓复盘沿用 `holdings_brief_feishu_enabled`，复核止损、止盈、减仓和加仓条件，股数额度留待人民币资金管理。A 股没有盘中 WebSocket 订阅和盘中预警。 [证监会要闻](https://www.csrc.gov.cn/csrc/c100028/common_xq_list.shtml?tab=02)
 
 ## EPS 和 PE
 
@@ -76,5 +76,6 @@
 - CN12 核对配置开关、09:30 截止和重启去重。只有活动成员的完整目标日买点参与发送，手动扫描可预览结果。
 - CN13 核对周六估值与周报归档，估值输入不足的标的不生成新估值。核对推送记录能区分 A 股与美股卡片。
 - CN14 点击「更新市值」，核对沪深股票的人民币总市值、覆盖数量、默认降序和升序的缺值位置。核对宽基 ETF 仍单独展示。
+- CN15 使用有完整缓存的沪深股票和 ETF 运行手动扫描，核对策略读取 A 股行情快照并继续校验版本。盘前任务日志区分扫描全失败、有效扫描无买点、实际投递和去重。
 
 真实抓取与网页验收由用户执行。

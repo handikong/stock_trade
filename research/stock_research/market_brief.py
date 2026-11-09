@@ -246,8 +246,8 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
         checkpoint(job.id,result,95,"大盘简报待飞书确认")
         try:
             delivery["card"] = _card(report)
-            feishu.send(delivery["card"])
-            delivery["status"] = "sent"
+            accepted = feishu.send(delivery["card"],allowed=lambda:allowed() and delivery_enabled())
+            delivery["status"] = "sent" if accepted else "skipped_window"
         except (ValueError,feishu.DeliveryFailure) as exc:
             delivery.update(status=getattr(exc,"status","failed").lower(),message=str(exc))
         delivery["finished_at"] = stamp()
@@ -257,8 +257,14 @@ def run(job,result,*,allowed,delivery_enabled,checkpoint):
         if item.get("message"):
             warnings.append(item["message"])
     result["warnings"] = [{"message":message} for message in warnings]
+    delivery = (report.get("delivery") or {}).get("status")
+    if delivery is None:
+        delivery = "disabled" if not delivery_enabled() else "skipped_window"
+    delivery_label = {"sent":"飞书已接收","failed":"飞书发送失败","unknown":"飞书结果未知",
+                      "disabled":"飞书开关关闭，仅归档","skipped_window":"投递窗口结束或已停用"}.get(delivery,delivery)
     result.update(status="partial" if warnings or not allowed() else "complete",
-                  message=f"{LABELS[report['report_type']]}已保存 · {report['assessment']['state']} · 美股 {report['as_of_session']}")
+                  delivery_status=delivery,
+                  message=f"{LABELS[report['report_type']]}已保存 · {report['assessment']['state']} · 美股 {report['as_of_session']} · {delivery_label}")
     return result
 
 

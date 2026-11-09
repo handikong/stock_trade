@@ -7,7 +7,7 @@ import re
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from . import account_equity, cn_post_close, market, watchlist
@@ -51,6 +51,8 @@ class Policy(BaseModel):
     market_brief_time: str = "07:00"
     market_brief_until: str = "12:00"
     market_brief_feishu_enabled: bool = False
+    # 自定义旧配置缺此字段时，A 股沿用旧的共用开关。
+    cn_market_brief_feishu_enabled: bool | None = None
     holdings_brief_enabled: bool = False
     holdings_brief_time: str = "08:00"
     holdings_brief_until: str = "12:00"
@@ -259,10 +261,23 @@ def _holdings_brief_day(cfg):
     return None
 
 
-def _enqueue_report(phase, day, *, report_type=None):
+def _enqueue_report(phase, day, *, report_type=None, resume_delivery=False):
     jid = _job_id(phase,day)
     with Session() as session:
-        if session.get(Job,jid):
+        existing = session.get(Job,jid)
+        if existing:
+            saved = (existing.result or {}).get("report")
+            if resume_delivery and existing.status=="completed" and saved and not saved.get("delivery"):
+                # 同日恢复之前只归档的报告。保留研判与模型结果，已经尝试投递的报告不重发。
+                try:
+                    changed = session.execute(update(Job).where(Job.id==jid,Job.status=="completed",
+                        Job.updated_at==existing.updated_at).values(status="queued",active_key="post-close:market-brief",
+                        progress=85,message="已归档美股大盘简报等待飞书",updated_at=stamp())).rowcount
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    return None
+                return jid if changed else None
             return None
     _, target = market.calendar_context()
     anchor = security_for("SPY",create=True)
@@ -284,7 +299,8 @@ def _enqueue_report(phase, day, *, report_type=None):
 
 def _enqueue_us(cfg):
     brief = _brief_day(cfg)
-    brief_id = _enqueue_report("market_brief",brief[0],report_type=brief[1]) if brief else None
+    brief_id = (_enqueue_report("market_brief",brief[0],report_type=brief[1],
+                                resume_delivery=cfg.market_brief_feishu_enabled) if brief else None)
     result = _enqueue_daily(cfg)
     if brief_id:
         result["queued"].insert(0,brief_id)
@@ -493,9 +509,10 @@ def _heat(job, result):
     notice = report["delivery"]
     if notice["status"] not in ("SENT","NO_ADDITIONS"):
         result["warnings"].append({"message":notice.get("message") or f"飞书状态 {notice['status']}，未确认送达"})
+    delivery = {"SENT":"飞书已接收","NO_ADDITIONS":"无新增，未发飞书"}.get(notice["status"],f"飞书 {notice['status']}")
     result.update(status="partial" if result["warnings"] else "complete",
                   added=[row["symbol"] for row in report["added"]], active_count=report["active_count"],
-                  delivery=notice,message=f"富途热榜完成：新增{len(report['added'])}只，当前{report['active_count']}只")
+                  delivery=notice,message=f"富途热榜完成：新增{len(report['added'])}只，当前{report['active_count']}只 · {delivery}")
     return result
 
 
@@ -540,6 +557,8 @@ def status():
             jobs = [{"id":j.id,"kind":j.kind,"status":j.status,"progress":j.progress,"message":j.message,
                      "target_session":j.payload.get("target_session"),"local_date":j.payload.get("local_date"),
                      "result_status":j.result.get("status"),"warnings":j.result.get("warnings",[]),
+                     "delivery_status":j.result.get("delivery_status") or (j.result.get("delivery") or {}).get("status"),
+                     "notification_status":(j.result.get("notifications") or {}).get("status"),
                      "updated_at":j.updated_at} for j in session.scalars(select(Job).where(
                          Job.kind.in_((*KINDS.values(),*cn_post_close.KINDS.values(),account_equity.SCHEDULED_KIND)))
                         .order_by(Job.created_at.desc()).limit(20))]

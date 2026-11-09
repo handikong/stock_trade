@@ -31,7 +31,7 @@ bash update.sh
 .venv/bin/python -m stock_research.schedule_cli market-brief --preview
 ```
 
-报告开关与时间位于`config/post-close-schedule.json`（`market_brief_enabled`、`market_brief_time`、`market_brief_until`）。使用自定义`POST_CLOSE_SCHEDULE_FILE`的服务器需加入对应字段。简报飞书有单独的`market_brief_feishu_enabled`，默认关闭；启用后沿用现有飞书机器人地址。服务器的密钥仅放在 `.env`。
+报告开关与时间位于 `config/post-close-schedule.json`（`market_brief_enabled`、`market_brief_time`、`market_brief_until`）。仓库配置默认发送美股大盘飞书，使用自定义 `POST_CLOSE_SCHEDULE_FILE` 的服务器在实际配置中设置 `market_brief_feishu_enabled: true`。周一开盘计划使用最近一次美股收盘，按北京时间独立于美股策略扫描。当天已归档且没有投递尝试的报告，可以在 12:00 前开启开关后沿用原报告发送。服务器密钥保存在 `.env`。
 
 ## 用户验收
 
@@ -40,4 +40,4 @@ bash update.sh
 - MB03 收盘突破、次日回踩、失效分别展示；周报包含历史状态变化和可复核价位。
 - MB04 已发布新闻和未来事件带来源与时间；数据源不可用时有提示。
 - MB05 模型只用已有证据，超时或格式异常仍显示程序结论；保存报告只读查询。
-- MB06 同一天重启不创建第二份报告，结果未知的请求不自动重发；简报飞书单独控制。
+- MB06 同一天重启沿用原报告。打开开关可在当日窗口恢复仅归档的简报，已有投递尝试的报告不自动重发。任务日志区分已接收、失败、仅归档及窗口结束。

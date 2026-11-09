@@ -188,7 +188,7 @@ def _one_symbol(symbol, *, start, history_start, end, expected_session, historic
     report = futu_macd.evaluate_timeline(security.id, history_start=seed, start=display_start,
                                         end=end, policy_file=policy_file,region=region)
     warnings.extend(report.get("warnings", []))
-    result = band_strategies.evaluate_report(report, strategy_cfg)
+    result = band_strategies.evaluate_report(report,strategy_cfg,region=region)
     # 指标按输入内容缓存：刷新取得相同日线时允许复用旧指标，但须逐项比对计算窗口。
     # 新鲜度来自本次取得的行情档案，策略证据仍保留其真实绑定的旧快照，不篡改来源。
     equivalent_source = report["source_market_id"] == source.id

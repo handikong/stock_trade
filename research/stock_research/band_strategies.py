@@ -395,14 +395,15 @@ def calculate(bars, rows, params, cfg):
     return attach_exits(result, prices, cfg.exits)
 
 
-def evaluate_report(report, cfg):
+def evaluate_report(report, cfg, *, region="US"):
     """复用趋势绑定的确切行情快照，不抓财报/行情，不调用AI，不修改旧趋势快照。"""
     from .futu_macd import calculate as calculate_macd
+    from .market import snapshot_kind
     from .trend import _bars
 
     with Session() as session:
         source = session.get(Snapshot, report["source_market_id"])
-        if source is None or source.kind != "market" or source.fingerprint != report["source_market_version"]:
+        if source is None or source.kind != snapshot_kind(region) or source.fingerprint != report["source_market_version"]:
             raise ValueError("趋势对应的行情快照缺失或版本不一致，请重新计算趋势")
         bars = _bars({"bars": [b for b in source.payload.get("bars", [])
             if report["history_start"] <= b["date"] <= report["actual_end"]]})
