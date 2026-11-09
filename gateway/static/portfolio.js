@@ -8,6 +8,34 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
   const stageRange = stage => `${num(stage.min_price)}–${num(stage.max_price)}`;
   const list = rows => rows.length ? `<ul class="portfolio-reasons">${rows.map(line => `<li>${esc(line)}</li>`).join('')}</ul>` : '';
   const marketNote = view => view ? [`大盘${view.state}`, ...(view.notes || [])].join(' · ') : '大盘资料待补';
+  let principal = null;
+
+  function renderPrincipal() {
+    const view = model.portfolio;
+    const loss = $('#portfolio-account-content [data-principal-loss]');
+    const floor = $('#portfolio-account-content [data-principal-floor]');
+    if (!view?.account || !loss || !floor) return;
+    const live = principal?.live;
+    const values = principal?.values ?? (live ? {} : view.summary);
+    const source = live ? '盘中' : '收盘';
+    const limit = values.loss_percent ?? view.account.loss_percent;
+    const write = (metric, value, note, color) => {
+      const amount = metric.querySelector('strong');
+      const markup = value == null ? '—' : `<small>USD</small>${num(value)}`;
+      if (amount.innerHTML !== markup) amount.innerHTML = markup;
+      amount.className = color;
+      const detail = metric.querySelector('p');
+      if (detail.textContent !== note) detail.textContent = note;
+    };
+    write(loss,values.principal_loss,values.principal_loss_rate == null ? `等待完整${source}净值`
+      : `${source} · 占本金 ${pct(values.principal_loss_rate)} · 上限 ${num(limit)}%`,Number(values.principal_loss)>0 ? 'loss' : '');
+    write(floor,values.floor ?? view.summary.floor,`${source} · 距底线 ${money(values.buffer)}`,tone(values.buffer));
+  }
+
+  function setPrincipal(values, live) {
+    principal = {values,live};
+    renderPrincipal();
+  }
 
   function renderAccount(view) {
     const a = view.account, s = view.summary;
@@ -18,9 +46,8 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
     }
     const metrics = [
       metric('券商可用现金',num(a.available_cash),`总现金 ${money(a.total_cash)}`,'',true),
-      metric('本金亏损',num(s.principal_loss),s.principal_loss_rate == null ? '等待完整账户估值' : `占本金 ${pct(s.principal_loss_rate)} · 上限 ${num(a.loss_percent)}%`,
-        Number(s.principal_loss) > 0 ? 'loss' : '',true),
-      metric('本金保护参考线',num(s.floor),`距底线 ${money(s.buffer)}`,tone(s.buffer),true),
+      '<div class="metric" data-principal-loss aria-live="off"><span>本金亏损</span><strong></strong><p></p></div>',
+      '<div class="metric" data-principal-floor aria-live="off"><span>本金保护参考线</span><strong></strong><p></p></div>',
       metric('剩余新增风险',num(s.risk_free),`计划预留 ${money(s.reserved_risk)}`,'',true),
     ].join('');
     const rows = view.positions.map(p => [
@@ -33,6 +60,7 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
       + `<p class="inline-note">组合压力 ${money(s.stress_risk)} · 保护估算 ${money(s.guard_risk)} · 进攻型 ${money(s.aggressive_value)} · 机动仓 ${money(s.tactical_value)} · 待执行现金 ${money(s.reserved_cash)}</p>`
       + (s.unknown.length ? `<p class="inline-note">行情待补 ${esc(s.unknown.join('、'))}</p>` : '')
       + (rows.length ? `<details class="inline-note"><summary>查看持仓风险与保护位</summary>${table(['股票','风险类型','市值','保护估算','风险提示'],rows,[2,3])}</details>` : '');
+    renderPrincipal();
   }
 
   function renderPlans(view) {
@@ -280,4 +308,5 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
   });
   window.addEventListener('portfolio:workspace',() => { void loadPortfolio(); });
   window.addEventListener('portfolio:research',syncResearch);
+  return {setPrincipal};
 }

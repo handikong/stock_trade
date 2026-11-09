@@ -20,6 +20,7 @@ MARKET_LABELS = {"US":"美股","CN":"A 股"}
 ZONES = {"US":ZoneInfo("America/New_York"),"CN":ZoneInfo("Asia/Shanghai")}
 RANGE_DAYS = {"week":7,"month":30,"year":365}
 CENT = Decimal("0.01")
+CASH_REVIEW = "持仓数量有变化，请按券商余额重新确认总现金"
 
 
 def _cash(session, region):
@@ -30,6 +31,45 @@ def _cash_view(row):
     if row is None or row.payload.get("total_cash") is None:
         return None
     return {key:row.payload.get(key) for key in ("total_cash","net_flows","cash_as_of")} | {"version":row.version}
+
+
+def _cash_matches(cash, baseline, quantities):
+    if baseline is None or baseline.payload.get("cash_version")!=cash["version"]:
+        return True
+    previous = {mark["symbol"]:Decimal(mark["quantity"]) for mark in baseline.payload["positions"]}
+    return previous == quantities
+
+
+def intraday_cash(session, positions):
+    row = _cash(session,"US")
+    cash = _cash_view(row)
+    if cash is None:
+        return None,"请先填写账户总现金"
+    baseline = session.scalar(_latest_query("US").limit(1))
+    quantities = {code:Decimal(row.quantity) for code,row in positions.items()}
+    return {**row.payload,**cash}, "" if _cash_matches(cash,baseline,quantities) else CASH_REVIEW
+
+
+def display_amount(value):
+    with localcontext() as ctx:
+        ctx.prec = 54
+        return format(value.quantize(CENT,rounding=ROUND_HALF_UP),"f")
+
+
+def equity_amount(market_value, cash):
+    with localcontext() as ctx:
+        ctx.prec = 54
+        return display_amount(market_value+Decimal(cash["total_cash"]))
+
+
+def principal_view(account, equity):
+    if not account or account.get("principal") is None:
+        return None
+    with localcontext() as ctx:
+        ctx.prec = 54
+        metrics = portfolio.principal_metrics(account,Decimal(equity) if equity is not None else None)
+        return {**{key:str(value) if value is not None else None for key,value in metrics.items()},
+                "loss_percent":account["loss_percent"]}
 
 
 def _cny(value, label, *, signed=False):
@@ -106,23 +146,43 @@ def _estimate(session, region, target, cash):
                           "position_version":row.version,"market_snapshot_id":source_id})
         if missing:
             return None,missing
-        equity = value + Decimal(cash["total_cash"])
-        return {"equity":format(equity.quantize(CENT,rounding=ROUND_HALF_UP),"f"),
-                "market_value":format(value.quantize(CENT,rounding=ROUND_HALF_UP),"f"),
-                "total_cash":cash["total_cash"],"net_flows":cash["net_flows"],"cash_as_of":cash["cash_as_of"],
-                "cash_version":cash["version"],"positions":marks},[]
+        return _marked_equity(value,cash,marks),[]
+
+
+def _marked_equity(value, cash, marks):
+    return {"equity":equity_amount(value,cash),"market_value":display_amount(value),
+            "total_cash":cash["total_cash"],"net_flows":cash["net_flows"],"cash_as_of":cash["cash_as_of"],
+            "cash_version":cash["version"],"positions":marks}
+
+
+def _estimate_from_holdings(holdings, target, cash):
+    missing, marks = [],[]
+    with localcontext() as ctx:
+        ctx.prec = 54
+        value = Decimal(0)
+        for row in sorted(holdings["items"],key=lambda item:item["symbol"]):
+            quote = row["quote"]
+            if row["market_value"] is None or quote["date"]!=target:
+                missing.append(row["symbol"])
+                continue
+            value += Decimal(row["market_value"])
+            marks.append({"symbol":row["symbol"],"quantity":row["quantity"],"close":quote["price"],
+                          "position_version":row["version"],"market_snapshot_id":quote["snapshot_id"]})
+        return (None,missing) if missing else (_marked_equity(value,cash,marks),[])
+
+
+def _daily_change(payload, prior):
+    if payload["net_flows"] is None or prior["net_flows"] is None:
+        return None
+    with localcontext() as ctx:
+        ctx.prec = 54
+        flow = Decimal(payload["net_flows"])-Decimal(prior["net_flows"])
+        return format(Decimal(payload["equity"])-Decimal(prior["equity"])-flow,".2f")
 
 
 def _view(row, previous):
     payload = row.payload
-    daily = None
-    prior = previous.payload if previous is not None else {}
-    if (previous is not None and previous.session_date==payload["previous_session"]
-            and payload["net_flows"] is not None and prior["net_flows"] is not None):
-        with localcontext() as ctx:
-            ctx.prec = 54
-            flow = Decimal(payload["net_flows"])-Decimal(prior["net_flows"])
-            daily = format(Decimal(payload["equity"])-Decimal(prior["equity"])-flow,".2f")
+    daily = _daily_change(payload,previous.payload) if previous and previous.session_date==payload["previous_session"] else None
     return {"session":row.session_date,"equity":payload["equity"],"daily_pnl":daily,
             "previous_session":payload["previous_session"],"updated_at":row.updated_at}
 
@@ -132,21 +192,47 @@ def _latest_query(region):
 
 
 def overview(region):
-    try:
-        _,target = market.calendar_context(region)
-    except ValueError:
-        target = None
     with Session() as session:
-        cash = _cash_view(_cash(session,region))
-        row = session.scalar(_latest_query(region).limit(1))
-        previous = session.get(AccountEquity,(region,row.payload["previous_session"])) if row and row.payload["previous_session"] else None
-        latest_view = _view(row,previous) if row else None
-        estimate,missing = _estimate(session,region,target,cash) if cash is not None and target else (None,[])
-        estimate_is_saved = bool(estimate and row and row.session_date==target
-                                 and all(row.payload.get(key)==value for key,value in estimate.items()))
+        return _overview(session,region)
+
+
+def holdings_overview(region):
+    with Session() as session:
+        holdings = (workspace if region=="US" else cn_holdings).read_holdings(session)
+        return {"holdings":holdings,"equity":_overview(session,region,holdings=holdings)}
+
+
+def _overview(session, region, *, holdings=None):
+    try:
+        cal,target = market.calendar_context(region)
+    except ValueError:
+        cal,target = None,None
+    cash_row = _cash(session,region)
+    cash = _cash_view(cash_row)
+    row = session.scalar(_latest_query(region).limit(1))
+    previous = session.get(AccountEquity,(region,row.payload["previous_session"])) if row and row.payload["previous_session"] else None
+    latest_view = _view(row,previous) if row else None
+    estimate,missing = None,[]
+    reason, daily = "", None
+    if cash is not None and target:
+        estimate,missing = (_estimate(session,region,target,cash) if holdings is None else
+                            _estimate_from_holdings(holdings,target,cash))
+    if estimate:
+        quantities = {mark["symbol"]:Decimal(mark["quantity"]) for mark in estimate["positions"]}
+        if not _cash_matches(cash,row,quantities):
+            estimate,reason = None,CASH_REVIEW
+        elif target!=cal.first_session.date().isoformat():
+            prior_day = cal.previous_session(target).date().isoformat()
+            prior = session.get(AccountEquity,(region,prior_day))
+            if prior:
+                daily = _daily_change(estimate,prior.payload)
+    estimate_is_saved = bool(estimate and row and row.session_date==target
+                             and all(row.payload.get(key)==value for key,value in estimate.items()))
+    amount = estimate["equity"] if estimate else None
     return {"market":region,"currency":CURRENCIES[region],"target_session":target,"cash":cash,"latest":latest_view,
-            "estimate":estimate["equity"] if estimate else None,"estimate_is_saved":estimate_is_saved,
-            "missing":missing}
+            "estimate":amount,"estimate_is_saved":estimate_is_saved,
+            "principal":principal_view(cash_row.payload,amount) if region=="US" and cash_row else None,
+            "estimate_daily_pnl":daily,"estimate_reason":reason,"missing":missing}
 
 
 def history(region, period):
@@ -201,11 +287,9 @@ def capture(job, progress, allowed=lambda:True):
                                        else cal.previous_session(target).date().isoformat())
         row = session.get(AccountEquity,(region,target))
         baseline = row or session.scalar(_latest_query(region).where(AccountEquity.session_date<target).limit(1))
-        if baseline is not None and baseline.payload["cash_version"]==cash["version"]:
-            old_quantities = {mark["symbol"]:Decimal(mark["quantity"]) for mark in baseline.payload["positions"]}
-            quantities = {mark["symbol"]:Decimal(mark["quantity"]) for mark in payload["positions"]}
-            if quantities!=old_quantities:
-                raise ValueError("持仓数量有变化，请按券商余额重新确认总现金后再保存净值")
+        quantities = {mark["symbol"]:Decimal(mark["quantity"]) for mark in payload["positions"]}
+        if not _cash_matches(cash,baseline,quantities):
+            raise ValueError(CASH_REVIEW+"后再保存净值")
         if row is None:
             row = AccountEquity(market=region,session_date=target)
             session.add(row)

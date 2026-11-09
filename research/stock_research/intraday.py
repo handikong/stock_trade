@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from . import feishu, intraday_rules as rules, market, portfolio_risk as risk
+from . import account_equity, feishu, intraday_rules as rules, market, portfolio_risk as risk
 from .config import settings
 from .notification_cards import _price
 from .notification_probe import _write
@@ -150,7 +150,7 @@ class Monitor:
     def read(self):
         view = self._view
         if view.get("at") and now()-datetime.fromisoformat(view["at"]) > timedelta(seconds=10):
-            return {**view, "state":"盘中行情快照待更新", "items":{}, "total":None, "benchmarks":{}}
+            return {**view, "state":"盘中行情快照待更新", "items":{}, "total":None, "equity":None, "benchmarks":{}}
         return view
 
     def _launch(self, trading, symbols, policy):
@@ -235,12 +235,14 @@ class Monitor:
             active_plans = select(PositionPlan).where(PositionPlan.symbol.in_(symbols), PositionPlan.status=="active",
                                                      PositionPlan.expires_at>stamp())
             plans = {row.symbol:row for row in session.scalars(active_plans) if not row.payload.get("override")}
-        return positions, symbols, refs, plans
+            cash = account_equity.intraday_cash(session,positions)
+        return positions, symbols, refs, plans, cash
 
     def _loop(self, policy):
         day = trading = None
         symbols = subscribed = ()
         refs, positions, plans = {}, {}, {}
+        cash = None,"等待账户资料"
         reload_at, restart_at, processed = now(), now(), None
         while not self._stop.is_set():
             current = now()
@@ -253,7 +255,7 @@ class Monitor:
                     self._dedup.clear()
                     reload_at = current
                 if (trading and trading.opened-timedelta(minutes=2) <= current < trading.closed and current >= reload_at):
-                    positions, symbols, refs, plans = self._inputs(trading, refs)
+                    positions, symbols, refs, plans, cash = self._inputs(trading, refs)
                     reload_at = current + timedelta(seconds=20)
                 if not trading or not trading.opened <= current < trading.closed:
                     if self._process:
@@ -273,7 +275,7 @@ class Monitor:
                     raw = self._raw
                     if raw and raw[0] is self._process and raw[1]["at"] != processed:
                         processed = raw[1]["at"]
-                        self._handle(trading, positions, {code:ref for code, (_,ref) in refs.items()}, plans, raw[1], policy)
+                        self._handle(trading, positions, {code:ref for code, (_,ref) in refs.items()}, plans, cash, raw[1], policy)
             except Exception:
                 # 行情线程异常不能影响盘后后台，也不能继续使用旧快照发送。
                 logger.exception("盘中监控处理失败")
@@ -284,7 +286,7 @@ class Monitor:
                     break
             self._stop.wait(1)
 
-    def _handle(self, trading, positions, refs, plans, frame, policy):
+    def _handle(self, trading, positions, refs, plans, cash_state, frame, policy):
         current = now()
         prices, scale = rules.usable_prices(frame, refs, current, policy, trading.opened, trading.closed)
         stable_prices = {symbol:value for symbol,value in prices.items() if symbol not in scale}
@@ -321,19 +323,29 @@ class Monitor:
                 item.update(day_pnl=str(day_pnl),day_return=str(day_return))
             items[code] = item
         total = None
+        market_value = sum(values.values(),D(0))
         if positions and len(values) == len(positions):
-            market_value = sum(values.values())
             pnl = market_value - total_cost
-            total = {"market_value":risk.cash(market_value), "pnl":risk.cash(pnl),
+            total = {"market_value":account_equity.display_amount(market_value), "pnl":risk.cash(pnl),
                      "unrealized_return":str(pnl / total_cost)}
             if len(day_changes) == len(positions):
                 total["day_pnl"] = str(sum(day_changes))
             for code, value in values.items():
                 items[code]["weight"] = str(value / market_value)
+        cash, reason = cash_state
+        equity = {"value":None,"reason":reason}
+        if cash is not None:
+            if not reason:
+                if total is not None or not positions:
+                    equity["value"] = account_equity.equity_amount(market_value,cash)
+                else:
+                    equity["reason"] = "等待全部持仓的有效盘中报价"
+            equity["cash_as_of"] = cash["cash_as_of"]
+            equity["principal"] = account_equity.principal_view(cash,equity["value"])
         view = {"at":frame["at"],"state":"IEX 行情已连接" if frame["ready"] else frame["state"],"items":items,
                       "session":trading.day.isoformat(),"cutoff_at":trading.cutoff.isoformat(),
                       "push_active":settings.intraday_feishu_enabled and current<trading.cutoff,
-                      "excluded":[code for code in positions if code not in live],"total":total,"market":mode,
+                      "excluded":[code for code in positions if code not in live],"total":total,"equity":equity,"market":mode,
                       "benchmarks":{code:{"price":str(prices[code]),"at":live[code]["last"]["at"]}
                                     for code in BENCHMARKS if code in prices}}
         ordinary = frame["backfill"] and current >= trading.opened + timedelta(minutes=policy.opening_minutes)

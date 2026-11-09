@@ -1,5 +1,5 @@
-import {connectPortfolio} from './portfolio.js?v=20261109-account-equity';
-import {connectEquity} from './equity.js?v=20261109-day-pnl';
+import {connectPortfolio} from './portfolio.js?v=20261110-live-equity';
+import {connectEquity} from './equity.js?v=20261110-live-equity';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -43,6 +43,7 @@ const state = {page:'holdings',symbol:'',report:null,workspace:null,timezone:'As
   positions:new Map(),editPosition:null,pendingRemoval:null,jobs:new Map(),valuationEdit:null,booting:false,connected:false};
 const pushHistory = {generation:0,query:'',cursor:null,groups:new Map()};
 let liveHoldings = null, intradayPending = false;
+let workspaceLoads = 0, usHoldingsPending = false;
 
 function notice(message = '', error = false) {
   const node = $('#notice'); node.textContent = message; node.hidden = !message; node.classList.toggle('error',error);
@@ -92,7 +93,7 @@ function renderHoldings() {
     $('#positions-content').innerHTML = empty('记录你的第一笔持仓','输入股票、数量与成本均价，建立属于自己的持仓总览。',`<button class="secondary" data-add-position>${icon('plus')}添加持仓</button>`);
   } else {
     $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','价格','持仓市值','今日盈亏','浮动盈亏','操作'],data.items.map((r,i) => [
-      stock(r.symbol,r.name,i),`${num(r.quantity,6)}<span class="subline">股</span>`,num(r.average_cost),
+      stock(r.symbol,r.name,i),num(r.quantity,6),num(r.average_cost),
       `<strong data-holding-price="${esc(r.id)}"></strong>`,
       '<span data-holding-field="market"></span><span class="subline" data-holding-field="market-note" hidden></span>',
       '<span data-holding-field="day-pnl"></span><span class="subline" data-holding-field="day-return"></span>',
@@ -105,8 +106,8 @@ function renderHoldings() {
 function renderHoldingTotals(holdings, live, liveCount) {
   const s = holdings.summary, source = live ? '盘中 IEX' : '收盘';
   // 持仓变更后，等待监控和工作台的名单及版本一致。
-  const liveComplete = live?.total && liveCount === s.count && Object.keys(live.items).length === s.count;
-  const total = live ? (liveComplete ? live.total : null) : s;
+  const liveAligned = live && liveCount === s.count && Object.keys(live.items).length === s.count;
+  const total = live ? (liveAligned ? live.total : null) : s;
   const pnl = live ? total?.pnl : s.unrealized_pnl;
   const priced = live ? liveCount : s.priced_count;
   $('#portfolio-metrics').innerHTML = metric('持仓市值',num(total?.market_value),s.count ? `${source}报价 ${priced} / ${s.count} 只` : '添加持仓后计算', '', true)
@@ -114,7 +115,12 @@ function renderHoldingTotals(holdings, live, liveCount) {
     + metric('持仓浮动盈亏',signed(pnl),validNumber(total?.unrealized_return) ? `${source} · 相对成本 ${pct(total.unrealized_return)}` : `等待完整${source}报价`,tone(pnl),true)
     + metric('持仓股票',String(s.count),'持仓与扫描名单分别管理');
   $('#portfolio-note').textContent = '今日盈亏按现价相对前收的变动 × 当前股数估算。浮盈亏以录入成本为基准，两者均未计已实现盈亏、费用和分红。';
-  equity.setIntraday(live ? {session:live.session,pnl:total?.day_pnl,count:s.count} : null);
+  const closeAccount = state.workspace.equity;
+  const cashPending = live && Date.parse(closeAccount?.cash?.cash_as_of) > Date.parse(live.equity?.cash_as_of);
+  equity.setIntraday(live ? {session:live.session,pnl:total?.day_pnl,count:s.count,
+    equity:liveAligned && !cashPending ? live.equity?.value : null,
+    reason:cashPending ? '等待更新后的现金同步' : live.equity?.reason} : null);
+  portfolio.setPrincipal(live ? (liveAligned && !cashPending ? live.equity?.principal : null) : closeAccount?.principal,Boolean(live));
   if (live ? !total : !s.complete) {
     const detail = s.count ? `等待完整${source}报价后显示市值构成。` : '持仓构成会在这里展示。';
     $('#allocation-content').innerHTML = empty(s.count ? '行情尚未齐全' : '等待添加持仓',detail, '', true);
@@ -167,10 +173,17 @@ function renderIntraday() {
 async function loadIntraday() {
   if (!state.connected || state.page !== 'holdings' || document.hidden || intradayPending) return;
   intradayPending = true;
-  try { liveHoldings = await api('/intraday'); }
-  catch { liveHoldings = {state:'暂时无法读取盘中监控状态'}; }
-  finally { intradayPending = false; }
-  renderIntraday();
+  const previous = liveHoldings;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(),8000);
+  try {
+    liveHoldings = await api('/intraday',{signal:controller.signal});
+    if (previous?.session && !liveHoldings.session) void syncUsHoldings();
+  } catch {
+    liveHoldings = {state:'暂时无法读取盘中监控状态',session:previous?.session,items:{}};
+  }
+  finally { clearTimeout(timeout); intradayPending = false; }
+  if (liveHoldings.session || previous?.session || previous?.state !== liveHoldings.state) renderIntraday();
 }
 function displayCap(value) {
   if (!validNumber(value) || Number(value) <= 0) return '—';
@@ -215,11 +228,33 @@ function renderPool() {
 }
 async function loadWorkspace() {
   const ticket = ++state.workspaceGeneration;
-  const value = await api('/workspace');
-  if (ticket !== state.workspaceGeneration) return;
-  state.workspace = value; renderHoldings(); renderPool(); updateBusy();
-  window.dispatchEvent(new Event("portfolio:workspace"));
-  if (state.page === 'holdings') void equity.load('US');
+  workspaceLoads++;
+  try {
+    const value = await api('/workspace');
+    if (ticket !== state.workspaceGeneration) return;
+    state.workspace = value; renderHoldings(); renderPool(); updateBusy();
+    equity.apply('US',value.equity);
+    window.dispatchEvent(new Event('portfolio:workspace'));
+  } finally { workspaceLoads--; }
+}
+
+async function syncUsHoldings() {
+  if (!state.connected || !state.workspace || state.page !== 'holdings' || document.hidden || workspaceLoads || usHoldingsPending) return;
+  const ticket = state.workspaceGeneration, page = state.generation;
+  usHoldingsPending = true;
+  try {
+    const view = await api('/account-equity/US/holdings');
+    if (ticket !== state.workspaceGeneration || page !== state.generation) return;
+    const holdingsChanged = JSON.stringify(view.holdings) !== JSON.stringify(state.workspace.holdings);
+    const cashChanged = view.equity.cash?.version !== state.workspace.equity?.cash?.version;
+    Object.assign(state.workspace,view);
+    if (holdingsChanged) { renderHoldings(); updateBusy(); }
+    else if (!liveHoldings?.session) portfolio.setPrincipal(view.equity.principal,false);
+    equity.apply('US',view.equity);
+    if (holdingsChanged || cashChanged) window.dispatchEvent(new Event('portfolio:workspace'));
+  } catch {
+    // 自动同步失败时保留当前标记，下一轮继续读取缓存。
+  } finally { usHoldingsPending = false; }
 }
 
 function renderWeeklyValuation(view) {
@@ -324,7 +359,8 @@ function monitorJob(id, kind, code = '') {
         if (['completed','failed'].includes(job.status)) {
           if (kind === 'refresh' && code === state.symbol && state.page === 'research') await reloadResearch(code);
           if (kind === 'account_equity_capture' || kind === 'cn_account_equity_capture') {
-            await equity.load(kind.startsWith('cn_') ? 'CN' : 'US');
+            if (kind.startsWith('cn_')) await loadCnHoldings();
+            else await loadWorkspace();
           } else if (kind === 'cn_holdings_refresh') {
             if (state.page === 'cn-holdings') await loadCnHoldings();
           } else if (kind === 'cn_watchlist_scan' || kind === 'cn_watchlist_market_caps') {
@@ -439,15 +475,22 @@ async function loadPushHistory(more = false) {
 const isCnPage = page => page === 'cn' || page === 'cn-holdings';
 let cnPositions = new Map();
 let cnHoldingsReadVersion = 0;
-async function loadCnHoldings() {
-  if (state.page === 'cn-holdings') void equity.load('CN');
+let cnHoldingsLoads = 0, cnHoldingsSnapshot = '';
+async function loadCnHoldings({quiet = false} = {}) {
+  if (quiet && cnHoldingsLoads) return;
+  cnHoldingsLoads++;
   const generation = state.generation, version = ++cnHoldingsReadVersion;
   const current = () => generation === state.generation && version === cnHoldingsReadVersion;
   const content = $('#cn-holdings-content');
-  content.setAttribute('aria-busy','true');
+  if (!quiet) content.setAttribute('aria-busy','true');
   try {
-    const {items,summary} = await api('/cn/holdings');
+    const view = await api('/account-equity/CN/holdings');
     if (!current()) return;
+    equity.apply('CN',view.equity);
+    const snapshot = JSON.stringify(view.holdings);
+    if (quiet && snapshot === cnHoldingsSnapshot) return;
+    cnHoldingsSnapshot = snapshot;
+    const {items,summary} = view.holdings;
     cnPositions = new Map(items.map(row => [row.id,row]));
     $('#cn-holding-count').textContent = summary.count;
     $('#cn-holdings-metrics').innerHTML =
@@ -468,11 +511,12 @@ async function loadCnHoldings() {
       : empty('还没有 A 股持仓','可以登记已经持有的沪深股票或 ETF。');
     updateBusy();
   } catch (error) {
-    if (!current()) return;
+    if (!current() || quiet) return;
     if (!cnPositions.size) content.innerHTML = empty('暂时无法读取 A 股持仓','请确认后台可用后重新读取。','',true);
     notice(error.message,true);
   } finally {
-    if (current()) content.setAttribute('aria-busy','false');
+    cnHoldingsLoads--;
+    if (!quiet && current()) content.setAttribute('aria-busy','false');
   }
 }
 function cnQuote(q) {
@@ -575,7 +619,7 @@ function route() {
   if (next === 'push-history' && state.connected) void loadPushHistory();
   if (next === 'holdings') {
     void loadIntraday();
-    if (state.connected && state.workspace) void equity.load('US');
+    void syncUsHoldings();
   }
 }
 function researchHash(code) { location.hash = '/research?symbol=' + encodeURIComponent(code.trim().toUpperCase()); }
@@ -803,9 +847,15 @@ async function boot() {
     $('#positions-content').innerHTML = empty('暂时无法读取持仓','请确认后台正在运行，然后刷新页面重试。');
   } finally { state.booting = false; }
 }
-connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
-const equity = connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob});
-window.addEventListener('equity:cash-us',() => { void equity.load('US'); });
+const portfolio = connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
+const equity = connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob,loadCnHoldings});
+window.addEventListener('equity:cash-us',() => { void syncUsHoldings(); });
 icons(); route(); void boot();
 window.setInterval(() => { void loadIntraday(); },5000);
-document.addEventListener('visibilitychange', () => { void loadIntraday(); });
+function syncClosingHoldings() {
+  if (!state.connected || document.hidden) return;
+  if (state.page === 'cn-holdings') void loadCnHoldings({quiet:true});
+  else if (state.page === 'holdings' && !liveHoldings?.session) void syncUsHoldings();
+}
+window.setInterval(syncClosingHoldings,30000);
+document.addEventListener('visibilitychange', () => { void loadIntraday(); syncClosingHoldings(); });

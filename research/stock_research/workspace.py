@@ -123,12 +123,16 @@ def summarize_holdings(items, region, currency):
 
 def holdings():
     with Session() as session:
-        items = []
-        for row in session.scalars(select(ManualPosition).where(ManualPosition.active.is_(True)).order_by(ManualPosition.created_at, ManualPosition.id)):
-            security = session.get(Security,row.security_id)
-            items.append({**_position(row),"name":row.name or security.profile.get("name") or row.symbol,
-                          "quote":quote(session,security,daily_change=True)})
-        return summarize_holdings(items,"US","USD")
+        return read_holdings(session)
+
+
+def read_holdings(session):
+    items = []
+    for row in session.scalars(select(ManualPosition).where(ManualPosition.active.is_(True)).order_by(ManualPosition.created_at, ManualPosition.id)):
+        security = session.get(Security,row.security_id)
+        items.append({**_position(row),"name":row.name or security.profile.get("name") or row.symbol,
+                      "quote":quote(session,security,daily_change=True)})
+    return summarize_holdings(items,"US","USD")
 
 
 def cn_pool():

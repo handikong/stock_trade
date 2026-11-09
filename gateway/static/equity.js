@@ -1,11 +1,36 @@
-// 两个市场共用收盘净值卡与趋势图，数据和请求按市场分开。
-export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob}) {
+// 两个市场共用净值卡与收盘趋势图，盘中估算由美股行情帧提供。
+export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob,loadCnHoldings}) {
   const regions = {US:'美股',CN:'A 股'};
   const panels = {US:'#us-equity-content',CN:'#cn-equity-content'};
-  const views = {}, reads = {US:0,CN:0};
+  const views = {};
   const dialog = $('#equity-history');
   let region = 'US', period = 'month', request = 0, points = [];
   let intradayUS = null;
+
+  function setText(node, value) {
+    if (node.textContent !== value) node.textContent = value;
+  }
+
+  function renderNetWorth(market) {
+    const panel = $(panels[market]);
+    const value = panel.querySelector('[data-equity-value]');
+    if (!value) return;
+    const view = views[market], saved = view.latest;
+    const live = market === 'US' ? intradayUS : null;
+    const equity = live ? live.equity : view.estimate ?? (view.estimate_reason ? null : saved?.equity);
+    let note;
+    if (live) {
+      note = equity != null ? `${live.session} · 盘中估算 · IEX` : live.reason || '等待全部持仓的有效盘中报价';
+    } else if (view.estimate != null) {
+      note = `${view.target_session} · 收盘估算${view.estimate_is_saved ? '' : ' · 待保存'}`;
+    } else {
+      const reason = view.estimate_reason || (!view.cash ? '请先填写账户现金' : view.missing.length
+        ? `${view.missing.length} 只持仓待补收盘价` : '等待有效收盘报价');
+      note = equity != null ? `${saved.session} · 历史参考 · ${reason}` : reason;
+    }
+    setText(value,equity != null ? `${view.currency} ${num(equity)}` : '—');
+    setText(panel.querySelector('[data-equity-note]'),note);
+  }
 
   function renderDaily(market) {
     const card = $(panels[market]).querySelector('.equity-day');
@@ -13,63 +38,53 @@ export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,no
     const view = views[market], saved = view.latest;
     const settled = saved?.session === view.target_session ? saved : null;
     const live = market === 'US' ? intradayUS : null;
-    const daily = live ? live.pnl : settled?.daily_pnl;
+    const daily = live ? live.pnl : view.estimate != null ? view.estimate_daily_pnl : view.estimate_reason ? null : settled?.daily_pnl;
     const label = live ? '盘中持仓盈亏' : '当日盈亏';
     let note;
     if (live) {
       note = daily != null ? `${live.session} · 相对前收 · 按当前股数估算`
         : live.count ? '等待全部持仓的有效盘中价与前收' : '暂无持仓';
     } else if (daily != null) {
-      const basis = view.estimate != null && !view.estimate_is_saved ? '上次保存' : '扣除外部净入金';
-      note = `${settled.session} · ${basis}`;
+      const basis = view.estimate != null && !view.estimate_is_saved ? '收盘估算' : '收盘记录';
+      note = `${view.target_session} · ${basis} · 扣除外部净入金`;
     } else {
-      note = settled ? '需要相邻两日净值和净入金记录' : '等待最近收盘净值保存';
+      note = view.estimate_reason || (view.estimate != null || settled ? '需要前一交易日净值和净入金记录' : '等待有效收盘净值');
     }
     const amount = daily != null ? `${view.currency} ${signed(daily)}` : '—';
     const value = card.querySelector('strong');
-    if (value.textContent !== amount) value.textContent = amount;
+    setText(value,amount);
     value.className = tone(daily);
     const heading = card.querySelector('[data-day-label]');
-    if (heading.textContent !== label) heading.textContent = label;
+    setText(heading,label);
     const detail = card.querySelector('.subline');
-    if (detail.textContent !== note) detail.textContent = note;
+    setText(detail,note);
   }
 
   function setIntraday(view) {
-    const ended = intradayUS && !view;
     intradayUS = view;
+    renderNetWorth('US');
     renderDaily('US');
-    if (ended) void load('US');
   }
 
-  async function load(market) {
-    const ticket = ++reads[market];
-    try {
-      const view = await api('/account-equity/' + market);
-      if (ticket !== reads[market]) return;
-      views[market] = view;
-      const saved = view.latest;
-      const estimate = view.estimate ?? saved?.equity;
-      const mark = view.estimate != null ? view.target_session : saved?.session;
-      const unsaved = view.estimate != null && !view.estimate_is_saved;
-      let note = !view.cash ? '请先填写账户现金' : mark ? `${mark}${unsaved ? ' · 待保存' : ' · 收盘估算'}` : '等待有效收盘报价';
-      if (view.missing.length) note = `${mark ? mark + ' · ' : ''}${view.missing.length} 只持仓待补收盘价`;
-      $(panels[market]).innerHTML = `<button type="button" class="equity-history-trigger" data-equity-history="${market}">
-        <span>账户估算净值</span><strong>${estimate != null ? `${view.currency} ${num(estimate)}` : '—'}</strong>
-        <span class="equity-card-meta"><span>${esc(note)}</span><span class="equity-link">查看走势 <span aria-hidden="true">↗</span></span></span>
+  function apply(market, view) {
+    views[market] = view;
+    const panel = $(panels[market]);
+    if (!panel.querySelector('[data-equity-value]')) {
+      panel.innerHTML = `<button type="button" class="equity-history-trigger" data-equity-history="${market}">
+        <span>账户估算净值</span><strong data-equity-value aria-live="off"></strong>
+        <span class="equity-card-meta"><span data-equity-note></span><span class="equity-link">查看走势 <span aria-hidden="true">↗</span></span></span>
       </button><div class="equity-day"${market === 'US' ? ' aria-live="off"' : ''}><span data-day-label></span><strong></strong>
         <span class="subline"></span></div>`;
-      renderDaily(market);
-      if (market === 'CN') {
-        const button = $('#cn-equity-cash-open');
-        button.disabled = false;
-        button.textContent = view.cash ? '更新人民币现金' : '填写人民币现金';
-        $('#cn-equity-cash-note').textContent = view.cash
-          ? `总现金 CNY ${num(view.cash.total_cash)} · ${when(view.cash.cash_as_of)} 核对`
-          : '录入券商总现金和累计净入金后可估算净值。';
-      }
-    } catch (error) {
-      if (ticket === reads[market]) $(panels[market]).textContent = error.message;
+    }
+    renderNetWorth(market);
+    renderDaily(market);
+    if (market === 'CN') {
+      const button = $('#cn-equity-cash-open');
+      button.disabled = false;
+      setText(button,view.cash ? '更新人民币现金' : '填写人民币现金');
+      setText($('#cn-equity-cash-note'),view.cash
+        ? `总现金 CNY ${num(view.cash.total_cash)} · ${when(view.cash.cash_as_of)} 核对`
+        : '录入券商总现金和累计净入金后可估算净值。');
     }
   }
 
@@ -194,9 +209,9 @@ export function connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,no
         await api('/account-equity/CN/cash',{method:'PUT',body:JSON.stringify({...data,expected_version:cashForm.dataset.version || null})});
         cashDialog.close();
         notice('A 股现金已更新。');
-        await load('CN');
+        await loadCnHoldings();
       } catch (error) { formError('#cn-equity-cash-error',error.message); }
     });
   });
-  return {load,setIntraday};
+  return {apply,setIntraday};
 }

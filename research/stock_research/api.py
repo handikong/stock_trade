@@ -157,7 +157,7 @@ async def workspace_conflict(request,exc):
 def workspace_overview():
     return {"market":"US","markets":[{"id":"US","name":"美股","currency":"USD","enabled":True},
             {"id":"CN","name":"A股","currency":"CNY","enabled":True,"scope":"workspace"}],
-            "holdings":workspace.holdings(),"watchlist":workspace.pool()}
+            **account_equity.holdings_overview("US"),"watchlist":workspace.pool()}
 
 
 @app.get("/api/v1/cn/watchlist")
@@ -247,6 +247,11 @@ def portfolio_overview():
 @app.get("/api/v1/account-equity/{region}")
 def account_equity_overview(region: Literal["US","CN"]):
     return account_equity.overview(region)
+
+
+@app.get("/api/v1/account-equity/{region}/holdings")
+def account_holdings_overview(region: Literal["US","CN"]):
+    return account_equity.holdings_overview(region)
 
 
 @app.get("/api/v1/account-equity/{region}/history")

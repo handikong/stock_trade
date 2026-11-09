@@ -20,15 +20,19 @@ def positions(session):
 
 def holdings():
     with Session() as session:
-        rows = positions(session)
-        securities = {s.symbol:s for s in session.scalars(select(Security).where(
-            Security.symbol.in_([row.symbol for row in rows])))} if rows else {}
-        items = []
-        for row in rows:
-            security = securities.get(row.symbol)
-            items.append({**_view(row),"name":row.name or (security.profile.get("name") if security else "") or row.symbol,
-                          "quote":quote(session,security,"CN",daily_change=True)})
-        return summarize_holdings(items,"CN","CNY")
+        return read_holdings(session)
+
+
+def read_holdings(session):
+    rows = positions(session)
+    securities = {s.symbol:s for s in session.scalars(select(Security).where(
+        Security.symbol.in_([row.symbol for row in rows])))} if rows else {}
+    items = []
+    for row in rows:
+        security = securities.get(row.symbol)
+        items.append({**_view(row),"name":row.name or (security.profile.get("name") if security else "") or row.symbol,
+                      "quote":quote(session,security,"CN",daily_change=True)})
+    return summarize_holdings(items,"CN","CNY")
 
 
 def _active_position(session, position_id, version):

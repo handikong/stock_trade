@@ -75,6 +75,18 @@ def _remaining(plans):
     return [(p,stage) for p in plans if p["status"]=="active" for stage in p["stages"] if stage["remaining"]>0]
 
 
+def principal_metrics(account, equity=None):
+    values = dict(floor=None,buffer=None,principal_loss=None,principal_loss_rate=None)
+    if account:
+        principal = D(account["principal"])
+        net_flows = D(account["net_flows"])
+        values["floor"] = principal*(1-D(account["loss_percent"])/100)+net_flows
+        if equity is not None:
+            loss = max(ZERO,principal-(equity-net_flows))
+            values.update(principal_loss=loss,principal_loss_rate=loss/principal,buffer=equity-values["floor"])
+    return values
+
+
 def _context(session, code=None, *, live_prices=None):
     cfg = risk.policy()
     cal,target = market.calendar_context()
@@ -100,21 +112,12 @@ def _context(session, code=None, *, live_prices=None):
     result = {"cfg":cfg,"target":target,"calendar":cal,"assets":assets,"plans":plans,"account":account,
               "reservations":reservations,"reserved_cash":reserved,"reserved_risk":reserved_risk,**positions}
     result["environment"] = env
-    result["equity"] = result["floor"] = result["buffer"] = result["risk_free"] = result["cash_free"] = None
-    result.update(principal_loss=None,principal_loss_rate=None)
-    if account:
-        principal = D(account["principal"])
-        net_flows = D(account["net_flows"])
-        result["floor"] = principal*(1-D(account["loss_percent"])/100)+net_flows
-        if not positions["unknown"]:
-            equity = D(account["total_cash"])+positions["market_value"]
-            result["equity"] = equity
-            loss = max(ZERO,principal-(equity-net_flows))
-            result.update(principal_loss=loss,principal_loss_rate=loss/principal)
-            result["buffer"] = equity-result["floor"]
-            result["risk_free"] = (max(ZERO,result["buffer"]-max(positions["guard_risk"],positions["stress_risk"])-reserved_risk)
-                                   if D(account["loss_percent"])>0 else ZERO)
-            result["cash_free"] = max(ZERO,D(account["available_cash"])-reserved-equity*cfg.cash_reserve_fraction)
+    equity = D(account["total_cash"])+positions["market_value"] if account and not positions["unknown"] else None
+    result.update(principal_metrics(account,equity),equity=equity,risk_free=None,cash_free=None)
+    if equity is not None:
+        result["risk_free"] = (max(ZERO,result["buffer"]-max(positions["guard_risk"],positions["stress_risk"])-reserved_risk)
+                               if D(account["loss_percent"])>0 else ZERO)
+        result["cash_free"] = max(ZERO,D(account["available_cash"])-reserved-equity*cfg.cash_reserve_fraction)
     return result
 
 
