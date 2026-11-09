@@ -93,8 +93,7 @@ function renderHoldings() {
   } else {
     $('#positions-content').innerHTML = table(['股票','持股数量','成本均价','价格','持仓市值','今日盈亏','浮动盈亏','操作'],data.items.map((r,i) => [
       stock(r.symbol,r.name,i),`${num(r.quantity,6)}<span class="subline">股</span>`,num(r.average_cost),
-      `<strong data-holding-price="${esc(r.id)}"></strong><span class="subline" data-holding-field="source"></span>
-        <details class="holding-technicals" hidden><summary>技术与收盘参考</summary><span class="subline" data-holding-field="evidence"></span></details>`,
+      `<strong data-holding-price="${esc(r.id)}"></strong>`,
       '<span data-holding-field="market"></span><span class="subline" data-holding-field="market-note" hidden></span>',
       '<span data-holding-field="day-pnl"></span><span class="subline" data-holding-field="day-return"></span>',
       '<span data-holding-field="pnl"></span><span class="subline" data-holding-field="return"></span>',
@@ -144,17 +143,7 @@ function renderIntraday() {
     const closePrice = close.currency === position.currency ? close.price : null;
     const row = price.closest('tr');
     const field = name => row.querySelector(`[data-holding-field="${name}"]`);
-    const source = validNumber(closePrice) ? `收盘 ${close.date || '日期未知'}${close.state === 'fresh' ? '' : ' · 待更新'}` : '暂无有效收盘价';
     price.textContent = num(live ? live.price : closePrice);
-    field('source').textContent = live ? `IEX · ${when(live.at)}` : source;
-    const technical = live && !live.scale_review ? [live.vwap && `VWAP ${num(live.vwap)}`,
-      live.ema20 && `日线 EMA20 ${num(live.ema20)}`, live.relative_volume && `量比 ${num(live.relative_volume)} 倍`,
-      live.support && `支撑 ${live.support.map(v => num(v)).join('–')}`,
-      live.resistance && `压力 ${live.resistance.map(v => num(v)).join('–')}`,
-      live.signal] : [];
-    const evidence = live ? [validNumber(closePrice) && `${source} ${num(closePrice)}`, ...technical].filter(Boolean).join(' · ') : '';
-    field('evidence').textContent = evidence;
-    row.querySelector('.holding-technicals').hidden = !evidence;
 
     const marketValue = live ? live.market_value : position.reference_market_value;
     const pnl = live ? live.pnl : position.unrealized_pnl;
