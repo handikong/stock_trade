@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -97,6 +99,31 @@ func allSubscribed(got, symbols []string) bool {
 	return true
 }
 
+func streamReadError(stage string, err error) error {
+	var closed *websocket.CloseError
+	var network net.Error
+	var syntax *json.SyntaxError
+	var field *json.UnmarshalTypeError
+	switch {
+	case errors.As(err, &closed):
+		return fmt.Errorf("Alpaca %s失败 · WebSocket 关闭码 %d", stage, closed.Code)
+	case errors.As(err, &network) && network.Timeout():
+		return fmt.Errorf("Alpaca %s超时", stage)
+	case errors.Is(err, syscall.ECONNRESET):
+		return fmt.Errorf("Alpaca %s失败 · TCP 连接被重置", stage)
+	case errors.Is(err, net.ErrClosed):
+		return fmt.Errorf("Alpaca %s失败 · 本地连接已关闭", stage)
+	case errors.Is(err, websocket.ErrReadLimit):
+		return fmt.Errorf("Alpaca %s失败 · WebSocket 消息超过读取上限", stage)
+	case errors.As(err, &syntax), errors.As(err, &field):
+		return fmt.Errorf("Alpaca %s失败 · JSON 格式或字段类型异常", stage)
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
+		return fmt.Errorf("Alpaca %s失败 · 消息提前结束", stage)
+	default:
+		return fmt.Errorf("Alpaca %s失败 · 读取错误类型 %T", stage, err)
+	}
+}
+
 func stream(ctx context.Context, auth credentials, symbols []string, out chan<- streamBatch) {
 	delay := time.Second
 	for ctx.Err() == nil {
@@ -109,7 +136,7 @@ func stream(ctx context.Context, auth credentials, symbols []string, out chan<- 
 			delay = time.Second
 		}
 		// 只记录受控的状态或错误码，避免回显请求或凭据。
-		publish(ctx, out, streamBatch{state: err.Error()})
+		publish(ctx, out, streamBatch{state: err.Error() + "，正在重连"})
 		select {
 		case <-ctx.Done():
 			return
@@ -133,7 +160,8 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	conn.SetReadLimit(2 << 20)
-	_ = conn.SetReadDeadline(time.Now().Add(12 * time.Second))
+	const confirmationTimeout = 12 * time.Second
+	_ = conn.SetReadDeadline(time.Now().Add(confirmationTimeout))
 	var accepted bool
 	for !accepted {
 		var batch []struct {
@@ -141,8 +169,8 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 			Msg  string `json:"msg"`
 			Code int    `json:"code"`
 		}
-		if conn.ReadJSON(&batch) != nil {
-			return errors.New("等待 Alpaca 鉴权确认失败")
+		if err := conn.ReadJSON(&batch); err != nil {
+			return streamReadError("鉴权确认", err)
 		}
 		for _, p := range batch {
 			if p.Type == "error" {
@@ -155,8 +183,11 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 	if conn.WriteJSON(map[string]any{"action": "subscribe", "trades": symbols, "bars": symbols, "updatedBars": symbols}) != nil {
 		return errors.New("Alpaca 订阅请求失败")
 	}
+	// 订阅确认使用独立的等待窗口，鉴权耗时不会挤占它。
+	_ = conn.SetReadDeadline(time.Now().Add(confirmationTimeout))
 	keepalive, cancel := context.WithCancel(ctx)
 	defer cancel()
+	pingFailed := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -166,6 +197,7 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 				return
 			case <-ticker.C:
 				if conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)) != nil {
+					close(pingFailed)
 					_ = conn.Close()
 					return
 				}
@@ -173,15 +205,28 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 		}
 	}()
 	const timeout = 40 * time.Second
-	conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(timeout)) })
 	ready := false
+	conn.SetPongHandler(func(string) error {
+		if ready {
+			return conn.SetReadDeadline(time.Now().Add(timeout))
+		}
+		return nil
+	})
 	for {
 		if ready {
 			_ = conn.SetReadDeadline(time.Now().Add(timeout))
 		}
 		var batch []packet
-		if conn.ReadJSON(&batch) != nil {
-			return errors.New("Alpaca 行情中断，正在重连")
+		if err := conn.ReadJSON(&batch); err != nil {
+			select {
+			case <-pingFailed:
+				return errors.New("Alpaca 心跳发送失败")
+			default:
+			}
+			if !ready {
+				return streamReadError("订阅确认", err)
+			}
+			return streamReadError("行情读取", err)
 		}
 		for _, p := range batch {
 			switch p.Type {

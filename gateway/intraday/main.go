@@ -260,7 +260,9 @@ func run(ctx context.Context, auth credentials, symbols []string, open, close ti
 				reconciled = false
 				generation++
 				state = batch.state
-				if !connected {
+				if connected {
+					log.Printf("Alpaca IEX 订阅已确认 · %d 个代码", len(symbols))
+				} else {
 					log.Print(state)
 					for symbol := range states {
 						states[symbol] = &tickerState{bars: make(map[int64]bar)}
