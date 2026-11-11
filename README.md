@@ -86,7 +86,7 @@ bash update.sh
 | 持仓与账户 | 美股「我的持仓」支持账户风险和市值汇总。A 股「持仓总览」单独录入持仓和人民币成本，用有效收盘价计算市值和浮盈亏。 [美股仓位管理](docs/45-position-planning.md) · [A 股持仓](docs/49-cn-sources.md) |
 | 当日盈亏与净值 | 两个市场分别保存每个交易日的收盘净值，扣除外部净入金后显示当日盈亏。点击净值卡可看近一周、近一月、近一年。 [净值口径与操作](docs/50-account-equity.md) |
 | 买入与加仓计划 | 「评估买入」结合技术、估值、现金、大盘及同向持仓风险，给出首仓、左侧或右侧加仓价带、最多股数和保护位。实际成交后手工登记。 [买入计划](docs/45-position-planning.md) |
-| 股票池与策略 | 「扫描股票池」可手动增删并按公司总市值排序。默认同步富途美股热榜前 100 条，仅股票自动入池。扫描使用 EMA20 高点回踩和 MACD 零轴下金叉两套买点，并记录共用退出预警。 [富途热榜](docs/42-futu-heat-watchlist.md) · [策略扫描](docs/21-watchlist-scan.md) · [退出规则](docs/23-common-exit.md) |
+| 股票池与策略 | 「扫描股票池」可手动增删并按公司总市值排序。默认同步富途美股热榜前 100 条，仅股票自动入池。扫描使用 EMA20 高点回踩、MACD 零轴下金叉和 FACE 笑脸三套买点。EMA20 和 MACD 策略记录共用退出预警。 [富途热榜](docs/42-futu-heat-watchlist.md) · [策略扫描](docs/21-watchlist-scan.md) · [FACE 规则](docs/51-face-cci.md) · [退出规则](docs/23-common-exit.md) |
 | 个股研究 | 查询已缓存日线计算的支撑、压力和强弱，查看 EPS × Forward PE 三档估值及技术配合。每周刷新关注股估值，可在网页更正。K 线用于后台计算。 [每周估值](docs/43-weekly-valuation.md) · [技术与估值](docs/31-fundamental-technical-confluence.md) |
 | 大盘与持仓复盘 | 大盘简报参考 SPY、QQQ 等基准、成交量、VIX 和宏观消息。持仓复盘列出近期走势、关键位和加减仓、止盈止损复核。 [大盘简报](docs/44-market-brief.md) · [持仓复盘](docs/46-holdings-brief.md) |
 | 盘中监控 | 美股常规交易时段连接 Alpaca IEX，订阅 QQQ、SPY 和实际持仓，每 5 秒更新。跟踪保护位、破位和加仓条件，北京时间 02:00 起停止发起盘中飞书推送，行情继续更新至收盘。 [盘中监控](docs/48-intraday.md) |

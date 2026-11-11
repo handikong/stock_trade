@@ -1,6 +1,6 @@
 {
-  "version": "multi-strategy-ema-v5-macd-icon1-common-exits-v2",
-  "note": "默认独立启用EMA20高点回踩与MACD12/26/9图标1买入提示。回踩策略最多容忍5根连续红带；图标1仅按零轴下金叉，不叠加回踩或红带期限。其他策略草稿关闭。",
+  "version": "multi-strategy-ema-v5-macd-icon1-face-common-exits-v2",
+  "note": "默认独立启用EMA20高点回踩、MACD12/26/9图标1和FACE笑脸买入提示。回踩策略最多容忍5根连续红带；图标1按零轴下金叉，FACE按CCI抄底公式。其他策略草稿关闭。",
   "stop_buffer_atr": 0.3,
   "entry_buffer_atr": 0.25,
   "max_risk_atr": 2.5,
@@ -16,6 +16,13 @@
     "short": 12,
     "long": 26,
     "m": 9
+  },
+  "face": {
+    "enabled": true,
+    "cci_period": 14,
+    "cci_threshold": -110,
+    "min_bars_since_cross": 8,
+    "count_window": 5
   },
   "pullback": {
     "enabled": true,

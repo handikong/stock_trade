@@ -1,4 +1,4 @@
-"""独立输出EMA回踩与MACD图标1买入提示，各策略条件分别计算。"""
+"""独立计算EMA回踩、MACD图标1和FACE笑脸买入提示。"""
 import json
 import math
 from pathlib import Path
@@ -6,12 +6,13 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .config import ROOT
+from .face import FacePolicy, calculate as calculate_face
 from .macd_arrow import MacdArrowPolicy, calculate as calculate_macd_arrow
 from .price_features import wilder_atr
 from .strategy_exits import ExitPolicy, attach_exits
 from .store import Session, Snapshot, digest
 
-ALGORITHM = "multi-strategy-ema-v5-macd-icon1-common-exits-v2"
+ALGORITHM = "multi-strategy-ema-v5-macd-icon1-face-common-exits-v2"
 POLICY_FILE = ROOT / "config" / "band-strategies.json"
 STRATEGIES = {
     "EMA_PULLBACK": ("高点回踩买点", None, "pullback"),
@@ -70,6 +71,7 @@ class StrategyPolicy(StrictPolicy):
     breakout: BreakoutPolicy
     rebound: ReboundPolicy
     macd_arrow: MacdArrowPolicy = Field(default_factory=MacdArrowPolicy)
+    face: FacePolicy = Field(default_factory=FacePolicy)
     exits: ExitPolicy = Field(default_factory=ExitPolicy)
 
 
@@ -287,6 +289,7 @@ def calculate(bars, rows, params, cfg):
     prices = _prices(bars, params["policy"]["price_field"])
     # 独立计算，不经过回踩历史长度、ATR、红带期限或主趋势过滤。
     arrow_evaluations = calculate_macd_arrow(bars, cfg.macd_arrow, params["policy"]["price_field"])
+    face_evaluations = calculate_face(prices, cfg.face) if cfg.face.enabled else []
     from .futu_macd import _ema
     averages = _ema([b["adjusted_close"] for b in prices], cfg.pullback.ema_period)
     # 回调均线独立配置；修改色带周期不会悄悄改变EMA20回调策略，也不修改传入报告。
@@ -386,6 +389,8 @@ def calculate(bars, rows, params, cfg):
         arrow["band_context"] = {"color": row["band_color"],
             "red_to_green_today": (rows[i - 1]["band_color"] == "RED" and row["band_color"] == "GREEN") if i else None}
         evaluations.append(arrow)
+        if face_evaluations:
+            evaluations.append(face_evaluations[i])
         result.append({"as_of": row["as_of"], "band_color": row["band_color"], "close": row["price"],
                        "band_indicator": {"dif": row["dif_long"], "dea": row["dea_long"],
                            "periods": [params["policy"][k] for k in ("long_fast", "long_slow", "long_signal")]},
@@ -431,4 +436,4 @@ def evaluate_report(report, cfg, *, region="US"):
         "flows": flows, "flow_format_version": "paired-signal-flow-v1",
         "latest": visible[-1], "historical_only": True,
         "warnings": report.get("command", {}).get("warnings", report.get("warnings", [])),
-        "message": "买点收盘确认，从下一完整日线起独立跟踪技术退出；盘中保护线破位仅由日线事后识别，指标退出收盘确认。价格均为历史口径参考，未模拟持仓、成交、成本或收益，未核验今日行情新鲜度。"}
+        "message": "买点收盘确认；已设置退出规则的策略从下一完整日线起跟踪。盘中保护线破位由日线事后识别，指标退出收盘确认。价格为历史口径参考，未模拟持仓、成交、成本或收益，未核验今日行情新鲜度。"}

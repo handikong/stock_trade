@@ -1,4 +1,4 @@
-"""单用户自选池、串行双策略扫描与可追溯信号历史；不处理成交或推送。"""
+"""单用户自选池、串行多策略扫描与可追溯信号历史；不处理成交或推送。"""
 import fcntl
 import json
 import logging
@@ -295,7 +295,7 @@ def scan(*, start=None, history_start=None, end=None, offline=False, refresh=Fal
         final_status = "interrupted"
         try:
             for index, symbol in enumerate(symbols, 1):
-                logger.info("[%s/%s] 扫描%s；两策略独立判断", index, len(symbols), symbol)
+                logger.info("[%s/%s] 扫描%s；各策略独立判断", index, len(symbols), symbol)
                 try:
                     summary, signals, provenance = _one_symbol(symbol, start=start,
                         history_start=history_start, end=target, expected_session=expected,

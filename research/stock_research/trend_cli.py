@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from .cli import ChineseParser, configure_console_logging, decimal_text, dump
+from .face import STRATEGY_ID as FACE_ID
 
 # 用-m启动时__name__为__main__；仍归入项目日志，保证控制台能看到进度与错误。
 logger=logging.getLogger("stock_research.trend_cli")
@@ -39,7 +40,7 @@ def parser():
     p.add_argument("--method",choices=("three-family","futu-macd"),default="three-family",
         help="判断方式：three-family原三族确认（默认）；futu-macd主趋势/回踩及原色带信号，需--start，震荡另判")
     p.add_argument("--strategies","--strategy-check",dest="strategy_check",action="store_true",
-        help="输出EMA回踩、MACD图标1买入及关联技术退出；需--method futu-macd和--start")
+        help="输出EMA回踩、MACD图标1、FACE笑脸买点及已配置的技术退出；需--method futu-macd和--start")
     p.add_argument("--strategy-policy",type=Path,help="买点参数配置，默认config/band-strategies.json；配合--strategies")
     p.add_argument("--strategy-details", action="store_true", help="配合--strategies显示原逐项条件；默认展示买入到卖出的配对过程")
     modes=p.add_mutually_exclusive_group()
@@ -253,6 +254,12 @@ def render_strategies_details(report):
                     lines.append("  "+plan["warning"])
             lines.append("  当日收盘后确认；从下一完整交易日跟踪退出，不代表已经成交。")
             continue
+        if signal["strategy_id"]==FACE_ID:
+            indicator=signal["indicator"]; params=indicator["parameters"]
+            lines.append(f"{signal['as_of']}  {signal['name']}  {levels['entry_reference']:.4f}  —  —  —")
+            lines.append(f"  CCI({params['cci_period']}) {indicator['previous_cci']:.2f} → {indicator['cci']:.2f}，"
+                         f"上穿 {params['cci_threshold']:g}；距MA5下穿MA10 {indicator['bars_since_cross']}根日线。")
+            continue
         target=f"{levels['target_reference']:.4f}" if levels["target_reference"] is not None else "趋势持有"
         stop=f"{levels['invalidation_price']:.4f}" if levels["invalidation_price"] is not None else "暂无有效价"
         lines.append(f"{signal['as_of']}  {signal['name']}  {levels['entry_reference']:.4f}  {levels['entry_max']:.4f}  {stop}  {target}")
@@ -329,13 +336,16 @@ def render_strategies_details(report):
             if item["strategy_id"]=="MACD_ICON1":
                 lines.append(f"  买入提示：当日出现图标1红色箭头，收盘参考{levels['entry_reference']:.4f}；最早下一交易时段参考执行。")
                 continue
+            if item["strategy_id"]==FACE_ID:
+                lines.append(f"  买入提示：当日出现FACE笑脸（图标5），收盘参考{levels['entry_reference']:.4f}。")
+                continue
             lines.append(f"  信号在本日收盘后成立；最早下一交易时段参考范围{levels['entry_reference']:.4f}～{levels['entry_max']:.4f}，并非已成交或执行许可。")
             stop=f"{levels['invalidation_price']:.4f}" if levels["invalidation_price"] is not None else "暂无有效价"
             lines.append(f"  冻结失效参考{stop}；{item['exit_rules']['profit']}。")
     lines.extend(["",f"窗口内共{len(result['signals'])}个策略买点事件（同日多个策略分别记录），不是成交笔数或胜率。",
         "上涨幅度、离均线距离、回看窗口与附近容差均可配置；同一波段连续确认只列首次。",
         "EMA回踩的次日确认不要求突破前日高点或涨幅；红色箭头策略在箭头当日收盘确认。",
-        "两策略均不设置小幅盈利自动止盈；技术退出按买点分别记录，真实持仓与成交尚未接入。",
+        "已配置退出规则的买点分别跟踪技术退出；FACE只提示买点。",
         "以上为技术买点，未接基本面/证券质量、账户仓位或真实持仓管理。",
         result["message"],"买点配置："+result["policy_file"]])
     for warning in result["warnings"]:

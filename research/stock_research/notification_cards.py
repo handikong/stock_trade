@@ -2,6 +2,8 @@
 from decimal import Decimal, InvalidOperation, localcontext
 import re
 
+from .face import STRATEGY_ID as FACE_ID
+
 FORMAT = "stock-brief-card-v1"
 
 
@@ -114,6 +116,12 @@ def buy_card(symbol, research, *, item=None):
             technical_reason = f"上涨高点回踩EMA{period}，次日开盘及收盘满足确认条件。"
         elif item["strategy_id"]=="MACD_ICON1":
             technical_reason = "MACD在零轴下金叉，触发红色箭头买点。"
+        elif item["strategy_id"]==FACE_ID:
+            indicator = signal["indicator"]; params = indicator["parameters"]
+            technical_reason = (f"😊 CCI({params['cci_period']}) 从 {indicator['previous_cci']:.2f} "
+                                f"上穿 {params['cci_threshold']:g} 至 {indicator['cci']:.2f}，"
+                                f"距 MA5 下穿 MA10 已 {indicator['bars_since_cross']} 根日线。")
+            stop = "待确认（FACE 公式未设保护线）"
         else:
             technical_reason = "策略买点条件已触发，按对应保护线跟踪。"
     levels = brief.get("levels") or {}

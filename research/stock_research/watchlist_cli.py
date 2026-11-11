@@ -1,4 +1,4 @@
-"""股票池命令：只处理行情和两套策略，中文日志走stderr，结果走stdout。"""
+"""股票池命令：处理行情与策略，中文日志走stderr，结果走stdout。"""
 import argparse
 import logging
 import sys
@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from .cli import ChineseParser, configure_console_logging, decimal_text, dump
+from .face import STRATEGY_ID as FACE_ID
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def date_arg(value):
 
 
 def parser():
-    p = ChineseParser(description="MG7自选股池与双策略扫描；首次使用初始化7只股票。", add_help=False)
+    p = ChineseParser(description="自选股池与多策略扫描。", add_help=False)
     p.add_argument("-h", "--help", action="help", help="查看中文使用说明")
     commands = p.add_subparsers(dest="command", required=True, title="操作")
 
@@ -44,10 +45,10 @@ def parser():
     mode.add_argument("--offline", action="store_true", help="只用行情缓存，不联网；仍计算并保存指标和信号")
     mode.add_argument("--refresh", action="store_true", help="手动刷新所有股票日线；失败保留缓存，仍遵守限流冷却")
     scanning.add_argument("--policy", type=Path, help="富途色带指标配置文件")
-    scanning.add_argument("--strategy-policy", type=Path, help="双策略配置文件")
+    scanning.add_argument("--strategy-policy", type=Path, help="买点策略配置文件")
     listing_history = command("history", "查看曾经发现的信号；不代表当前仍然有效")
     listing_history.add_argument("--symbol", help="只看指定股票")
-    listing_history.add_argument("--strategy", choices=("EMA_PULLBACK", "MACD_ICON1"), help="只看指定策略")
+    listing_history.add_argument("--strategy", choices=("EMA_PULLBACK", "MACD_ICON1", FACE_ID), help="只看指定策略")
     listing_history.add_argument("--kind", choices=("BUY", "EXIT"), help="只看买入BUY或退出EXIT；默认都显示")
     listing_history.add_argument("--start", type=date_arg, help="信号日期起点")
     listing_history.add_argument("--end", type=date_arg, help="信号日期终点")

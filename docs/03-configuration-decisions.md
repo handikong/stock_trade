@@ -219,3 +219,5 @@
 旧pullback.lookback、max_break_below_ema_atr、max_distance_ema_atr、max_distance_trigger_atr字段移除，旧配置明确报错；价格缓冲与最大风险距离仅提供本策略的参考价格/风险信息，不再作为其技术信号过滤。算法版本及完整配置哈希随结果导出，策略每次从绑定行情快照计算，不误用旧门槛结果。详细口径与用户核对清单见[EMA20高点回踩策略](19-ema20-pullback.md)。
 
 2026-10-29配置升级为`multi-strategy-ema-v5-macd-icon1-v1`，新增`macd_arrow`：enabled=true、short=12、long=26、m=9，各周期整数且short<long。旧配置缺段默认启用该策略并输出实际配置；可显式enabled=false关闭。箭头策略独立于回踩配置，汇总算法`multi-strategy-ema-pullback-v5-macd-icon1-v1`，其独立算法`macd-icon1-buy-v1`。不生成未讨论的止损/追价/目标价，也不自动分配资金账户；见[图标1规则](20-macd-reversal-discussion.md)。
+
+2026-11-11策略配置新增 `face`。仓库默认启用，旧自定义配置缺该段时关闭。默认CCI周期14、上穿阈值−110、均线下穿后至少8根、候选计数窗口5根。按同一行情快照计算，FACE参数进入策略配置哈希。见[FACE策略](51-face-cci.md)。
