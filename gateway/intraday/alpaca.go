@@ -128,6 +128,13 @@ func streamReadError(stage string, err error) error {
 	}
 }
 
+func streamPacketError(stage string, code int) error {
+	if code == 406 {
+		return errors.New("Alpaca 行情连接数已达上限（406），请检查其他实例是否占用同一账户的行情连接")
+	}
+	return fmt.Errorf("Alpaca %s错误 %d", stage, code)
+}
+
 func stream(ctx context.Context, auth credentials, symbols []string, out chan<- streamBatch) {
 	delay := time.Second
 	for ctx.Err() == nil {
@@ -178,7 +185,7 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 		}
 		for _, p := range batch {
 			if p.Type == "error" {
-				return fmt.Errorf("Alpaca 鉴权错误 %d", p.Code)
+				return streamPacketError("鉴权", p.Code)
 			}
 			accepted = accepted || (p.Type == "success" && p.Msg == "authenticated")
 		}
@@ -235,7 +242,7 @@ func streamOnce(ctx context.Context, auth credentials, symbols []string, out cha
 		for _, p := range batch {
 			switch p.Type {
 			case "error":
-				return fmt.Errorf("Alpaca 订阅或行情错误 %d", p.Code)
+				return streamPacketError("订阅或行情", p.Code)
 			case "subscription":
 				if !allSubscribed(p.Trades, symbols) || !allSubscribed(p.Bars, symbols) || !allSubscribed(p.Updated, symbols) {
 					return errors.New("Alpaca 返回的订阅名单不完整")

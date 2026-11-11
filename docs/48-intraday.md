@@ -17,6 +17,8 @@ APCA_API_SECRET_KEY=在服务器填写
 
 若持续重连，在项目根目录执行 `grep 'Alpaca' data/deploy/worker.log | tail -n 30`。鉴权和订阅确认各有独立的等待时间。日志区分鉴权、订阅、心跳和行情读取，并记录可用的错误码或读取错误类型。出现「IEX 订阅已确认」后，再查看持仓页的行情时间是否继续更新。
 
+WebSocket 消息中的 `406` 表示 Alpaca 行情连接数已达账户上限。若两台服务器共用同一个 Alpaca 账户，在不需要盘中监控的一台设置 `INTRADAY_ENABLED=false` 并重启后台，释放行情连接。可在两台机器上用 `pgrep -af '[s]tock-intraday'` 查找本项目的行情进程，也需要核对使用该账户的其他应用。 [Alpaca WebSocket 错误码](https://docs.alpaca.markets/us/docs/streaming-market-data#errors)
+
 ## 交易时段与数据
 
 - 复用 XNYS 交易日历，仅在美东常规交易时段连接，覆盖节假日、夏令时和提前收盘。北京时间 **02:00 起**停止发起盘中飞书请求。队列中的过期信号跳过，行情持续到收盘。截止前发出的请求，飞书实际显示时间由服务端决定。
