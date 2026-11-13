@@ -569,7 +569,8 @@ def record_fill(plan_id,data):
             protection = PositionProtection(position_id=row.id,payload={})
             session.add(protection)
         old_protection = protection.payload if previous else {}
-        lot = {"session":executed.isoformat(),"quantity":str(qty),"stop":stage["stop"],"warning":stage["warning"],"plan_id":plan.id}
+        lot = {"session":executed.isoformat(),"quantity":str(qty),"stop":stage["stop"],"warning":stage["warning"],
+               "plan_id":plan.id,"tactical":stage["tactical"]}
         protection.payload = {"lots":[*old_protection.get("lots",[]),lot],
                               "tactical_qty":str(D(old_protection.get("tactical_qty","0"))+(qty if stage["tactical"] else 0))}
         fill = {"stage":stage["id"],"session":executed.isoformat(),"quantity":qty,"price":cash(price),"fee":cash(fee),

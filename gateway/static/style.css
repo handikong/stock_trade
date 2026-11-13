@@ -129,6 +129,9 @@
 .equity-line { fill:none; stroke:var(--accent); stroke-width:2; vector-effect:non-scaling-stroke; }
 .equity-dot { fill:var(--accent); }
 .equity-marker { fill:var(--surface); stroke:var(--accent); stroke-width:2; }
+
+#positions-content .row-actions, #cn-holdings-content .row-actions { flex-wrap:wrap; }
+#holding-trade-dialog input[type="checkbox"] { vertical-align:middle; margin-right:6px; }
 #equity-history-slider { padding:0; accent-color:var(--accent); }
 #equity-history-table { margin-top:10px; }
 #equity-history-rows { max-height:240px; overflow:auto; }

@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=20261110-holding-price">
-  <script type="module" src="/app.js?v=20261110-live-equity"></script>
+  <link rel="stylesheet" href="/style.css?v=holding-trades-1">
+  <script type="module" src="/app.js?v=holding-trades-1"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -211,7 +211,24 @@
       <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary" id="position-save">保存持仓</button></div>
     </form>
   </dialog>
-  <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与两套已设置策略的扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
+  <dialog id="holding-trade-dialog" aria-labelledby="holding-trade-title">
+    <form id="holding-trade-form">
+      <div class="dialog-heading"><h2 id="holding-trade-title">登记成交</h2></div>
+      <p id="holding-trade-intro" class="dialog-intro"></p>
+      <div class="form-grid">
+        <label>成交数量<input name="quantity" required inputmode="decimal" maxlength="35" aria-describedby="holding-trade-result"></label>
+        <label><span id="holding-trade-price-label">成交价</span><input name="price" required inputmode="decimal" maxlength="35" pattern="[0-9]+(\.[0-9]{1,12})?"></label>
+        <label>成交费用 <span class="optional">选填</span><input name="fee" inputmode="decimal" maxlength="35" pattern="[0-9]+(\.[0-9]{1,2})?"></label>
+        <label><span id="holding-trade-date-label">成交日</span><input name="execution_session" type="date" required></label>
+        <label class="span-2"><input name="cash_already_recorded" type="checkbox"> 系统内填写的现金余额已包含本次成交</label>
+        <label class="span-2" id="holding-trade-available"><input name="proceeds_available" type="checkbox"> 券商显示该笔卖出款已可用</label>
+      </div>
+      <p class="dialog-intro" id="holding-trade-result" aria-live="polite"></p>
+      <div id="holding-trade-error" class="form-error" role="alert" hidden></div>
+      <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">登记成交</button></div>
+    </form>
+  </dialog>
+  <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与策略扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
   <dialog id="cn-income-dialog" aria-labelledby="cn-income-title">
     <form id="cn-income-form">
       <div class="dialog-heading"><h2 id="cn-income-title">添加 A 股关注</h2></div>

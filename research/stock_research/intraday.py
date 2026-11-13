@@ -341,6 +341,7 @@ class Monitor:
                 else:
                     equity["reason"] = "等待全部持仓的有效盘中报价"
             equity["cash_as_of"] = cash["cash_as_of"]
+            equity["cash_version"] = cash["version"]
             equity["principal"] = account_equity.principal_view(cash,equity["value"])
         view = {"at":frame["at"],"state":"IEX 行情已连接" if frame["ready"] else frame["state"],"items":items,
                       "session":trading.day.isoformat(),"cutoff_at":trading.cutoff.isoformat(),

@@ -155,12 +155,16 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
   $('#portfolio-request-form').addEventListener('submit',event => {
     event.preventDefault();
     const code = plain('#portfolio-request-form').symbol.toUpperCase().replace(/^\$/,'');
+    $('#portfolio-request').close();
+    requestEvaluation(code);
+  });
+
+  function requestEvaluation(code) {
     model.requested = code;
     model.evaluationKey = '';
-    $('#portfolio-request').close();
     if (state.page === 'research' && state.symbol === code) void evaluate();
     else researchHash(code);
-  });
+  }
   $('#portfolio-evaluate').addEventListener('click',event => {
     model.requested = state.symbol;
     void busy(event.currentTarget,evaluate);
@@ -308,5 +312,5 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
   });
   window.addEventListener('portfolio:workspace',() => { void loadPortfolio(); });
   window.addEventListener('portfolio:research',syncResearch);
-  return {setPrincipal};
+  return {setPrincipal,requestEvaluation};
 }

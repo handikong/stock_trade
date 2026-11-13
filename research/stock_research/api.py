@@ -14,7 +14,7 @@ from .earnings import freeze_preview, record_event, record_guidance
 from .jobs import WORKSPACE_KINDS, Worker, queue
 from .service import build_report, job_json, security_for as find_security
 from .store import Document, Job, Security, Session, Snapshot, initialize, save_snapshot, serialize_snapshot
-from . import account_equity, cn_holdings, cn_income, intraday, market_caps, portfolio, push_history, watchlist, weekly_valuation, workspace
+from . import account_equity, cn_holdings, cn_income, intraday, market_caps, portfolio, position_trades, push_history, watchlist, weekly_valuation, workspace
 
 
 worker=Worker()
@@ -135,6 +135,25 @@ class PortfolioFillInput(PlanVersion):
     execution_session: date
     cash_already_recorded: bool = Field(default=False,strict=True)
     reason: StrictStr = Field(default="",max_length=240)
+
+
+class HoldingTradeInput(PlanVersion):
+    quantity: StrictStr = Field(min_length=1,max_length=35)
+    price: StrictStr = Field(min_length=1,max_length=35)
+    fee: StrictStr = Field(default="0",max_length=35)
+    execution_session: date
+    cash_already_recorded: StrictBool = False
+    proceeds_available: StrictBool = False
+
+
+@app.post("/api/v1/{market}/holdings/{position_id}/trades/{side}")
+def holding_trade(market: Literal["us","cn"], position_id: str, side: Literal["buy","sell"], p: HoldingTradeInput):
+    if market == "us" and side == "buy":
+        raise HTTPException(400,"请通过美股买入计划登记加仓成交")
+    try:
+        return position_trades.record(market.upper(), position_id, p.model_dump(), sell=side=="sell")
+    except LookupError as exc:
+        raise HTTPException(404,str(exc)) from exc
 
 
 class PoolScan(BaseModel):
