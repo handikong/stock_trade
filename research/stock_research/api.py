@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Literal
 from urllib.parse import urlparse
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query as QueryParam, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -137,13 +137,35 @@ class PortfolioFillInput(PlanVersion):
     reason: StrictStr = Field(default="",max_length=240)
 
 
-class HoldingTradeInput(PlanVersion):
+class TradeFields(BaseModel):
+    model_config = {"extra":"forbid"}
     quantity: StrictStr = Field(min_length=1,max_length=35)
     price: StrictStr = Field(min_length=1,max_length=35)
     fee: StrictStr = Field(default="0",max_length=35)
     execution_session: date
     cash_already_recorded: StrictBool = False
     proceeds_available: StrictBool = False
+
+
+class HoldingTradeInput(TradeFields):
+    expected_version: str = Field(min_length=32,max_length=32)
+
+
+class CNOpeningTradeInput(TradeFields):
+    symbol: StrictStr = Field(min_length=1,max_length=15)
+
+
+@app.post("/api/v1/cn/holdings/trades/buy")
+def cn_opening_trade(p: CNOpeningTradeInput):
+    return position_trades.record("CN", None, p.model_dump(), sell=False)
+
+
+@app.get("/api/v1/holding-trades/{region}")
+def holding_trade_history(region: Literal["US","CN"], symbol: str | None = QueryParam(default=None, max_length=20),
+                          kind: Literal["BUY","ADD","REDUCE","CLOSE"] | None = None,
+                          start: date | None = None, end: date | None = None,
+                          page: int = QueryParam(default=1, ge=1), limit: int = QueryParam(default=30, ge=1, le=100)):
+    return position_trades.history(region, symbol=symbol, kind=kind, start=start, end=end, page=page, limit=limit)
 
 
 @app.post("/api/v1/{market}/holdings/{position_id}/trades/{side}")

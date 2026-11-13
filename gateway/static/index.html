@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=holding-trades-1">
-  <script type="module" src="/app.js?v=holding-trades-1"></script>
+  <link rel="stylesheet" href="/style.css?v=trade-history-1">
+  <script type="module" src="/app.js?v=trade-history-1"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -58,6 +58,7 @@
           <div class="panel-heading"><div><h2>买入计划</h2><p>预留额度、分档检查与实际成交确认</p></div><button type="button" class="secondary compact" id="portfolio-reload">刷新风险</button></div>
           <div id="portfolio-plans-content" class="panel-body" aria-live="polite"></div>
         </section>
+        <div data-trade-history="US"></div>
         <p id="portfolio-note" class="footnote"></p>
       </section>
 
@@ -82,7 +83,7 @@
       <section id="page-cn-holdings" class="page" hidden>
         <div class="page-heading">
           <div><p class="eyebrow">A-SHARE PORTFOLIO</p><h1>A 股持仓</h1><p class="subtitle">沪深股票与 ETF · 人民币</p></div>
-          <button type="button" class="primary" data-add-position="CN"><span data-icon="plus"></span>添加持仓</button>
+          <div class="portfolio-actions"><button type="button" class="secondary" data-add-position="CN">导入已有持仓</button><button type="button" class="primary" id="cn-opening-trade"><span data-icon="plus"></span>登记买入</button></div>
         </div>
         <div id="cn-holdings-metrics" class="metric-strip" aria-label="A 股持仓汇总">
           <div class="metric"><span>持仓市值</span><strong>—</strong></div>
@@ -101,6 +102,7 @@
           <div class="panel-heading"><div><h2>持仓明细</h2><p>按有效收盘和录入成本计算 · CNY</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-holdings">重新读取</button><button type="button" class="secondary compact" id="refresh-cn-holdings" disabled><span data-icon="refresh"></span>更新行情</button></div></div>
           <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
         </section>
+        <div data-trade-history="CN"></div>
         <p class="footnote">使用沪深完整交易日的收盘参考价。今日盈亏按相邻交易日收盘价差与当前股数或份数估算。</p>
       </section>
 
@@ -216,6 +218,7 @@
       <div class="dialog-heading"><h2 id="holding-trade-title">登记成交</h2></div>
       <p id="holding-trade-intro" class="dialog-intro"></p>
       <div class="form-grid">
+        <label class="span-2" id="holding-trade-symbol">证券代码<input name="symbol" required maxlength="15" autocomplete="off" placeholder="例如 600519.SH"></label>
         <label>成交数量<input name="quantity" required inputmode="decimal" maxlength="35" aria-describedby="holding-trade-result"></label>
         <label><span id="holding-trade-price-label">成交价</span><input name="price" required inputmode="decimal" maxlength="35" pattern="[0-9]+(\.[0-9]{1,12})?"></label>
         <label>成交费用 <span class="optional">选填</span><input name="fee" inputmode="decimal" maxlength="35" pattern="[0-9]+(\.[0-9]{1,2})?"></label>
@@ -228,6 +231,26 @@
       <div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">登记成交</button></div>
     </form>
   </dialog>
+  <template id="trade-history-template">
+    <section class="panel portfolio-section">
+      <div class="panel-heading"><div><h2>交易记录</h2><p data-trade-history-basis></p></div></div>
+      <form class="push-filters trade-history-filters">
+        <label>股票代码<input name="symbol" maxlength="15" autocomplete="off" autocapitalize="characters"></label>
+        <label>交易类型<select name="kind"><option value="">全部</option><option value="BUY">买入</option><option value="ADD">加仓</option><option value="REDUCE">减仓</option><option value="CLOSE">清仓</option></select></label>
+        <label>开始日期<input name="start" type="date"></label>
+        <label>结束日期<input name="end" type="date"></label>
+        <button type="submit" class="secondary">筛选</button>
+        <button type="reset" class="text-button">清空筛选</button>
+      </form>
+      <p class="panel-body inline-note" role="status" data-trade-history-status></p>
+      <div data-trade-history-results></div>
+      <div class="trade-history-pages" hidden>
+        <button type="button" class="secondary compact" data-trade-page="-1">上一页</button>
+        <span data-trade-history-page></span>
+        <button type="button" class="secondary compact" data-trade-page="1">下一页</button>
+      </div>
+    </section>
+  </template>
   <dialog id="pool-dialog" aria-labelledby="pool-dialog-title"><form id="pool-form"><div class="dialog-heading"><div><p class="eyebrow">WATCHLIST</p><h2 id="pool-dialog-title">添加扫描股票</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">加入后可参与策略扫描。此操作不会添加持仓。</p><label for="pool-symbol">美股代码</label><input id="pool-symbol" name="symbol" required maxlength="15" placeholder="例如 GOOG" autocomplete="off" autocapitalize="characters"><div id="pool-error" class="form-error" role="alert" hidden></div><div class="dialog-footer"><button type="button" class="secondary" data-close-dialog>取消</button><button type="submit" class="primary">添加股票</button></div></form></dialog>
   <dialog id="cn-income-dialog" aria-labelledby="cn-income-title">
     <form id="cn-income-form">

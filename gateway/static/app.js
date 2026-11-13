@@ -1,4 +1,4 @@
-import {connectPortfolio} from './portfolio.js?v=holding-trades-1';
+import {connectPortfolio} from './portfolio.js?v=trade-history-1';
 import {connectEquity} from './equity.js?v=20261110-live-equity';
 
 const $ = selector => document.querySelector(selector);
@@ -612,6 +612,9 @@ function route() {
   $('#workspace-home').href = cn ? '#/cn-holdings' : '#/holdings';
   $('#global-search').hidden = cn;
   document.title = `${pages[next]} · 见微`;
+  if (state.connected && (next === 'holdings' || next === 'cn-holdings')) {
+    tradeHistory[cn ? 'CN' : 'US'].refresh();
+  }
   if (next === 'cn-holdings' && state.connected) void loadCnHoldings();
   if (next === 'cn' && state.connected) void loadCnPool();
   if (next === 'research') {
@@ -712,13 +715,71 @@ $('#position-form').addEventListener('submit', event => {
 const holdingTradeForm = $('#holding-trade-form');
 let holdingTrade = null;
 
+function connectTradeHistory(market) {
+  const root = document.querySelector(`[data-trade-history="${market}"]`);
+  root.append($('#trade-history-template').content.cloneNode(true));
+  const form = root.querySelector('form');
+  const status = root.querySelector('[data-trade-history-status]');
+  const results = root.querySelector('[data-trade-history-results]');
+  const pages = root.querySelector('.trade-history-pages');
+  const previous = pages.querySelector('[data-trade-page="-1"]');
+  const next = pages.querySelector('[data-trade-page="1"]');
+  root.querySelector('[data-trade-history-basis]').textContent = market === 'CN' ? '北京时间 · CNY' : '美东时间 · USD';
+  let filters = new URLSearchParams(), currentPage = 1, request = 0;
+
+  async function load(page = 1) {
+    const ticket = ++request;
+    const query = new URLSearchParams(filters);
+    query.set('page',String(page));
+    status.classList.remove('loss');
+    status.textContent = '正在读取交易记录…';
+    pages.hidden = true;
+    results.replaceChildren();
+    try {
+      const data = await api(`/holding-trades/${market}?${query}`);
+      if (ticket !== request) return;
+      currentPage = data.page;
+      status.textContent = data.items.length ? '' : '当前筛选条件下没有成交记录。';
+      if (data.items.length) {
+        results.innerHTML = table(['成交日','股票','类型','数量',`成交价 · ${data.currency}`,
+          '费用','净收支','已实现盈亏','剩余数量'],data.items.map(row => [
+          esc(row.session),esc(row.symbol),badge(row.action),esc(row.quantity),esc(row.price),
+          num(row.fee),signed(row.cash_flow),`<span class="${tone(row.realized_pnl)}">${signed(row.realized_pnl)}</span>`,
+          esc(row.remaining_quantity),
+        ]),[3,4,5,6,7,8]);
+      }
+      pages.querySelector('[data-trade-history-page]').textContent = `第 ${currentPage} 页`;
+      previous.disabled = currentPage <= 1;
+      next.disabled = !data.has_more;
+      pages.hidden = previous.disabled && next.disabled;
+    } catch (error) {
+      if (ticket !== request) return;
+      status.classList.add('loss');
+      status.textContent = error.message;
+    }
+  }
+
+  form.addEventListener('submit',event => {
+    event.preventDefault();
+    filters = new URLSearchParams();
+    for (const [key,value] of new FormData(form)) {
+      if (value.trim()) filters.set(key,value.trim());
+    }
+    void load();
+  });
+  form.addEventListener('reset',() => { filters = new URLSearchParams(); void load(); });
+  previous.addEventListener('click',() => { void load(currentPage-1); });
+  next.addEventListener('click',() => { void load(currentPage+1); });
+  return {refresh:() => { void load(); }};
+}
+
 function updateHoldingTrade() {
   const {position, market, side} = holdingTrade;
   const field = holdingTradeForm.elements.quantity;
   field.setCustomValidity('');
   const value = field.value.trim();
   const parts = value.match(/^([0-9]+)(?:\.([0-9]{1,12}))?$/);
-  let action = side === 'buy' ? '加仓' : '卖出';
+  let action = side === 'buy' ? (position ? '加仓' : '买入') : '卖出';
   if (parts && side === 'sell' && (market === 'US' || !parts[2])) {
     const units = (text) => {
       const [whole, fraction = ''] = text.split('.');
@@ -741,8 +802,10 @@ function openHoldingTrade(position, market, side) {
   holdingTradeForm.reset();
   formError('#holding-trade-error');
   const cn = market === 'CN', sell = side === 'sell';
-  $('#holding-trade-title').textContent = `${position.symbol} · ${sell ? '登记卖出' : '登记加仓'}`;
-  $('#holding-trade-intro').textContent = `当前持有 ${position.quantity}。请按券商实际成交填写。`;
+  $('#holding-trade-title').textContent = position ? `${position.symbol} · ${sell ? '登记卖出' : '登记加仓'}` : '登记 A 股买入';
+  $('#holding-trade-intro').textContent = position ? `当前持有 ${position.quantity}。请按券商实际成交填写。` : '请按券商实际成交填写。';
+  $('#holding-trade-symbol').hidden = Boolean(position);
+  holdingTradeForm.elements.symbol.disabled = Boolean(position);
   $('#holding-trade-price-label').textContent = `成交价 · ${cn ? 'CNY' : 'USD'}`;
   $('#holding-trade-date-label').textContent = cn ? '成交日 · 北京时间' : '成交日 · 美东时间';
   const dateParts = new Intl.DateTimeFormat('en-US',{
@@ -759,6 +822,7 @@ function openHoldingTrade(position, market, side) {
 }
 
 holdingTradeForm.addEventListener('input',updateHoldingTrade);
+$('#cn-opening-trade').addEventListener('click',() => openHoldingTrade(null,'CN','buy'));
 $('#holding-trade-dialog').addEventListener('cancel',event => {
   if (holdingTradeForm.querySelector('[aria-busy="true"]')) event.preventDefault();
 });
@@ -770,8 +834,10 @@ holdingTradeForm.addEventListener('submit',event => {
     formError('#holding-trade-error');
     let result;
     try {
-      result = await post(`/${market.toLowerCase()}/holdings/${encodeURIComponent(position.id)}/trades/${side}`,{
-        expected_version:position.version, quantity:fields.quantity.value.trim(), price:fields.price.value.trim(),
+      const path = position ? `/${market.toLowerCase()}/holdings/${encodeURIComponent(position.id)}/trades/${side}` : '/cn/holdings/trades/buy';
+      const identity = position ? {expected_version:position.version} : {symbol:fields.symbol.value.trim()};
+      result = await post(path,{
+        ...identity, quantity:fields.quantity.value.trim(), price:fields.price.value.trim(),
         fee:fields.fee.value.trim() || '0', execution_session:fields.execution_session.value,
         cash_already_recorded:fields.cash_already_recorded.checked,
         proceeds_available:!fields.proceeds_available.disabled && fields.proceeds_available.checked,
@@ -783,6 +849,7 @@ holdingTradeForm.addEventListener('submit',event => {
     $('#holding-trade-dialog').close();
     const pnl = result.fill.realized_pnl;
     notice(`${result.fill.action}已登记${pnl === null ? '' : `，本笔已实现盈亏 ${signed(pnl)} ${market === 'CN' ? 'CNY' : 'USD'}`}`);
+    tradeHistory[market].refresh();
     try {
       if (market === 'CN') await loadCnHoldings();
       else { await loadWorkspace(); void loadIntraday(); }
@@ -945,6 +1012,8 @@ async function boot() {
 }
 const portfolio = connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
 const equity = connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob,loadCnHoldings});
+const tradeHistory = Object.fromEntries(['US','CN'].map(market => [market,connectTradeHistory(market)]));
+window.addEventListener('portfolio:fill',() => tradeHistory.US.refresh());
 window.addEventListener('equity:cash-us',() => { void syncUsHoldings(); });
 icons(); route(); void boot();
 window.setInterval(() => { void loadIntraday(); },5000);

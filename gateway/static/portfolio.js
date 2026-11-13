@@ -274,6 +274,7 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
         const data = plain('#portfolio-fill-form');
         await post(`/portfolio/plans/${current.plan.id}/fills`,{...data,stage:current.stage.id,
           quantity:Number(data.quantity),cash_already_recorded:form.elements.cash_already_recorded.checked,expected_version:current.check.version});
+        window.dispatchEvent(new Event('portfolio:fill'));
         $('#portfolio-fill').close(); await loadWorkspace(); notice('实际成交已登记，持仓和现金已同步。');
       } catch (error) { formError('#portfolio-fill-error',error.message); }
     });
