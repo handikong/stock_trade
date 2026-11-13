@@ -5,6 +5,7 @@ from decimal import Decimal, localcontext
 from sqlalchemy import case, select
 
 from . import account_equity, cn_holdings, cn_sources, market, workspace
+from .service import security_for
 from .store import (CNManualPosition, CNPositionChange, ManualPosition, PositionPlan,
                     PositionProtection, Security, Session, Snapshot, now, save_snapshot, stamp, uid)
 from .valuation import number
@@ -115,7 +116,15 @@ def record(region, position_id, data, *, sell):
 
     model, view = (CNManualPosition, cn_holdings._view) if cn else (ManualPosition, workspace._position)
     opening = position_id is None
-    code = cn_sources.symbol(data["symbol"], allow_etf=True) if opening else None
+    code, security = None, None
+    if opening:
+        if cn:
+            code = cn_sources.symbol(data["symbol"], allow_etf=True)
+        else:
+            code = workspace.symbol(data["symbol"])
+            security = security_for(code, create=True)
+            if (security.profile.get("currency") or "USD") != "USD":
+                raise ValueError("美股账户仅支持美元报价，请核对证券币种")
     with workspace.position_lock(), Session() as session, localcontext() as context:
         context.prec = 64
         if opening:
@@ -124,6 +133,8 @@ def record(region, position_id, data, *, sell):
                 raise workspace.Conflict("该证券已有持仓，请从持仓行登记加仓")
             if row is None:
                 row = model(symbol=code, name="", notes="")
+                if not cn:
+                    row.security_id, row.currency = security.id, "USD"
                 session.add(row)
             previous, old_qty, basis = None, Decimal(0), Decimal(0)
         else:
@@ -134,6 +145,8 @@ def record(region, position_id, data, *, sell):
                 raise workspace.Conflict("持仓已变化，请重新核对股数，避免重复登记")
             previous = view(row)
             old_qty, basis = Decimal(row.quantity), Decimal(row.average_cost)
+        if not cn and row.currency != "USD":
+            raise ValueError("持仓币种与美元账户不一致")
         new_qty = old_qty - quantity if sell else old_qty + quantity
         if new_qty < 0:
             raise ValueError("卖出数量不能超过当前持仓")
@@ -142,7 +155,7 @@ def record(region, position_id, data, *, sell):
         action = ("清仓" if not new_qty else "减仓") if sell else "买入" if opening else "加仓"
         amount = Decimal(account_equity.display_amount(quantity * price + (-fee if sell else fee)))
         if amount <= 0:
-            raise ValueError("扣除费用后的卖出净额必须大于 0" if sell else "加仓金额必须大于 0")
+            raise ValueError("扣除费用后的卖出净额必须大于 0" if sell else "买入金额必须大于 0")
         if amount > Decimal("1e18"):
             raise ValueError("成交金额超出范围")
 
@@ -160,8 +173,10 @@ def record(region, position_id, data, *, sell):
             if not 0 <= total <= Decimal("1e18"):
                 raise ValueError("成交后总现金超出范围，请先核对券商余额")
             account.payload = {**account.payload, "total_cash": account_equity.display_amount(total)}
-            if not cn and data["proceeds_available"]:
-                available = Decimal(account.payload["available_cash"]) + amount
+            if not cn and (not sell or data["proceeds_available"]):
+                available = Decimal(account.payload["available_cash"]) + (amount if sell else -amount)
+                if not 0 <= available <= total:
+                    raise ValueError("成交后可用现金超出范围，请先核对券商余额")
                 account.payload = {**account.payload, "available_cash": account_equity.display_amount(available)}
 
         recorded_at = stamp()
@@ -183,18 +198,25 @@ def record(region, position_id, data, *, sell):
                 for plan in plans:
                     plan.status, plan.version = "cancelled", uid()
                     plan.payload = {**plan.payload, "cancelled_at": recorded_at, "cancel_reason": "已登记清仓"}
+        elif not cn and opening:
+            protection = session.get(PositionProtection, row.id)
+            if protection:
+                session.delete(protection)
 
         fill = {"action": action, "session": day.isoformat(), "quantity": format(quantity, "f"),
                 "price": format(price, "f"), "fee": account_equity.display_amount(fee),
                 "net_amount": str(amount), "realized_pnl": account_equity.display_amount(amount - quantity * basis) if sell else None,
                 "cash_already_recorded": booked,
-                "proceeds_added_to_available_cash": not booked and not cn and data["proceeds_available"],
+                "proceeds_added_to_available_cash": sell and not booked and not cn and data["proceeds_available"],
                 "recorded_at": recorded_at}
         position = view(row)
         payload = {"action": action, "fill": fill, "previous": previous, "position": position,
                    "previous_cash": previous_cash, "cash": {**account.payload, "version": account.version}}
         if cn:
             session.add(CNPositionChange(position_id=row.id, payload=payload))
+        elif not sell:
+            save_snapshot(session, row.security_id, "portfolio_confirmed_fill",
+                          {**payload, "previous_position": previous})
         else:
             save_snapshot(session, row.security_id, "portfolio_confirmed_sale", payload)
         session.commit()

@@ -1,4 +1,4 @@
-import {connectPortfolio} from './portfolio.js?v=trade-history-1';
+import {connectPortfolio} from './portfolio.js?v=trade-history-2';
 import {connectEquity} from './equity.js?v=20261110-live-equity';
 
 const $ = selector => document.querySelector(selector);
@@ -98,7 +98,7 @@ function renderHoldings() {
       '<span data-holding-field="market"></span><span class="subline" data-holding-field="market-note" hidden></span>',
       '<span data-holding-field="day-pnl"></span><span class="subline" data-holding-field="day-return"></span>',
       '<span data-holding-field="pnl"></span><span class="subline" data-holding-field="return"></span>',
-      `<div class="row-actions"><button class="text-button" data-plan-add-position="${esc(r.symbol)}">加仓</button><button class="text-button remove" data-trade-position="${esc(r.id)}">登记卖出</button><button class="text-button" data-edit-position="${esc(r.id)}">编辑</button><button class="text-button remove" data-remove-position="${esc(r.id)}">移除</button></div>`
+      `<div class="row-actions"><button class="text-button" data-trade-position="${esc(r.id)}" data-side="buy">登记加仓</button><button class="text-button remove" data-trade-position="${esc(r.id)}">登记卖出</button><button class="text-button" data-edit-position="${esc(r.id)}">编辑</button><button class="text-button remove" data-remove-position="${esc(r.id)}">移除</button></div>`
     ]),[1,2,3,4,5,6]);
   }
   renderIntraday();
@@ -400,7 +400,8 @@ function openPosition(id = null, market = 'US') {
   $('#position-symbol').disabled = Boolean(p);
   $('#position-symbol').placeholder = cn ? '例如 600000.SH 或 510300' : '例如 GOOG';
   $('#position-market').textContent = cn ? 'A 股 · CNY' : '美股 · USD';
-  $('#position-intro').textContent = cn ? '按券商记录填写实际持有的股数或 ETF 份数，以及人民币成本均价。' : '填写当前实际持有的数量及成本均价，报价币种为美元。';
+  $('#position-intro').textContent = p ? '按券商记录校对持有数量和成本均价。'
+    : '导入券商账户里已有的持仓。新成交请使用「登记买入」。';
   $('#position-symbol-label').textContent = cn ? '证券代码' : '股票代码';
   $('#position-name-label').textContent = cn ? '证券名称' : '股票名称';
   $('#position-quantity-label').textContent = cn ? '持有数量（股或份）' : '持股数量';
@@ -802,10 +803,12 @@ function openHoldingTrade(position, market, side) {
   holdingTradeForm.reset();
   formError('#holding-trade-error');
   const cn = market === 'CN', sell = side === 'sell';
-  $('#holding-trade-title').textContent = position ? `${position.symbol} · ${sell ? '登记卖出' : '登记加仓'}` : '登记 A 股买入';
-  $('#holding-trade-intro').textContent = position ? `当前持有 ${position.quantity}。请按券商实际成交填写。` : '请按券商实际成交填写。';
+  $('#holding-trade-title').textContent = position ? `${position.symbol} · ${sell ? '登记卖出' : '登记加仓'}` : `登记${cn ? ' A 股' : '美股'}买入`;
+  const intro = position ? `当前持有 ${position.quantity}。请按券商实际成交填写。` : '请按券商实际成交填写。';
+  $('#holding-trade-intro').textContent = !cn && !sell ? intro + '已有对应买入计划时，请从计划登记成交。' : intro;
   $('#holding-trade-symbol').hidden = Boolean(position);
   holdingTradeForm.elements.symbol.disabled = Boolean(position);
+  holdingTradeForm.elements.symbol.placeholder = cn ? '例如 600519.SH' : '例如 GOOG';
   $('#holding-trade-price-label').textContent = `成交价 · ${cn ? 'CNY' : 'USD'}`;
   $('#holding-trade-date-label').textContent = cn ? '成交日 · 北京时间' : '成交日 · 美东时间';
   const dateParts = new Intl.DateTimeFormat('en-US',{
@@ -822,7 +825,6 @@ function openHoldingTrade(position, market, side) {
 }
 
 holdingTradeForm.addEventListener('input',updateHoldingTrade);
-$('#cn-opening-trade').addEventListener('click',() => openHoldingTrade(null,'CN','buy'));
 $('#holding-trade-dialog').addEventListener('cancel',event => {
   if (holdingTradeForm.querySelector('[aria-busy="true"]')) event.preventDefault();
 });
@@ -834,7 +836,8 @@ holdingTradeForm.addEventListener('submit',event => {
     formError('#holding-trade-error');
     let result;
     try {
-      const path = position ? `/${market.toLowerCase()}/holdings/${encodeURIComponent(position.id)}/trades/${side}` : '/cn/holdings/trades/buy';
+      const base = `/${market.toLowerCase()}/holdings`;
+      const path = position ? `${base}/${encodeURIComponent(position.id)}/trades/${side}` : `${base}/trades/buy`;
       const identity = position ? {expected_version:position.version} : {symbol:fields.symbol.value.trim()};
       result = await post(path,{
         ...identity, quantity:fields.quantity.value.trim(), price:fields.price.value.trim(),
@@ -883,6 +886,8 @@ document.addEventListener('click', event => {
   const addPosition = event.target.closest('[data-add-position]');
   if (addPosition) { openPosition(null,addPosition.dataset.addPosition || 'US'); return; }
   if (event.target.closest('[data-add-pool]')) { openPool(); return; }
+  const opening = event.target.closest('[data-opening-trade]');
+  if (opening) { openHoldingTrade(null,opening.dataset.openingTrade,'buy'); return; }
   const trade = event.target.closest('[data-trade-position]');
   if (trade) {
     const market = trade.dataset.market || 'US';
@@ -890,8 +895,6 @@ document.addEventListener('click', event => {
     if (position) openHoldingTrade(position,market,trade.dataset.side || 'sell');
     return;
   }
-  const planAdd = event.target.closest('[data-plan-add-position]');
-  if (planAdd) { portfolio.requestEvaluation(planAdd.dataset.planAddPosition); return; }
   const edit = event.target.closest('[data-edit-position]');
   if (edit) { openPosition(edit.dataset.editPosition); return; }
   const editCn = event.target.closest('[data-edit-cn-position]');

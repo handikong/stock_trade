@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
   <link rel="stylesheet" href="/style.css?v=trade-history-1">
-  <script type="module" src="/app.js?v=trade-history-1"></script>
+  <script type="module" src="/app.js?v=trade-history-2"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -38,7 +38,7 @@
       <section id="workspace-job" class="job-strip" aria-live="polite" hidden><div><strong id="workspace-job-label"></strong><span id="workspace-job-percent"></span></div><progress id="workspace-job-progress" max="100" value="0"></progress><p id="workspace-job-detail"></p></section>
 
       <section id="page-holdings" class="page">
-        <div class="page-heading"><div><p class="eyebrow">PORTFOLIO OVERVIEW</p><h1>我的持仓</h1><p class="subtitle">先看仓位，再做判断。</p></div><div class="portfolio-actions"><button class="secondary" data-add-position>导入已有持仓</button><button class="primary" id="portfolio-request-open"><span data-icon="plus"></span>评估买入</button></div></div>
+        <div class="page-heading"><div><p class="eyebrow">PORTFOLIO OVERVIEW</p><h1>我的持仓</h1><p class="subtitle">先看仓位，再做判断。</p></div><div class="portfolio-actions"><button class="secondary" data-add-position>导入已有持仓</button><button class="secondary" id="portfolio-request-open">评估买入</button><button class="primary" type="button" data-opening-trade="US"><span data-icon="plus"></span>登记买入</button></div></div>
         <div id="portfolio-metrics" class="metric-strip" aria-label="持仓汇总"><div class="metric"><span>正在读取持仓</span><strong>—</strong></div></div>
         <section class="panel portfolio-section" aria-label="美股账户净值与当日盈亏">
           <div id="us-equity-content" class="equity-overview" aria-live="polite">正在读取账户净值…</div>
@@ -83,7 +83,7 @@
       <section id="page-cn-holdings" class="page" hidden>
         <div class="page-heading">
           <div><p class="eyebrow">A-SHARE PORTFOLIO</p><h1>A 股持仓</h1><p class="subtitle">沪深股票与 ETF · 人民币</p></div>
-          <div class="portfolio-actions"><button type="button" class="secondary" data-add-position="CN">导入已有持仓</button><button type="button" class="primary" id="cn-opening-trade"><span data-icon="plus"></span>登记买入</button></div>
+          <div class="portfolio-actions"><button type="button" class="secondary" data-add-position="CN">导入已有持仓</button><button type="button" class="primary" data-opening-trade="CN"><span data-icon="plus"></span>登记买入</button></div>
         </div>
         <div id="cn-holdings-metrics" class="metric-strip" aria-label="A 股持仓汇总">
           <div class="metric"><span>持仓市值</span><strong>—</strong></div>

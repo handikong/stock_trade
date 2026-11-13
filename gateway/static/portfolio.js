@@ -313,5 +313,5 @@ export function connectPortfolio({$, esc, num, pct, when, tone, badge, table, me
   });
   window.addEventListener('portfolio:workspace',() => { void loadPortfolio(); });
   window.addEventListener('portfolio:research',syncResearch);
-  return {setPrincipal,requestEvaluation};
+  return {setPrincipal};
 }

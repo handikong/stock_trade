@@ -151,13 +151,13 @@ class HoldingTradeInput(TradeFields):
     expected_version: str = Field(min_length=32,max_length=32)
 
 
-class CNOpeningTradeInput(TradeFields):
+class OpeningTradeInput(TradeFields):
     symbol: StrictStr = Field(min_length=1,max_length=15)
 
 
-@app.post("/api/v1/cn/holdings/trades/buy")
-def cn_opening_trade(p: CNOpeningTradeInput):
-    return position_trades.record("CN", None, p.model_dump(), sell=False)
+@app.post("/api/v1/{market}/holdings/trades/buy")
+def opening_trade(market: Literal["us","cn"], p: OpeningTradeInput):
+    return position_trades.record(market.upper(), None, p.model_dump(), sell=False)
 
 
 @app.get("/api/v1/holding-trades/{region}")
@@ -170,8 +170,6 @@ def holding_trade_history(region: Literal["US","CN"], symbol: str | None = Query
 
 @app.post("/api/v1/{market}/holdings/{position_id}/trades/{side}")
 def holding_trade(market: Literal["us","cn"], position_id: str, side: Literal["buy","sell"], p: HoldingTradeInput):
-    if market == "us" and side == "buy":
-        raise HTTPException(400,"请通过美股买入计划登记加仓成交")
     try:
         return position_trades.record(market.upper(), position_id, p.model_dump(), sell=side=="sell")
     except LookupError as exc:
