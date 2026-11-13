@@ -133,7 +133,7 @@
 #positions-content .row-actions, #cn-holdings-content .row-actions { flex-wrap:wrap; }
 #holding-trade-dialog input[type="checkbox"] { vertical-align:middle; margin-right:6px; }
 
-.trade-history-filters { align-items:end; }
+.trade-history-filters { align-items:end; border-radius:var(--radius) var(--radius) 0 0; }
 .trade-history-filters input { width:100%; }
 .trade-history-pages { display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:14px 24px; }
 [data-trade-history-status]:empty { display:none; }

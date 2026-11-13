@@ -1,4 +1,4 @@
-import {connectPortfolio} from './portfolio.js?v=trade-history-2';
+import {connectPortfolio} from './portfolio.js?v=trade-history-3';
 import {connectEquity} from './equity.js?v=20261110-live-equity';
 
 const $ = selector => document.querySelector(selector);
@@ -15,6 +15,7 @@ const when = value => {
 };
 const paths = {
   wallet:'<path d="M20 8V5a1 1 0 0 0-1-1H5a3 3 0 0 0 0 6h15v10H5a3 3 0 0 1-3-3V7m18 6h-5v4h5"/>',
+  trades:'<path d="M8 6h12m-12 6h12m-12 6h12M4 6h.01M4 12h.01M4 18h.01"/>',
   radar:'<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6M5.7 5.7 12 12"/><circle cx="12" cy="12" r="4"/>',
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
@@ -476,7 +477,7 @@ async function loadPushHistory(more = false) {
     if (generation === pushHistory.generation) button.disabled = false;
   }
 }
-const isCnPage = page => page === 'cn' || page === 'cn-holdings';
+const isCnPage = page => page === 'cn' || page === 'cn-holdings' || page === 'cn-trade-history';
 let cnPositions = new Map();
 let cnHoldingsReadVersion = 0;
 let cnHoldingsLoads = 0, cnHoldingsSnapshot = '';
@@ -591,8 +592,9 @@ function route() {
   // 页内锚点与页面路由分开，跳到主要内容不会切回持仓页。
   if (location.hash && !location.hash.startsWith('#/')) return;
   const [page, query = ''] = location.hash.replace(/^#\/?/,'').split('?');
-  const pages = {holdings:'我的持仓',watchlist:'扫描股票池',research:'个股研究','push-history':'推送记录',
-    'cn-holdings':'A 股持仓',cn:'A 股收息关注池'};
+  const pages = {holdings:'我的持仓','trade-history':'美股交易记录',watchlist:'扫描股票池',
+    research:'个股研究','push-history':'推送记录','cn-holdings':'A 股持仓',
+    'cn-trade-history':'A 股交易记录',cn:'A 股收息关注池'};
   const next = Object.hasOwn(pages,page) ? page : 'holdings';
   const cn = isCnPage(next);
   if (cn !== isCnPage(state.page)) $('#workspace-job').hidden = true;
@@ -613,7 +615,7 @@ function route() {
   $('#workspace-home').href = cn ? '#/cn-holdings' : '#/holdings';
   $('#global-search').hidden = cn;
   document.title = `${pages[next]} · 见微`;
-  if (state.connected && (next === 'holdings' || next === 'cn-holdings')) {
+  if (state.connected && (next === 'trade-history' || next === 'cn-trade-history')) {
     tradeHistory[cn ? 'CN' : 'US'].refresh();
   }
   if (next === 'cn-holdings' && state.connected) void loadCnHoldings();
@@ -725,7 +727,6 @@ function connectTradeHistory(market) {
   const pages = root.querySelector('.trade-history-pages');
   const previous = pages.querySelector('[data-trade-page="-1"]');
   const next = pages.querySelector('[data-trade-page="1"]');
-  root.querySelector('[data-trade-history-basis]').textContent = market === 'CN' ? '北京时间 · CNY' : '美东时间 · USD';
   let filters = new URLSearchParams(), currentPage = 1, request = 0;
 
   async function load(page = 1) {
@@ -852,7 +853,6 @@ holdingTradeForm.addEventListener('submit',event => {
     $('#holding-trade-dialog').close();
     const pnl = result.fill.realized_pnl;
     notice(`${result.fill.action}已登记${pnl === null ? '' : `，本笔已实现盈亏 ${signed(pnl)} ${market === 'CN' ? 'CNY' : 'USD'}`}`);
-    tradeHistory[market].refresh();
     try {
       if (market === 'CN') await loadCnHoldings();
       else { await loadWorkspace(); void loadIntraday(); }
@@ -1016,7 +1016,6 @@ async function boot() {
 const portfolio = connectPortfolio({$,esc,num,pct,when,tone,badge,table,metric,api,post,busy,notice,formError,state,researchHash,loadWorkspace,removeRecord});
 const equity = connectEquity({$,esc,num,signed,tone,when,table,api,post,busy,notice,formError,monitorJob,loadCnHoldings});
 const tradeHistory = Object.fromEntries(['US','CN'].map(market => [market,connectTradeHistory(market)]));
-window.addEventListener('portfolio:fill',() => tradeHistory.US.refresh());
 window.addEventListener('equity:cash-us',() => { void syncUsHoldings(); });
 icons(); route(); void boot();
 window.setInterval(() => { void loadIntraday(); },5000);

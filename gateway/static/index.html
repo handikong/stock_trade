@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#20374c">
   <title>见微 · 持仓与研究</title>
-  <link rel="stylesheet" href="/style.css?v=trade-history-1">
-  <script type="module" src="/app.js?v=trade-history-2"></script>
+  <link rel="stylesheet" href="/style.css?v=trade-history-3">
+  <script type="module" src="/app.js?v=trade-history-3"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -16,12 +16,14 @@
     <div class="nav-caption">我的工作台</div>
     <nav id="nav-us" aria-label="美股导航">
       <a href="#/holdings" data-nav="holdings"><span data-icon="wallet"></span>持仓总览<span id="holding-count" class="nav-count">—</span></a>
+      <a href="#/trade-history" data-nav="trade-history"><span data-icon="trades"></span>交易记录</a>
       <a href="#/watchlist" data-nav="watchlist"><span data-icon="radar"></span>扫描股票池<span id="pool-count" class="nav-count">—</span></a>
       <a href="#/research" data-nav="research"><span data-icon="search"></span>个股研究</a>
       <a href="#/push-history" data-nav="push-history"><span data-icon="bell"></span>推送记录</a>
     </nav>
     <nav id="nav-cn" aria-label="A 股导航" hidden>
       <a href="#/cn-holdings" data-nav="cn-holdings"><span data-icon="wallet"></span>持仓总览<span id="cn-holding-count" class="nav-count">—</span></a>
+      <a href="#/cn-trade-history" data-nav="cn-trade-history"><span data-icon="trades"></span>交易记录</a>
       <a href="#/cn" data-nav="cn"><span data-icon="radar"></span>收息关注池</a>
     </nav>
     <div class="sidebar-note"><span class="small-dot"></span>盘后整理，人工决策<p>让每一次买卖都有依据。</p></div>
@@ -58,8 +60,11 @@
           <div class="panel-heading"><div><h2>买入计划</h2><p>预留额度、分档检查与实际成交确认</p></div><button type="button" class="secondary compact" id="portfolio-reload">刷新风险</button></div>
           <div id="portfolio-plans-content" class="panel-body" aria-live="polite"></div>
         </section>
-        <div data-trade-history="US"></div>
         <p id="portfolio-note" class="footnote"></p>
+      </section>
+
+      <section id="page-trade-history" class="page" data-trade-history="US" hidden>
+        <div class="page-heading"><div><h1>交易记录</h1><p class="subtitle">美股 · 成交日按美东时间 · USD</p></div></div>
       </section>
 
       <section id="page-watchlist" class="page" hidden>
@@ -102,8 +107,11 @@
           <div class="panel-heading"><div><h2>持仓明细</h2><p>按有效收盘和录入成本计算 · CNY</p></div><div class="portfolio-actions"><button type="button" class="text-button" id="reload-cn-holdings">重新读取</button><button type="button" class="secondary compact" id="refresh-cn-holdings" disabled><span data-icon="refresh"></span>更新行情</button></div></div>
           <div id="cn-holdings-content" aria-busy="true"><p class="loading-state">正在读取 A 股持仓…</p></div>
         </section>
-        <div data-trade-history="CN"></div>
         <p class="footnote">使用沪深完整交易日的收盘参考价。今日盈亏按相邻交易日收盘价差与当前股数或份数估算。</p>
+      </section>
+
+      <section id="page-cn-trade-history" class="page" data-trade-history="CN" hidden>
+        <div class="page-heading"><div><h1>交易记录</h1><p class="subtitle">A 股 · 成交日按北京时间 · CNY</p></div></div>
       </section>
 
       <section id="page-cn" class="page" hidden>
@@ -233,8 +241,7 @@
   </dialog>
   <template id="trade-history-template">
     <section class="panel portfolio-section">
-      <div class="panel-heading"><div><h2>交易记录</h2><p data-trade-history-basis></p></div></div>
-      <form class="push-filters trade-history-filters">
+      <form class="push-filters trade-history-filters" aria-label="筛选交易记录">
         <label>股票代码<input name="symbol" maxlength="15" autocomplete="off" autocapitalize="characters"></label>
         <label>交易类型<select name="kind"><option value="">全部</option><option value="BUY">买入</option><option value="ADD">加仓</option><option value="REDUCE">减仓</option><option value="CLOSE">清仓</option></select></label>
         <label>开始日期<input name="start" type="date"></label>
